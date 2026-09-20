@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import Image from 'next/image'
+import { usePathname } from 'next/navigation'
 import { Menu, X, Globe } from 'lucide-react'
 import { useLanguage } from '@/components/language-provider'
 import { t } from '@/lib/i18n'
@@ -17,6 +18,8 @@ const links = [
 
 export function SiteHeader() {
   const { tr, lang, toggle } = useLanguage()
+  const pathname = usePathname()
+  const isHome = pathname === '/'
   const [scrolled, setScrolled] = useState(false)
   const [open, setOpen] = useState(false)
 
@@ -27,15 +30,24 @@ export function SiteHeader() {
     return () => window.removeEventListener('scroll', onScroll)
   }, [])
 
+  // On any page other than the homepage there is no dark hero behind the
+  // header, so force the solid/dark-text style regardless of scroll position.
+  const solid = scrolled || !isHome
+
+  // Hash-only links only work while already on the homepage; elsewhere they
+  // need to point back to "/" first so they actually navigate home.
+  const resolveHref = (href: string) => (href.startsWith('#') && !isHome ? `/${href}` : href)
+  const homeHref = isHome ? '#top' : '/'
+
   return (
     <header
       className={cn(
         'fixed inset-x-0 top-0 z-50 transition-colors duration-300',
-        scrolled ? 'bg-background/90 backdrop-blur-md border-b border-border shadow-sm' : 'bg-transparent',
+        solid ? 'bg-background/90 backdrop-blur-md border-b border-border shadow-sm' : 'bg-transparent',
       )}
     >
       <div className="mx-auto flex h-16 max-w-6xl items-center justify-between gap-4 px-4 md:h-20 md:px-6">
-        <a href="#top" className="flex items-center gap-3">
+        <a href={homeHref} className="flex items-center gap-3">
           <Image
             src="/images/logo-icon.png"
             alt="RAVENTA Wellness Center"
@@ -47,7 +59,7 @@ export function SiteHeader() {
           <span
             className={cn(
               'font-display text-lg font-bold tracking-wide transition-colors md:text-xl',
-              scrolled ? 'text-primary' : 'text-white',
+              solid ? 'text-primary' : 'text-white',
             )}
           >
             RAVENTA
@@ -58,10 +70,10 @@ export function SiteHeader() {
           {links.map((link) => (
             <a
               key={link.key}
-              href={link.href}
+              href={resolveHref(link.href)}
               className={cn(
                 'text-sm font-medium transition-colors hover:text-primary',
-                scrolled ? 'text-foreground/80' : 'text-white/90',
+                solid ? 'text-foreground/80' : 'text-white/90',
               )}
             >
               {tr(t.nav[link.key])}
@@ -76,19 +88,19 @@ export function SiteHeader() {
             aria-label="Switch language"
             className={cn(
               'flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-semibold transition-colors',
-              scrolled
+              solid
                 ? 'border-border text-foreground/80 hover:border-primary hover:text-primary'
                 : 'border-white/40 text-white hover:bg-white/10',
             )}
           >
             <Globe className="h-3.5 w-3.5" />
-            <span className={lang === 'th' ? 'text-primary' : scrolled ? 'text-foreground' : 'text-white'}>TH</span>
+            <span className={lang === 'th' ? 'text-primary' : solid ? 'text-foreground' : 'text-white'}>TH</span>
             <span className="opacity-40">/</span>
-            <span className={lang === 'en' ? 'text-primary' : scrolled ? 'text-foreground' : 'text-white'}>EN</span>
+            <span className={lang === 'en' ? 'text-primary' : solid ? 'text-foreground' : 'text-white'}>EN</span>
           </button>
 
           <a
-            href="#contact"
+            href={resolveHref('#contact')}
             className="hidden rounded-full bg-primary px-5 py-2 text-sm font-semibold text-primary-foreground transition-opacity hover:opacity-90 md:inline-flex"
           >
             {tr(t.nav.book)}
@@ -98,7 +110,7 @@ export function SiteHeader() {
             type="button"
             onClick={() => setOpen((v) => !v)}
             aria-label="Toggle menu"
-            className={cn('md:hidden', scrolled ? 'text-foreground' : 'text-white')}
+            className={cn('md:hidden', solid ? 'text-foreground' : 'text-white')}
           >
             {open ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
           </button>
@@ -111,7 +123,7 @@ export function SiteHeader() {
             {links.map((link) => (
               <a
                 key={link.key}
-                href={link.href}
+                href={resolveHref(link.href)}
                 onClick={() => setOpen(false)}
                 className="border-b border-border/60 py-3 text-sm font-medium text-foreground/80 last:border-0"
               >
@@ -119,7 +131,7 @@ export function SiteHeader() {
               </a>
             ))}
             <a
-              href="#contact"
+              href={resolveHref('#contact')}
               onClick={() => setOpen(false)}
               className="mt-4 rounded-full bg-primary px-5 py-3 text-center text-sm font-semibold text-primary-foreground"
             >
