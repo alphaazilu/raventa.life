@@ -221,7 +221,10 @@ export const t = {
     eyebrow: { th: 'มาเยือนเรา', en: 'Visit Us' },
     heading: { th: 'ติดต่อ & เดินทาง', en: 'Contact & Location' },
     addressLabel: { th: 'ที่ตั้ง', en: 'Location' },
-    address: { th: 'ราเวนต้า เวลเนส เซ็นเตอร์ จังหวัดระยอง ประเทศไทย', en: 'Raventa Wellness Center, Rayong, Thailand' },
+    address: {
+      th: 'ราเวนต้า 18 ถนนเลียบชายหาดสุชาดา ต.เนินพระ อ.เมืองระยอง จ.ระยอง 21150',
+      en: 'RAVENTA, 18 Liab Chai Hat Suchada Road, Noen Phra, Mueang Rayong, Rayong 21150, Thailand',
+    },
     hoursLabel: { th: 'เวลาทำการ', en: 'Opening Hours' },
     hours: { th: 'ทุกวัน 09:00 – 21:00 น.', en: 'Daily 9:00 AM – 9:00 PM' },
     phoneLabel: { th: 'โทรศัพท์', en: 'Phone' },
