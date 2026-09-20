@@ -30,6 +30,7 @@ function wrapper(bodyHtml: string): string {
 }
 
 export function welcomeEmail(firstName: string | null): { subject: string; html: string } {
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000'
   const greeting = firstName ? `สวัสดีคุณ${firstName}` : 'สวัสดีครับ/ค่ะ'
   const html = wrapper(`
     <h1 style="margin:0 0 16px;font-size:22px;color:${COLORS.text};">ยินดีต้อนรับสู่ RAVENTA</h1>
@@ -39,7 +40,7 @@ export function welcomeEmail(firstName: string | null): { subject: string; html:
       ตอนนี้คุณสามารถเข้าสู่ระบบเพื่อจัดการข้อมูลส่วนตัวและติดตามข่าวสารจากเราได้เลย
     </p>
     <p style="margin:24px 0;text-align:center;">
-      <a href="https://www.raventa.life/account"
+      <a href="${siteUrl}/account"
          style="display:inline-block;background-color:${COLORS.primary};color:${COLORS.primaryForeground};text-decoration:none;padding:12px 28px;border-radius:999px;font-size:14px;font-weight:600;">
         ไปที่บัญชีของฉัน
       </a>
