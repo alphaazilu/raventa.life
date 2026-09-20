@@ -5,6 +5,12 @@ export const authCopy: Record<string, Bilingual> = {
   signupHeading: { th: 'สมัครสมาชิก', en: 'Sign Up' },
   emailLabel: { th: 'อีเมล', en: 'Email' },
   passwordLabel: { th: 'รหัสผ่าน', en: 'Password' },
+  confirmPasswordLabel: { th: 'ยืนยันรหัสผ่าน', en: 'Confirm Password' },
+  passwordHint: {
+    th: 'อย่างน้อย 8 ตัวอักษร มีทั้งตัวอักษรและตัวเลข',
+    en: 'At least 8 characters, with both letters and numbers',
+  },
+  passwordMismatch: { th: 'รหัสผ่านทั้งสองช่องไม่ตรงกัน', en: 'Passwords do not match' },
   loginButton: { th: 'เข้าสู่ระบบ', en: 'Log In' },
   signupButton: { th: 'สมัครสมาชิก', en: 'Create Account' },
   orContinueWith: { th: 'หรือดำเนินการต่อด้วย', en: 'Or continue with' },

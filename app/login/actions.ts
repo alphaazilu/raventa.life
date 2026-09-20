@@ -25,10 +25,22 @@ export async function signIn(_prevState: AuthActionState, formData: FormData): P
   redirect(next)
 }
 
+// Mirrors the client-side check in login-form.tsx — enforced again here
+// since a request can always skip the browser's own validation.
+const SIGNUP_PASSWORD_RE = /^(?=.*[A-Za-z])(?=.*\d).{8,}$/
+
 export async function signUp(_prevState: AuthActionState, formData: FormData): Promise<AuthActionState> {
   const email = String(formData.get('email') ?? '').trim()
   const password = String(formData.get('password') ?? '')
+  const confirmPassword = String(formData.get('confirmPassword') ?? '')
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000'
+
+  if (password !== confirmPassword) {
+    return { error: 'Passwords do not match.' }
+  }
+  if (!SIGNUP_PASSWORD_RE.test(password)) {
+    return { error: 'Password must be at least 8 characters and include both letters and numbers.' }
+  }
 
   const supabase = await createClient()
   const { error } = await supabase.auth.signUp({

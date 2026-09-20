@@ -10,15 +10,23 @@ type Mode = 'login' | 'signup'
 
 const initialState: AuthActionState = null
 
+// Signup passwords need at least 8 characters with a letter and a number.
+// Login keeps a looser check — an existing account's real password must
+// never be rejected client-side just because it predates this rule.
+const SIGNUP_PASSWORD_PATTERN = '(?=.*[A-Za-z])(?=.*\\d).{8,}'
+
 export function LoginForm({ next }: { next: string }) {
   const { tr } = useLanguage()
   const [mode, setMode] = useState<Mode>('login')
+  const [confirmPassword, setConfirmPassword] = useState('')
+  const [password, setPassword] = useState('')
 
   const [loginState, loginAction, loginPending] = useActionState(signIn, initialState)
   const [signupState, signupAction, signupPending] = useActionState(signUp, initialState)
 
   const state = mode === 'login' ? loginState : signupState
   const pending = mode === 'login' ? loginPending : signupPending
+  const passwordsMismatch = mode === 'signup' && confirmPassword.length > 0 && password !== confirmPassword
 
   return (
     <div className="mx-auto flex w-full max-w-md flex-col justify-center px-4 py-16 md:py-24">
@@ -26,7 +34,11 @@ export function LoginForm({ next }: { next: string }) {
         <div className="mb-6 flex rounded-full bg-secondary p-1 text-sm font-semibold">
           <button
             type="button"
-            onClick={() => setMode('login')}
+            onClick={() => {
+              setMode('login')
+              setPassword('')
+              setConfirmPassword('')
+            }}
             className={`flex-1 rounded-full py-2 transition-colors ${
               mode === 'login' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground'
             }`}
@@ -35,7 +47,11 @@ export function LoginForm({ next }: { next: string }) {
           </button>
           <button
             type="button"
-            onClick={() => setMode('signup')}
+            onClick={() => {
+              setMode('signup')
+              setPassword('')
+              setConfirmPassword('')
+            }}
             className={`flex-1 rounded-full py-2 transition-colors ${
               mode === 'signup' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground'
             }`}
@@ -74,16 +90,46 @@ export function LoginForm({ next }: { next: string }) {
                 type="password"
                 autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
                 required
-                minLength={6}
+                minLength={mode === 'signup' ? 8 : 1}
+                pattern={mode === 'signup' ? SIGNUP_PASSWORD_PATTERN : undefined}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
                 className="mt-1 w-full rounded-xl border border-border bg-background px-4 py-2.5 text-sm text-foreground outline-none focus:border-primary"
               />
+              {mode === 'signup' && (
+                <p className="mt-1.5 text-xs text-muted-foreground">{tr(authCopy.passwordHint)}</p>
+              )}
             </div>
+
+            {mode === 'signup' && (
+              <div>
+                <label
+                  className="text-xs font-semibold tracking-wide uppercase text-muted-foreground"
+                  htmlFor="confirmPassword"
+                >
+                  {tr(authCopy.confirmPasswordLabel)}
+                </label>
+                <input
+                  id="confirmPassword"
+                  name="confirmPassword"
+                  type="password"
+                  autoComplete="new-password"
+                  required
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  className="mt-1 w-full rounded-xl border border-border bg-background px-4 py-2.5 text-sm text-foreground outline-none focus:border-primary"
+                />
+                {passwordsMismatch && (
+                  <p className="mt-1.5 text-xs text-destructive">{tr(authCopy.passwordMismatch)}</p>
+                )}
+              </div>
+            )}
 
             {state?.error && <p className="text-sm text-destructive">{state.error}</p>}
 
             <button
               type="submit"
-              disabled={pending}
+              disabled={pending || passwordsMismatch}
               className="w-full rounded-full bg-primary px-6 py-3 text-sm font-semibold text-primary-foreground transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
             >
               {mode === 'login' ? tr(authCopy.loginButton) : tr(authCopy.signupButton)}
