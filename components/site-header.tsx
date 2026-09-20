@@ -7,6 +7,7 @@ import { Menu, X, Globe } from 'lucide-react'
 import { useLanguage } from '@/components/language-provider'
 import { t } from '@/lib/i18n'
 import { cn } from '@/lib/utils'
+import { useSupabaseUser } from '@/lib/supabase/use-user'
 
 const links = [
   { href: '#about', key: 'about' as const },
@@ -22,6 +23,9 @@ export function SiteHeader() {
   const isHome = pathname === '/'
   const [scrolled, setScrolled] = useState(false)
   const [open, setOpen] = useState(false)
+  const { user } = useSupabaseUser()
+  const authHref = user ? '/account' : '/login'
+  const authLabel = user ? tr(t.nav.account) : tr(t.nav.login)
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 24)
@@ -82,6 +86,16 @@ export function SiteHeader() {
         </nav>
 
         <div className="flex items-center gap-2">
+          <a
+            href={authHref}
+            className={cn(
+              'hidden text-sm font-medium transition-colors hover:text-primary md:inline-block',
+              solid ? 'text-foreground/80' : 'text-white/90',
+            )}
+          >
+            {authLabel}
+          </a>
+
           <button
             type="button"
             onClick={toggle}
@@ -130,6 +144,13 @@ export function SiteHeader() {
                 {tr(t.nav[link.key])}
               </a>
             ))}
+            <a
+              href={authHref}
+              onClick={() => setOpen(false)}
+              className="border-b border-border/60 py-3 text-sm font-medium text-foreground/80"
+            >
+              {authLabel}
+            </a>
             <a
               href={resolveHref('#contact')}
               onClick={() => setOpen(false)}

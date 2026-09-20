@@ -170,6 +170,8 @@ export const t = {
     quiz: { th: 'หาเส้นทางของคุณ', en: 'Find My Journey' },
     contact: { th: 'ติดต่อ', en: 'Contact' },
     book: { th: 'จองคิว', en: 'Book Now' },
+    login: { th: 'เข้าสู่ระบบ', en: 'Log In' },
+    account: { th: 'บัญชีของฉัน', en: 'My Account' },
   },
   hero: {
     eyebrow: { th: 'ราเวนต้า เวลเนส เซ็นเตอร์ · ระยอง', en: 'Raventa Wellness Center · Rayong' },
