@@ -3,6 +3,7 @@
 import { useActionState, useState } from 'react'
 import { useLanguage } from '@/components/language-provider'
 import { authCopy } from '@/lib/auth/copy'
+import { THAILAND_PROVINCES } from '@/lib/thailand-provinces'
 import { OAuthButtons } from '@/components/auth/oauth-buttons'
 import { signIn, signUp, type AuthActionState } from './actions'
 
@@ -67,6 +68,92 @@ export function LoginForm({ next }: { next: string }) {
         ) : (
           <form action={mode === 'login' ? loginAction : signupAction} className="space-y-4">
             <input type="hidden" name="next" value={next} />
+
+            {mode === 'signup' && (
+              <>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label
+                      className="text-xs font-semibold tracking-wide uppercase text-muted-foreground"
+                      htmlFor="firstName"
+                    >
+                      {tr(authCopy.firstNameLabel)}
+                    </label>
+                    <input
+                      id="firstName"
+                      name="firstName"
+                      type="text"
+                      autoComplete="given-name"
+                      required
+                      className="mt-1 w-full rounded-xl border border-border bg-background px-4 py-2.5 text-sm text-foreground outline-none focus:border-primary"
+                    />
+                  </div>
+                  <div>
+                    <label
+                      className="text-xs font-semibold tracking-wide uppercase text-muted-foreground"
+                      htmlFor="lastName"
+                    >
+                      {tr(authCopy.lastNameLabel)}
+                    </label>
+                    <input
+                      id="lastName"
+                      name="lastName"
+                      type="text"
+                      autoComplete="family-name"
+                      required
+                      className="mt-1 w-full rounded-xl border border-border bg-background px-4 py-2.5 text-sm text-foreground outline-none focus:border-primary"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label
+                    className="text-xs font-semibold tracking-wide uppercase text-muted-foreground"
+                    htmlFor="phone"
+                  >
+                    {tr(authCopy.phoneLabel)}
+                  </label>
+                  <input
+                    id="phone"
+                    name="phone"
+                    type="tel"
+                    inputMode="numeric"
+                    autoComplete="tel"
+                    placeholder="0812345678"
+                    pattern="[0-9]{9,10}"
+                    title="กรอกเบอร์โทรศัพท์ 9-10 หลัก ไม่ต้องมีขีดหรือเว้นวรรค"
+                    required
+                    className="mt-1 w-full rounded-xl border border-border bg-background px-4 py-2.5 text-sm text-foreground outline-none focus:border-primary"
+                  />
+                </div>
+
+                <div>
+                  <label
+                    className="text-xs font-semibold tracking-wide uppercase text-muted-foreground"
+                    htmlFor="province"
+                  >
+                    {tr(authCopy.provinceLabel)}
+                  </label>
+                  <select
+                    id="province"
+                    name="province"
+                    required
+                    defaultValue=""
+                    className="mt-1 w-full rounded-xl border border-border bg-background px-4 py-2.5 text-sm text-foreground outline-none focus:border-primary"
+                  >
+                    <option value="" disabled>
+                      {tr(authCopy.provincePlaceholder)}
+                    </option>
+                    {THAILAND_PROVINCES.map((province) => (
+                      <option key={province} value={province}>
+                        {province}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </>
+            )}
+
             <div>
               <label className="text-xs font-semibold tracking-wide uppercase text-muted-foreground" htmlFor="email">
                 {tr(authCopy.emailLabel)}

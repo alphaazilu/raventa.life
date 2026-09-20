@@ -33,8 +33,15 @@ export async function signUp(_prevState: AuthActionState, formData: FormData): P
   const email = String(formData.get('email') ?? '').trim()
   const password = String(formData.get('password') ?? '')
   const confirmPassword = String(formData.get('confirmPassword') ?? '')
+  const firstName = String(formData.get('firstName') ?? '').trim()
+  const lastName = String(formData.get('lastName') ?? '').trim()
+  const phone = String(formData.get('phone') ?? '').trim()
+  const province = String(formData.get('province') ?? '').trim()
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000'
 
+  if (!firstName || !lastName || !phone || !province) {
+    return { error: 'Please fill in your name, phone number, and province.' }
+  }
   if (password !== confirmPassword) {
     return { error: 'Passwords do not match.' }
   }
@@ -46,7 +53,13 @@ export async function signUp(_prevState: AuthActionState, formData: FormData): P
   const { error } = await supabase.auth.signUp({
     email,
     password,
-    options: { emailRedirectTo: `${siteUrl}/auth/callback` },
+    options: {
+      emailRedirectTo: `${siteUrl}/auth/callback`,
+      // Read by the handle_new_user() trigger (see supabase/schema.sql) to
+      // fill in the profiles row — this data rides along on auth.users
+      // itself, not a separate write, so it can't drift from the account.
+      data: { first_name: firstName, last_name: lastName, phone, province },
+    },
   })
   if (error) return { error: error.message }
 

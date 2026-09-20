@@ -18,13 +18,25 @@ export default async function AccountPage() {
 
   if (!user) redirect('/login?next=/account')
 
-  const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single()
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('role, first_name, last_name, phone, province')
+    .eq('id', user.id)
+    .single()
 
   return (
     <>
       <SiteHeader />
       <main className="min-h-screen bg-background pt-24 md:pt-28">
-        <AccountView email={user.email ?? ''} role={profile?.role ?? 'customer'} signOutAction={signOut} />
+        <AccountView
+          email={user.email ?? ''}
+          firstName={profile?.first_name ?? null}
+          lastName={profile?.last_name ?? null}
+          phone={profile?.phone ?? null}
+          province={profile?.province ?? null}
+          role={profile?.role ?? 'customer'}
+          signOutAction={signOut}
+        />
       </main>
       <SiteFooter />
     </>
