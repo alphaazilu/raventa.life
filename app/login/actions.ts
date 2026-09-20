@@ -37,7 +37,7 @@ export async function signUp(_prevState: AuthActionState, formData: FormData): P
   const lastName = String(formData.get('lastName') ?? '').trim()
   const phone = String(formData.get('phone') ?? '').trim()
   const province = String(formData.get('province') ?? '').trim()
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000'
+  const siteUrl = process.env.SITE_URL ?? 'http://localhost:3000'
 
   if (!firstName || !lastName || !phone || !province) {
     return { error: 'Please fill in your name, phone number, and province.' }

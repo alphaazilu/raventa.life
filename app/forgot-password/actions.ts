@@ -9,7 +9,7 @@ export async function requestPasswordReset(
   formData: FormData,
 ): Promise<ForgotPasswordState> {
   const email = String(formData.get('email') ?? '').trim()
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000'
+  const siteUrl = process.env.SITE_URL ?? 'http://localhost:3000'
 
   if (!email) return { error: 'กรุณากรอกอีเมล' }
 

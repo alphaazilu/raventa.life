@@ -30,7 +30,7 @@ function wrapper(bodyHtml: string): string {
 }
 
 export function welcomeEmail(firstName: string | null): { subject: string; html: string } {
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000'
+  const siteUrl = process.env.SITE_URL ?? 'http://localhost:3000'
   const greeting = firstName ? `สวัสดีคุณ${firstName}` : 'สวัสดีครับ/ค่ะ'
   const html = wrapper(`
     <h1 style="margin:0 0 16px;font-size:22px;color:${COLORS.text};">ยินดีต้อนรับสู่ RAVENTA</h1>
