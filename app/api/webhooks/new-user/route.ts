@@ -15,6 +15,7 @@ type ProfileWebhookPayload = {
     last_name: string | null
     phone: string | null
     province: string | null
+    member_no: string | null
   } | null
 }
 
@@ -50,7 +51,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: true, skipped: true })
   }
 
-  const { email, first_name, last_name, phone, province } = payload.record
+  const { email, first_name, last_name, phone, province, member_no } = payload.record
   const teamEmail = process.env.TEAM_NOTIFICATION_EMAIL
   const fromAddress = process.env.EMAIL_FROM_ADDRESS
 
@@ -62,7 +63,7 @@ export async function POST(request: Request) {
   const results = await Promise.allSettled([
     email
       ? (() => {
-          const { subject, html } = welcomeEmail(first_name)
+          const { subject, html } = welcomeEmail(first_name, member_no)
           return resend.emails.send({ from: fromAddress, to: email, subject, html })
         })()
       : Promise.resolve(null),

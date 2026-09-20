@@ -29,9 +29,19 @@ function wrapper(bodyHtml: string): string {
   </div>`
 }
 
-export function welcomeEmail(firstName: string | null): { subject: string; html: string } {
+export function welcomeEmail(
+  firstName: string | null,
+  memberNo: string | null,
+): { subject: string; html: string } {
   const siteUrl = process.env.SITE_URL ?? 'http://localhost:3000'
   const greeting = firstName ? `สวัสดีคุณ${firstName}` : 'สวัสดีครับ/ค่ะ'
+  const memberNoBlock = memberNo
+    ? `
+    <p style="margin:0 0 20px;padding:14px 18px;background-color:${COLORS.sand};border-radius:10px;text-align:center;">
+      <span style="display:block;font-size:11px;letter-spacing:0.08em;text-transform:uppercase;color:${COLORS.muted};">หมายเลขสมาชิก</span>
+      <span style="display:block;margin-top:4px;font-size:20px;font-weight:700;letter-spacing:0.06em;color:${COLORS.primary};">${memberNo}</span>
+    </p>`
+    : ''
   const html = wrapper(`
     <h1 style="margin:0 0 16px;font-size:22px;color:${COLORS.text};">ยินดีต้อนรับสู่ RAVENTA</h1>
     <p style="margin:0 0 12px;font-size:15px;line-height:1.7;color:${COLORS.text};">${greeting},</p>
@@ -39,6 +49,7 @@ export function welcomeEmail(firstName: string | null): { subject: string; html:
       ขอบคุณที่สมัครสมาชิกกับ RAVENTA Wellness Center บัญชีของคุณพร้อมใช้งานแล้ว
       ตอนนี้คุณสามารถเข้าสู่ระบบเพื่อจัดการข้อมูลส่วนตัวและติดตามข่าวสารจากเราได้เลย
     </p>
+    ${memberNoBlock}
     <p style="margin:24px 0;text-align:center;">
       <a href="${siteUrl}/account"
          style="display:inline-block;background-color:${COLORS.primary};color:${COLORS.primaryForeground};text-decoration:none;padding:12px 28px;border-radius:999px;font-size:14px;font-weight:600;">

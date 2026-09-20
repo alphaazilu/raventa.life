@@ -21,6 +21,43 @@ alter table public.profiles add column if not exists last_name text;
 alter table public.profiles add column if not exists phone text;
 alter table public.profiles add column if not exists province text;
 
+-- Running 10-digit membership number (e.g. "0000000001"). The column
+-- DEFAULT does the actual number-generation, so every future insert gets
+-- one automatically — the trigger below, and the upsert in
+-- app/complete-profile/actions.ts, both insert without mentioning this
+-- column on purpose, so the default applies and an ON CONFLICT UPDATE
+-- never overwrites an already-assigned number.
+create sequence if not exists public.member_no_seq;
+
+alter table public.profiles add column if not exists member_no text;
+alter table public.profiles
+  alter column member_no set default lpad(nextval('public.member_no_seq')::text, 10, '0');
+
+-- Backfill anyone who signed up before this column existed, oldest first,
+-- so membership numbers still read as "when you joined". Safe to re-run:
+-- only rows still missing a number are touched.
+do $$
+declare
+  r record;
+begin
+  for r in
+    select id from public.profiles where member_no is null order by created_at asc, id asc
+  loop
+    update public.profiles
+    set member_no = lpad(nextval('public.member_no_seq')::text, 10, '0')
+    where id = r.id;
+  end loop;
+end $$;
+
+-- ALTER TABLE ... ADD CONSTRAINT has no IF NOT EXISTS in Postgres, so this
+-- checks first to keep the whole file safe to re-run.
+do $$
+begin
+  if not exists (select 1 from pg_constraint where conname = 'profiles_member_no_key') then
+    alter table public.profiles add constraint profiles_member_no_key unique (member_no);
+  end if;
+end $$;
+
 alter table public.profiles enable row level security;
 
 -- 2. Auto-create a profile row whenever someone signs up (email/password,

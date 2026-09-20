@@ -26,6 +26,7 @@ export const authCopy: Record<string, Bilingual> = {
     en: 'Success! Please check your email to confirm your account before logging in.',
   },
   accountHeading: { th: 'บัญชีของฉัน', en: 'My Account' },
+  memberNoFieldLabel: { th: 'หมายเลขสมาชิก', en: 'Member No.' },
   nameFieldLabel: { th: 'ชื่อ-นามสกุล', en: 'Name' },
   phoneFieldLabel: { th: 'เบอร์โทรศัพท์', en: 'Phone Number' },
   provinceFieldLabel: { th: 'จังหวัด', en: 'Province' },

@@ -10,6 +10,7 @@ export function AccountView({
   phone,
   province,
   role,
+  memberNo,
   signOutAction,
 }: {
   email: string
@@ -18,6 +19,7 @@ export function AccountView({
   phone: string | null
   province: string | null
   role: string
+  memberNo: string | null
   signOutAction: () => Promise<void>
 }) {
   const { tr } = useLanguage()
@@ -30,23 +32,32 @@ export function AccountView({
       </h1>
 
       <div className="mt-8 rounded-2xl border border-border bg-card p-6">
+        {memberNo && (
+          <>
+            <p className="mt-4 text-xs font-semibold tracking-wide uppercase text-muted-foreground first:mt-0">
+              {tr(authCopy.memberNoFieldLabel)}
+            </p>
+            <p className="mt-1 font-mono text-lg tracking-wider text-primary">{memberNo}</p>
+          </>
+        )}
+
         {fullName && (
           <>
-            <p className="text-xs font-semibold tracking-wide uppercase text-muted-foreground">
+            <p className="mt-4 text-xs font-semibold tracking-wide uppercase text-muted-foreground first:mt-0">
               {tr(authCopy.nameFieldLabel)}
             </p>
             <p className="mt-1 text-card-foreground">{fullName}</p>
           </>
         )}
 
-        <p className="mt-4 text-xs font-semibold tracking-wide uppercase text-muted-foreground">
+        <p className="mt-4 text-xs font-semibold tracking-wide uppercase text-muted-foreground first:mt-0">
           {tr(authCopy.emailFieldLabel)}
         </p>
         <p className="mt-1 text-card-foreground">{email}</p>
 
         {phone && (
           <>
-            <p className="mt-4 text-xs font-semibold tracking-wide uppercase text-muted-foreground">
+            <p className="mt-4 text-xs font-semibold tracking-wide uppercase text-muted-foreground first:mt-0">
               {tr(authCopy.phoneFieldLabel)}
             </p>
             <p className="mt-1 text-card-foreground">{phone}</p>
@@ -55,14 +66,14 @@ export function AccountView({
 
         {province && (
           <>
-            <p className="mt-4 text-xs font-semibold tracking-wide uppercase text-muted-foreground">
+            <p className="mt-4 text-xs font-semibold tracking-wide uppercase text-muted-foreground first:mt-0">
               {tr(authCopy.provinceFieldLabel)}
             </p>
             <p className="mt-1 text-card-foreground">{province}</p>
           </>
         )}
 
-        <p className="mt-4 text-xs font-semibold tracking-wide uppercase text-muted-foreground">
+        <p className="mt-4 text-xs font-semibold tracking-wide uppercase text-muted-foreground first:mt-0">
           {tr(authCopy.roleFieldLabel)}
         </p>
         <p className="mt-1 text-card-foreground">{role === 'admin' ? tr(authCopy.roleAdmin) : tr(authCopy.roleCustomer)}</p>
