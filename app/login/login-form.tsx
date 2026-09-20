@@ -5,6 +5,7 @@ import { useLanguage } from '@/components/language-provider'
 import { authCopy } from '@/lib/auth/copy'
 import { THAILAND_PROVINCES } from '@/lib/thailand-provinces'
 import { OAuthButtons } from '@/components/auth/oauth-buttons'
+import { fieldClass } from '@/lib/form-field-class'
 import { signIn, signUp, type AuthActionState } from './actions'
 
 type Mode = 'login' | 'signup'
@@ -16,11 +17,24 @@ const initialState: AuthActionState = null
 // never be rejected client-side just because it predates this rule.
 const SIGNUP_PASSWORD_PATTERN = '(?=.*[A-Za-z])(?=.*\\d).{8,}'
 
+const inputBaseClass =
+  'mt-1 w-full rounded-xl border border-border bg-background px-4 py-2.5 text-sm text-foreground outline-none focus:border-primary'
+
 export function LoginForm({ next }: { next: string }) {
   const { tr } = useLanguage()
   const [mode, setMode] = useState<Mode>('login')
-  const [confirmPassword, setConfirmPassword] = useState('')
+
+  // Every field is a controlled input. Without this, React resets
+  // uncontrolled <form> fields after a Server Action finishes — including
+  // on a *failed* submission — which was silently wiping out everything
+  // the person had typed the moment validation caught a problem.
+  const [firstName, setFirstName] = useState('')
+  const [lastName, setLastName] = useState('')
+  const [phone, setPhone] = useState('')
+  const [province, setProvince] = useState('')
+  const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
 
   const [loginState, loginAction, loginPending] = useActionState(signIn, initialState)
   const [signupState, signupAction, signupPending] = useActionState(signUp, initialState)
@@ -28,6 +42,17 @@ export function LoginForm({ next }: { next: string }) {
   const state = mode === 'login' ? loginState : signupState
   const pending = mode === 'login' ? loginPending : signupPending
   const passwordsMismatch = mode === 'signup' && confirmPassword.length > 0 && password !== confirmPassword
+  const invalid = (field: string) => Boolean(state?.fieldErrors?.[field])
+
+  function resetFields() {
+    setFirstName('')
+    setLastName('')
+    setPhone('')
+    setProvince('')
+    setEmail('')
+    setPassword('')
+    setConfirmPassword('')
+  }
 
   return (
     <div className="mx-auto flex w-full max-w-md flex-col justify-center px-4 py-16 md:py-24">
@@ -37,8 +62,7 @@ export function LoginForm({ next }: { next: string }) {
             type="button"
             onClick={() => {
               setMode('login')
-              setPassword('')
-              setConfirmPassword('')
+              resetFields()
             }}
             className={`flex-1 rounded-full py-2 transition-colors ${
               mode === 'login' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground'
@@ -50,8 +74,7 @@ export function LoginForm({ next }: { next: string }) {
             type="button"
             onClick={() => {
               setMode('signup')
-              setPassword('')
-              setConfirmPassword('')
+              resetFields()
             }}
             className={`flex-1 rounded-full py-2 transition-colors ${
               mode === 'signup' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground'
@@ -85,7 +108,9 @@ export function LoginForm({ next }: { next: string }) {
                       type="text"
                       autoComplete="given-name"
                       required
-                      className="mt-1 w-full rounded-xl border border-border bg-background px-4 py-2.5 text-sm text-foreground outline-none focus:border-primary"
+                      value={firstName}
+                      onChange={(e) => setFirstName(e.target.value)}
+                      className={fieldClass(inputBaseClass, invalid('firstName'))}
                     />
                   </div>
                   <div>
@@ -101,7 +126,9 @@ export function LoginForm({ next }: { next: string }) {
                       type="text"
                       autoComplete="family-name"
                       required
-                      className="mt-1 w-full rounded-xl border border-border bg-background px-4 py-2.5 text-sm text-foreground outline-none focus:border-primary"
+                      value={lastName}
+                      onChange={(e) => setLastName(e.target.value)}
+                      className={fieldClass(inputBaseClass, invalid('lastName'))}
                     />
                   </div>
                 </div>
@@ -123,7 +150,9 @@ export function LoginForm({ next }: { next: string }) {
                     pattern="[0-9]{9,10}"
                     title="กรอกเบอร์โทรศัพท์ 9-10 หลัก ไม่ต้องมีขีดหรือเว้นวรรค"
                     required
-                    className="mt-1 w-full rounded-xl border border-border bg-background px-4 py-2.5 text-sm text-foreground outline-none focus:border-primary"
+                    value={phone}
+                    onChange={(e) => setPhone(e.target.value)}
+                    className={fieldClass(inputBaseClass, invalid('phone'))}
                   />
                 </div>
 
@@ -138,15 +167,16 @@ export function LoginForm({ next }: { next: string }) {
                     id="province"
                     name="province"
                     required
-                    defaultValue=""
-                    className="mt-1 w-full rounded-xl border border-border bg-background px-4 py-2.5 text-sm text-foreground outline-none focus:border-primary"
+                    value={province}
+                    onChange={(e) => setProvince(e.target.value)}
+                    className={fieldClass(inputBaseClass, invalid('province'))}
                   >
                     <option value="" disabled>
                       {tr(authCopy.provincePlaceholder)}
                     </option>
-                    {THAILAND_PROVINCES.map((province) => (
-                      <option key={province} value={province}>
-                        {province}
+                    {THAILAND_PROVINCES.map((p) => (
+                      <option key={p} value={p}>
+                        {p}
                       </option>
                     ))}
                   </select>
@@ -164,7 +194,9 @@ export function LoginForm({ next }: { next: string }) {
                 type="email"
                 autoComplete="email"
                 required
-                className="mt-1 w-full rounded-xl border border-border bg-background px-4 py-2.5 text-sm text-foreground outline-none focus:border-primary"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className={fieldClass(inputBaseClass, invalid('email'))}
               />
             </div>
             <div>
@@ -181,7 +213,7 @@ export function LoginForm({ next }: { next: string }) {
                 pattern={mode === 'signup' ? SIGNUP_PASSWORD_PATTERN : undefined}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="mt-1 w-full rounded-xl border border-border bg-background px-4 py-2.5 text-sm text-foreground outline-none focus:border-primary"
+                className={fieldClass(inputBaseClass, invalid('password'))}
               />
               {mode === 'signup' && (
                 <p className="mt-1.5 text-xs text-muted-foreground">{tr(authCopy.passwordHint)}</p>
@@ -212,7 +244,7 @@ export function LoginForm({ next }: { next: string }) {
                   required
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
-                  className="mt-1 w-full rounded-xl border border-border bg-background px-4 py-2.5 text-sm text-foreground outline-none focus:border-primary"
+                  className={fieldClass(inputBaseClass, passwordsMismatch || invalid('confirmPassword'))}
                 />
                 {passwordsMismatch && (
                   <p className="mt-1.5 text-xs text-destructive">{tr(authCopy.passwordMismatch)}</p>

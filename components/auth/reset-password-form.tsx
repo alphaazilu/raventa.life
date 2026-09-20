@@ -3,6 +3,7 @@
 import { useActionState, useState } from 'react'
 import { useLanguage } from '@/components/language-provider'
 import { authCopy } from '@/lib/auth/copy'
+import { fieldClass } from '@/lib/form-field-class'
 import { updatePassword, type ResetPasswordState } from '@/app/reset-password/actions'
 
 const initialState: ResetPasswordState = null
@@ -38,7 +39,10 @@ export function ResetPasswordForm() {
               pattern={PASSWORD_PATTERN}
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="mt-1 w-full rounded-xl border border-border bg-background px-4 py-2.5 text-sm text-foreground outline-none focus:border-primary"
+              className={fieldClass(
+                'mt-1 w-full rounded-xl border border-border bg-background px-4 py-2.5 text-sm text-foreground outline-none focus:border-primary',
+                Boolean(state?.fieldErrors?.password),
+              )}
             />
             <p className="mt-1.5 text-xs text-muted-foreground">{tr(authCopy.passwordHint)}</p>
           </div>
@@ -58,7 +62,10 @@ export function ResetPasswordForm() {
               required
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
-              className="mt-1 w-full rounded-xl border border-border bg-background px-4 py-2.5 text-sm text-foreground outline-none focus:border-primary"
+              className={fieldClass(
+                'mt-1 w-full rounded-xl border border-border bg-background px-4 py-2.5 text-sm text-foreground outline-none focus:border-primary',
+                mismatch || Boolean(state?.fieldErrors?.confirmPassword),
+              )}
             />
             {mismatch && <p className="mt-1.5 text-xs text-destructive">{tr(authCopy.passwordMismatch)}</p>}
           </div>

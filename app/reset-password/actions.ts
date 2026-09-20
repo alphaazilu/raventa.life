@@ -3,7 +3,7 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 
-export type ResetPasswordState = { error?: string } | null
+export type ResetPasswordState = { error?: string; fieldErrors?: Record<string, string> } | null
 
 // Same rule as signup — enforced again here since this runs from its own
 // form, not the signup one.
@@ -16,11 +16,15 @@ export async function updatePassword(
   const password = String(formData.get('password') ?? '')
   const confirmPassword = String(formData.get('confirmPassword') ?? '')
 
-  if (password !== confirmPassword) {
-    return { error: 'รหัสผ่านทั้งสองช่องไม่ตรงกัน' }
-  }
+  const fieldErrors: Record<string, string> = {}
   if (!PASSWORD_RE.test(password)) {
-    return { error: 'รหัสผ่านต้องมีอย่างน้อย 8 ตัวอักษร มีทั้งตัวอักษรและตัวเลข' }
+    fieldErrors.password = 'รหัสผ่านต้องมีอย่างน้อย 8 ตัวอักษร มีทั้งตัวอักษรและตัวเลข'
+  }
+  if (password !== confirmPassword) {
+    fieldErrors.confirmPassword = 'รหัสผ่านทั้งสองช่องไม่ตรงกัน'
+  }
+  if (Object.keys(fieldErrors).length > 0) {
+    return { error: 'กรุณาตรวจสอบรหัสผ่าน', fieldErrors }
   }
 
   const supabase = await createClient()
@@ -34,7 +38,7 @@ export async function updatePassword(
   if (!user) redirect('/forgot-password')
 
   const { error } = await supabase.auth.updateUser({ password })
-  if (error) return { error: error.message }
+  if (error) return { error: error.message, fieldErrors: { password: error.message } }
 
   redirect('/account')
 }

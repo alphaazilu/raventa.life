@@ -4,7 +4,7 @@ import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 
-export type CompleteProfileState = { error?: string } | null
+export type CompleteProfileState = { error?: string; fieldErrors?: Record<string, string> } | null
 
 function safeNext(value: FormDataEntryValue | null): string {
   const next = String(value ?? '/account')
@@ -24,11 +24,20 @@ export async function completeProfile(
   const province = String(formData.get('province') ?? '').trim()
   const next = safeNext(formData.get('next'))
 
-  if (!firstName || !lastName || !phone || !province) {
-    return { error: 'กรุณากรอกข้อมูลให้ครบทุกช่อง' }
+  // Collect every problem at once so every field that needs fixing can be
+  // highlighted together, instead of the person fixing one and resubmitting
+  // only to discover the next.
+  const fieldErrors: Record<string, string> = {}
+  if (!firstName) fieldErrors.firstName = 'กรุณากรอกชื่อ'
+  if (!lastName) fieldErrors.lastName = 'กรุณากรอกนามสกุล'
+  if (!phone) {
+    fieldErrors.phone = 'กรุณากรอกเบอร์โทรศัพท์'
+  } else if (!PHONE_RE.test(phone)) {
+    fieldErrors.phone = 'กรุณากรอกเบอร์โทรศัพท์ 9-10 หลัก'
   }
-  if (!PHONE_RE.test(phone)) {
-    return { error: 'กรุณากรอกเบอร์โทรศัพท์ 9-10 หลัก' }
+  if (!province) fieldErrors.province = 'กรุณาเลือกจังหวัด'
+  if (Object.keys(fieldErrors).length > 0) {
+    return { error: 'กรุณากรอกข้อมูลให้ครบและถูกต้อง', fieldErrors }
   }
 
   const supabase = await createClient()

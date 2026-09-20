@@ -2,7 +2,7 @@
 
 import { createClient } from '@/lib/supabase/server'
 
-export type ForgotPasswordState = { sent?: boolean; error?: string } | null
+export type ForgotPasswordState = { sent?: boolean; error?: string; fieldErrors?: Record<string, string> } | null
 
 export async function requestPasswordReset(
   _prevState: ForgotPasswordState,
@@ -11,7 +11,7 @@ export async function requestPasswordReset(
   const email = String(formData.get('email') ?? '').trim()
   const siteUrl = process.env.SITE_URL ?? 'http://localhost:3000'
 
-  if (!email) return { error: 'กรุณากรอกอีเมล' }
+  if (!email) return { error: 'กรุณากรอกอีเมล', fieldErrors: { email: 'กรุณากรอกอีเมล' } }
 
   const supabase = await createClient()
   await supabase.auth.resetPasswordForEmail(email, {

@@ -1,12 +1,16 @@
 'use client'
 
-import { useActionState } from 'react'
+import { useActionState, useState } from 'react'
 import { useLanguage } from '@/components/language-provider'
 import { authCopy } from '@/lib/auth/copy'
 import { THAILAND_PROVINCES } from '@/lib/thailand-provinces'
+import { fieldClass } from '@/lib/form-field-class'
 import { completeProfile, type CompleteProfileState } from '@/app/complete-profile/actions'
 
 const initialState: CompleteProfileState = null
+
+const inputBaseClass =
+  'mt-1 w-full rounded-xl border border-border bg-background px-4 py-2.5 text-sm text-foreground outline-none focus:border-primary'
 
 export function CompleteProfileForm({
   next,
@@ -19,6 +23,15 @@ export function CompleteProfileForm({
 }) {
   const { tr } = useLanguage()
   const [state, formAction, pending] = useActionState(completeProfile, initialState)
+
+  // Controlled so a failed submission (Server Actions reset uncontrolled
+  // <form> fields once the action call resolves, success or not) never
+  // wipes out what the person already typed.
+  const [firstName, setFirstName] = useState(defaultFirstName)
+  const [lastName, setLastName] = useState(defaultLastName)
+  const [phone, setPhone] = useState('')
+  const [province, setProvince] = useState('')
+  const invalid = (field: string) => Boolean(state?.fieldErrors?.[field])
 
   return (
     <div className="mx-auto flex w-full max-w-md flex-col justify-center px-4 py-16 md:py-24">
@@ -44,9 +57,10 @@ export function CompleteProfileForm({
                 name="firstName"
                 type="text"
                 autoComplete="given-name"
-                defaultValue={defaultFirstName}
                 required
-                className="mt-1 w-full rounded-xl border border-border bg-background px-4 py-2.5 text-sm text-foreground outline-none focus:border-primary"
+                value={firstName}
+                onChange={(e) => setFirstName(e.target.value)}
+                className={fieldClass(inputBaseClass, invalid('firstName'))}
               />
             </div>
             <div>
@@ -61,9 +75,10 @@ export function CompleteProfileForm({
                 name="lastName"
                 type="text"
                 autoComplete="family-name"
-                defaultValue={defaultLastName}
                 required
-                className="mt-1 w-full rounded-xl border border-border bg-background px-4 py-2.5 text-sm text-foreground outline-none focus:border-primary"
+                value={lastName}
+                onChange={(e) => setLastName(e.target.value)}
+                className={fieldClass(inputBaseClass, invalid('lastName'))}
               />
             </div>
           </div>
@@ -82,7 +97,9 @@ export function CompleteProfileForm({
               pattern="[0-9]{9,10}"
               title="กรอกเบอร์โทรศัพท์ 9-10 หลัก ไม่ต้องมีขีดหรือเว้นวรรค"
               required
-              className="mt-1 w-full rounded-xl border border-border bg-background px-4 py-2.5 text-sm text-foreground outline-none focus:border-primary"
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+              className={fieldClass(inputBaseClass, invalid('phone'))}
             />
           </div>
 
@@ -94,15 +111,16 @@ export function CompleteProfileForm({
               id="province"
               name="province"
               required
-              defaultValue=""
-              className="mt-1 w-full rounded-xl border border-border bg-background px-4 py-2.5 text-sm text-foreground outline-none focus:border-primary"
+              value={province}
+              onChange={(e) => setProvince(e.target.value)}
+              className={fieldClass(inputBaseClass, invalid('province'))}
             >
               <option value="" disabled>
                 {tr(authCopy.provincePlaceholder)}
               </option>
-              {THAILAND_PROVINCES.map((province) => (
-                <option key={province} value={province}>
-                  {province}
+              {THAILAND_PROVINCES.map((p) => (
+                <option key={p} value={p}>
+                  {p}
                 </option>
               ))}
             </select>

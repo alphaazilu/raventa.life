@@ -1,8 +1,9 @@
 'use client'
 
-import { useActionState } from 'react'
+import { useActionState, useState } from 'react'
 import { useLanguage } from '@/components/language-provider'
 import { authCopy } from '@/lib/auth/copy'
+import { fieldClass } from '@/lib/form-field-class'
 import { requestPasswordReset, type ForgotPasswordState } from '@/app/forgot-password/actions'
 
 const initialState: ForgotPasswordState = null
@@ -10,6 +11,8 @@ const initialState: ForgotPasswordState = null
 export function ForgotPasswordForm() {
   const { tr } = useLanguage()
   const [state, formAction, pending] = useActionState(requestPasswordReset, initialState)
+  // Controlled so a failed submission never clears what was typed.
+  const [email, setEmail] = useState('')
 
   return (
     <div className="mx-auto flex w-full max-w-md flex-col justify-center px-4 py-16 md:py-24">
@@ -35,7 +38,12 @@ export function ForgotPasswordForm() {
                 type="email"
                 autoComplete="email"
                 required
-                className="mt-1 w-full rounded-xl border border-border bg-background px-4 py-2.5 text-sm text-foreground outline-none focus:border-primary"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className={fieldClass(
+                  'mt-1 w-full rounded-xl border border-border bg-background px-4 py-2.5 text-sm text-foreground outline-none focus:border-primary',
+                  Boolean(state?.fieldErrors?.email),
+                )}
               />
             </div>
 

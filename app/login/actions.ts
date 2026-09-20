@@ -4,7 +4,11 @@ import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 
-export type AuthActionState = { error?: string; success?: 'checkEmail' } | null
+export type AuthActionState = {
+  error?: string
+  success?: 'checkEmail'
+  fieldErrors?: Record<string, string>
+} | null
 
 function safeNext(value: FormDataEntryValue | null): string {
   const next = String(value ?? '/account')
@@ -17,9 +21,21 @@ export async function signIn(_prevState: AuthActionState, formData: FormData): P
   const password = String(formData.get('password') ?? '')
   const next = safeNext(formData.get('next'))
 
+  if (!email || !password) {
+    const fieldErrors: Record<string, string> = {}
+    if (!email) fieldErrors.email = 'Please enter your email.'
+    if (!password) fieldErrors.password = 'Please enter your password.'
+    return { error: 'Please fill in your email and password.', fieldErrors }
+  }
+
   const supabase = await createClient()
   const { error } = await supabase.auth.signInWithPassword({ email, password })
-  if (error) return { error: error.message }
+  if (error) {
+    // Supabase deliberately doesn't say whether the email or the password
+    // was wrong (avoids leaking which emails have accounts), so both
+    // fields are flagged together rather than guessing which to blame.
+    return { error: error.message, fieldErrors: { email: error.message, password: error.message } }
+  }
 
   revalidatePath('/', 'layout')
   redirect(next)
@@ -39,14 +55,22 @@ export async function signUp(_prevState: AuthActionState, formData: FormData): P
   const province = String(formData.get('province') ?? '').trim()
   const siteUrl = process.env.SITE_URL ?? 'http://localhost:3000'
 
-  if (!firstName || !lastName || !phone || !province) {
-    return { error: 'Please fill in your name, phone number, and province.' }
+  // Collect every problem at once rather than stopping at the first one,
+  // so every field that needs fixing can be highlighted together.
+  const fieldErrors: Record<string, string> = {}
+  if (!firstName) fieldErrors.firstName = 'Please enter your first name.'
+  if (!lastName) fieldErrors.lastName = 'Please enter your last name.'
+  if (!phone) fieldErrors.phone = 'Please enter your phone number.'
+  if (!province) fieldErrors.province = 'Please select a province.'
+  if (!email) fieldErrors.email = 'Please enter your email.'
+  if (!SIGNUP_PASSWORD_RE.test(password)) {
+    fieldErrors.password = 'Password must be at least 8 characters and include both letters and numbers.'
   }
   if (password !== confirmPassword) {
-    return { error: 'Passwords do not match.' }
+    fieldErrors.confirmPassword = 'Passwords do not match.'
   }
-  if (!SIGNUP_PASSWORD_RE.test(password)) {
-    return { error: 'Password must be at least 8 characters and include both letters and numbers.' }
+  if (Object.keys(fieldErrors).length > 0) {
+    return { error: 'Please check the highlighted fields.', fieldErrors }
   }
 
   const supabase = await createClient()
@@ -61,7 +85,7 @@ export async function signUp(_prevState: AuthActionState, formData: FormData): P
       data: { first_name: firstName, last_name: lastName, phone, province },
     },
   })
-  if (error) return { error: error.message }
+  if (error) return { error: error.message, fieldErrors: { email: error.message } }
 
   return { success: 'checkEmail' }
 }
