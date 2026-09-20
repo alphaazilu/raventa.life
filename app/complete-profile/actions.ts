@@ -46,10 +46,17 @@ export async function completeProfile(
   } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
+  // upsert, not update: if the profiles row is missing for any reason (for
+  // example it was deleted directly in the table editor), a plain update
+  // silently affects 0 rows and returns no error — the person would then
+  // get bounced right back here by the completeness check, forever. Upsert
+  // recreates the row when needed, so this always actually fixes the gate.
   const { error } = await supabase
     .from('profiles')
-    .update({ first_name: firstName, last_name: lastName, phone, province })
-    .eq('id', user.id)
+    .upsert(
+      { id: user.id, email: user.email, first_name: firstName, last_name: lastName, phone, province },
+      { onConflict: 'id' },
+    )
 
   if (error) return { error: error.message }
 

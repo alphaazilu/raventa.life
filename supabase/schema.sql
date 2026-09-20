@@ -88,5 +88,13 @@ create policy "Users can update own profile"
   using (auth.uid() = id)
   with check (auth.uid() = id);
 
+-- Lets /complete-profile recover with an upsert if a profile row is ever
+-- missing when it shouldn't be (e.g. manually deleted in the table editor)
+-- instead of the update silently affecting 0 rows and looping forever.
+drop policy if exists "Users can insert own profile" on public.profiles;
+create policy "Users can insert own profile"
+  on public.profiles for insert
+  with check (auth.uid() = id);
+
 -- 5. Promote an account to admin (run manually, once, per admin user):
 -- update public.profiles set role = 'admin' where email = 'owner@raventa.com';
