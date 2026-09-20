@@ -75,6 +75,13 @@ export function AccountView({
             {tr(authCopy.goToAdmin)}
           </a>
         )}
+
+        <a
+          href="/reset-password"
+          className="mt-4 inline-block text-sm font-semibold text-primary underline-offset-2 hover:underline"
+        >
+          {tr(authCopy.changePasswordLink)}
+        </a>
       </div>
 
       <form action={signOutAction} className="mt-6">

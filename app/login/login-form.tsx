@@ -186,6 +186,14 @@ export function LoginForm({ next }: { next: string }) {
               {mode === 'signup' && (
                 <p className="mt-1.5 text-xs text-muted-foreground">{tr(authCopy.passwordHint)}</p>
               )}
+              {mode === 'login' && (
+                <a
+                  href="/forgot-password"
+                  className="mt-1.5 inline-block text-xs font-medium text-muted-foreground transition-colors hover:text-primary"
+                >
+                  {tr(authCopy.forgotPasswordLink)}
+                </a>
+              )}
             </div>
 
             {mode === 'signup' && (

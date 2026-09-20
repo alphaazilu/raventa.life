@@ -48,4 +48,21 @@ export const authCopy: Record<string, Bilingual> = {
     en: "Since you signed in with Google or Facebook, we don't have your phone number and province yet. Please fill these in before using your account.",
   },
   saveButton: { th: 'บันทึกและดำเนินการต่อ', en: 'Save and Continue' },
+  forgotPasswordLink: { th: 'ลืมรหัสผ่าน?', en: 'Forgot password?' },
+  forgotPasswordHeading: { th: 'ลืมรหัสผ่าน', en: 'Forgot Password' },
+  forgotPasswordSub: {
+    th: 'กรอกอีเมลที่ใช้สมัคร แล้วเราจะส่งลิงก์สำหรับตั้งรหัสผ่านใหม่ไปให้',
+    en: "Enter the email you signed up with and we'll send a link to reset your password.",
+  },
+  forgotPasswordButton: { th: 'ส่งลิงก์รีเซ็ตรหัสผ่าน', en: 'Send Reset Link' },
+  forgotPasswordSuccess: {
+    th: 'ถ้าอีเมลนี้มีอยู่ในระบบ เราได้ส่งลิงก์สำหรับตั้งรหัสผ่านใหม่ไปให้แล้ว กรุณาตรวจสอบกล่องจดหมาย',
+    en: 'If that email is in our system, a password reset link is on its way — please check your inbox.',
+  },
+  backToLogin: { th: '← กลับไปเข้าสู่ระบบ', en: '← Back to log in' },
+  resetPasswordHeading: { th: 'ตั้งรหัสผ่านใหม่', en: 'Set New Password' },
+  resetPasswordSub: { th: 'กรอกรหัสผ่านใหม่ที่ต้องการใช้', en: 'Enter the new password you want to use.' },
+  newPasswordLabel: { th: 'รหัสผ่านใหม่', en: 'New Password' },
+  resetPasswordButton: { th: 'บันทึกรหัสผ่านใหม่', en: 'Save New Password' },
+  changePasswordLink: { th: 'เปลี่ยนรหัสผ่าน', en: 'Change Password' },
 }
