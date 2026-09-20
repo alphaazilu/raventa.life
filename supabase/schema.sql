@@ -25,9 +25,13 @@ alter table public.profiles enable row level security;
 
 -- 2. Auto-create a profile row whenever someone signs up (email/password,
 --    Google, or Facebook all funnel through auth.users the same way).
---    first_name/last_name/phone/province come from the signup form via
---    supabase.auth.signUp({ options: { data: { ... } } }) — Google/Facebook
---    signups won't have these, so they're left null.
+--    Email/password signups send first_name/last_name/phone/province via
+--    supabase.auth.signUp({ options: { data: { ... } } }). Google sometimes
+--    provides given_name/family_name too, so that's used as a fallback —
+--    but phone/province are never provided by either OAuth provider, so
+--    those accounts land here with an incomplete profile on purpose: the
+--    /complete-profile gate (see proxy.ts + app/complete-profile) catches
+--    that and makes the user fill in what's missing before using /account.
 create or replace function public.handle_new_user()
 returns trigger
 language plpgsql
@@ -39,8 +43,8 @@ begin
   values (
     new.id,
     new.email,
-    new.raw_user_meta_data ->> 'first_name',
-    new.raw_user_meta_data ->> 'last_name',
+    coalesce(new.raw_user_meta_data ->> 'first_name', new.raw_user_meta_data ->> 'given_name'),
+    coalesce(new.raw_user_meta_data ->> 'last_name', new.raw_user_meta_data ->> 'family_name'),
     new.raw_user_meta_data ->> 'phone',
     new.raw_user_meta_data ->> 'province'
   )

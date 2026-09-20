@@ -42,4 +42,10 @@ export const authCopy: Record<string, Bilingual> = {
     en: 'This area is for the RAVENTA team — content and customer management tools will go here next.',
   },
   backHome: { th: '← กลับหน้าหลัก', en: '← Back to homepage' },
+  completeProfileHeading: { th: 'กรอกข้อมูลให้ครบก่อนใช้งาน', en: 'Complete Your Profile' },
+  completeProfileSub: {
+    th: 'เนื่องจากคุณเข้าสู่ระบบด้วย Google/Facebook เราจึงยังไม่มีเบอร์โทรและจังหวัดของคุณ กรุณากรอกข้อมูลให้ครบก่อนใช้งานบัญชี',
+    en: "Since you signed in with Google or Facebook, we don't have your phone number and province yet. Please fill these in before using your account.",
+  },
+  saveButton: { th: 'บันทึกและดำเนินการต่อ', en: 'Save and Continue' },
 }

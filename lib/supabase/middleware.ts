@@ -1,5 +1,6 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
+import { isProfileComplete } from '@/lib/supabase/profile'
 
 /**
  * Refreshes the Supabase auth session on every request and gates the
@@ -42,9 +43,24 @@ export async function updateSession(request: NextRequest) {
     return NextResponse.redirect(url)
   }
 
-  if (isAdminRoute && user) {
-    const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single()
-    if (profile?.role !== 'admin') {
+  if ((isAdminRoute || isAccountRoute) && user) {
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('role, first_name, last_name, phone, province')
+      .eq('id', user.id)
+      .single()
+
+    // Google/Facebook signups never collect phone/province — catch that
+    // here too, not just right after OAuth, in case someone navigates
+    // straight to /account or /admin later without finishing that step.
+    if (!isProfileComplete(profile)) {
+      const url = request.nextUrl.clone()
+      url.pathname = '/complete-profile'
+      url.searchParams.set('next', path)
+      return NextResponse.redirect(url)
+    }
+
+    if (isAdminRoute && profile?.role !== 'admin') {
       const url = request.nextUrl.clone()
       url.pathname = '/account'
       return NextResponse.redirect(url)
