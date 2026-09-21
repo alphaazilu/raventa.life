@@ -238,5 +238,7 @@ export const t = {
     tagline: { th: 'NATURE MEETS MODERN WELLNESS', en: 'NATURE MEETS MODERN WELLNESS' },
     rights: { th: 'สงวนลิขสิทธิ์', en: 'All rights reserved.' },
     return: { th: 'Return to Your Best Self.', en: 'Return to Your Best Self.' },
+    privacyLink: { th: 'นโยบายความเป็นส่วนตัว', en: 'Privacy Policy' },
+    termsLink: { th: 'ข้อกำหนดการใช้งาน', en: 'Terms of Service' },
   },
 } as const

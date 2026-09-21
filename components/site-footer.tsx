@@ -45,8 +45,18 @@ export function SiteFooter() {
           <p className="font-display text-lg font-semibold italic text-sand">{tr(t.footer.return)}</p>
         </div>
 
-        <div className="mt-12 border-t border-white/10 pt-6 text-center text-xs text-accent-foreground/60">
-          &copy; {new Date().getFullYear()} RAVENTA Wellness Center, Rayong. {tr(t.footer.rights)}
+        <div className="mt-12 flex flex-col items-center gap-3 border-t border-white/10 pt-6 text-center text-xs text-accent-foreground/60">
+          <nav className="flex items-center gap-x-6">
+            <a href="/privacy" className="transition-colors hover:text-white">
+              {tr(t.footer.privacyLink)}
+            </a>
+            <a href="/terms" className="transition-colors hover:text-white">
+              {tr(t.footer.termsLink)}
+            </a>
+          </nav>
+          <p>
+            &copy; {new Date().getFullYear()} RAVENTA Wellness Center, Rayong. {tr(t.footer.rights)}
+          </p>
         </div>
       </div>
     </footer>
