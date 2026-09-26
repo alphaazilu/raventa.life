@@ -20,11 +20,16 @@ export default async function AdminPage() {
   const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single()
   if (profile?.role !== 'admin') redirect('/account')
 
+  const { data: members } = await supabase
+    .from('profiles')
+    .select('id, member_no, first_name, last_name, email, phone, province, role')
+    .order('member_no', { ascending: true })
+
   return (
     <>
       <SiteHeader />
       <main className="min-h-screen bg-background pt-24 md:pt-28">
-        <AdminView email={user.email ?? ''} />
+        <AdminView email={user.email ?? ''} members={members ?? []} />
       </main>
       <SiteFooter />
     </>

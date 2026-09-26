@@ -30,8 +30,32 @@ alter table public.profiles add column if not exists province text;
 create sequence if not exists public.member_no_seq;
 
 alter table public.profiles add column if not exists member_no text;
+
+-- Collision-safe membership number generator. Some members ask for an
+-- auspicious ("mongkol") number, which an admin then hand-picks directly in
+-- the database — ahead of wherever the running sequence currently is. So
+-- rather than trusting nextval() blindly, this loops until it lands on a
+-- value nothing has already claimed. The sequence itself never repeats a
+-- value, so the loop only ever runs more than once when a manually-assigned
+-- number happens to fall in its path — at that point it's simply skipped
+-- and the next one is tried.
+create or replace function public.next_member_no()
+returns text
+language plpgsql
+as $$
+declare
+  candidate text;
+begin
+  loop
+    candidate := lpad(nextval('public.member_no_seq')::text, 10, '0');
+    exit when not exists (select 1 from public.profiles where member_no = candidate);
+  end loop;
+  return candidate;
+end;
+$$;
+
 alter table public.profiles
-  alter column member_no set default lpad(nextval('public.member_no_seq')::text, 10, '0');
+  alter column member_no set default public.next_member_no();
 
 -- Backfill anyone who signed up before this column existed, oldest first,
 -- so membership numbers still read as "when you joined". Safe to re-run:
@@ -44,7 +68,7 @@ begin
     select id from public.profiles where member_no is null order by created_at asc, id asc
   loop
     update public.profiles
-    set member_no = lpad(nextval('public.member_no_seq')::text, 10, '0')
+    set member_no = public.next_member_no()
     where id = r.id;
   end loop;
 end $$;
@@ -125,6 +149,15 @@ create policy "Users can update own profile"
   using (auth.uid() = id)
   with check (auth.uid() = id);
 
+-- Lets the /admin member-edit page (app/admin/actions.ts) update anyone's
+-- name/phone/province — deliberately never member_no; see
+-- protect_member_no() below, which blocks that regardless of this policy.
+drop policy if exists "Admins can update any profile" on public.profiles;
+create policy "Admins can update any profile"
+  on public.profiles for update
+  using (public.is_admin())
+  with check (public.is_admin());
+
 -- Lets /complete-profile recover with an upsert if a profile row is ever
 -- missing when it shouldn't be (e.g. manually deleted in the table editor)
 -- instead of the update silently affecting 0 rows and looping forever.
@@ -133,5 +166,31 @@ create policy "Users can insert own profile"
   on public.profiles for insert
   with check (auth.uid() = id);
 
--- 5. Promote an account to admin (run manually, once, per admin user):
+-- 5. Guardrail: member_no can never be changed by a request that carries a
+-- Supabase Auth session — i.e. anything going through the app itself,
+-- whether a member's own account page or the /admin edit form. Neither of
+-- those UIs ever sends this field, but this closes the door on someone
+-- crafting a raw update call from the browser console too. auth.uid() is
+-- null for a direct Postgres connection (the Supabase Studio Table/SQL
+-- Editor), which is the only place member_no should ever be hand-edited —
+-- see next_member_no() above for why members sometimes need a specific
+-- ("mongkol") number reserved there directly.
+create or replace function public.protect_member_no()
+returns trigger
+language plpgsql
+as $$
+begin
+  if new.member_no is distinct from old.member_no and auth.uid() is not null then
+    raise exception 'member_no cannot be changed through the app — edit it directly in the database.';
+  end if;
+  return new;
+end;
+$$;
+
+drop trigger if exists protect_member_no on public.profiles;
+create trigger protect_member_no
+  before update on public.profiles
+  for each row execute function public.protect_member_no();
+
+-- 6. Promote an account to admin (run manually, once, per admin user):
 -- update public.profiles set role = 'admin' where email = 'owner@raventa.com';
