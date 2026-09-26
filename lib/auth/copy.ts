@@ -23,6 +23,23 @@ export const authCopy: Record<string, Bilingual> = {
   orContinueWith: { th: 'หรือดำเนินการต่อด้วย', en: 'Or continue with' },
   google: { th: 'ดำเนินการต่อด้วย Google', en: 'Continue with Google' },
   line: { th: 'ดำเนินการต่อด้วย LINE', en: 'Continue with LINE' },
+  lineConnecting: { th: 'กำลังเข้าสู่ระบบด้วย LINE…', en: 'Signing you in with LINE…' },
+  lineLinkLabel: { th: 'บัญชี LINE', en: 'LINE Account' },
+  lineLinkHint: {
+    th: 'เชื่อม LINE ไว้ แล้วครั้งต่อไปกดเข้าสู่ระบบด้วย LINE ได้เลย และรับข่าวสารสมาชิกทาง LINE',
+    en: 'Link LINE to sign in with it next time and get member updates on LINE.',
+  },
+  lineLinkButton: { th: 'เชื่อมบัญชี LINE', en: 'Link LINE Account' },
+  lineLinked: { th: 'เชื่อมกับ LINE แล้ว', en: 'Linked to LINE' },
+  lineLinkedSuccess: { th: 'เชื่อมบัญชี LINE เรียบร้อยแล้ว', en: 'Your LINE account is now linked.' },
+  lineLinkAlreadyUsed: {
+    th: 'บัญชี LINE นี้ถูกใช้สมัครสมาชิกอีกบัญชีหนึ่งอยู่แล้ว กรุณาติดต่อเราเพื่อรวมบัญชี',
+    en: 'This LINE account is already used by another membership. Please contact us to merge them.',
+  },
+  lineLinkFailed: {
+    th: 'เชื่อมบัญชี LINE ไม่สำเร็จ กรุณาลองใหม่อีกครั้ง',
+    en: 'Couldn’t link your LINE account. Please try again.',
+  },
   oauthCancelled: {
     th: 'ยกเลิกการเข้าสู่ระบบแล้ว ลองใหม่ได้เลย',
     en: 'Sign-in was cancelled. You can try again.',

@@ -309,5 +309,65 @@ $$;
 revoke execute on function public.email_is_taken(text, uuid) from public, anon;
 grant execute on function public.email_is_taken(text, uuid) to authenticated;
 
--- 8. Promote an account to admin (run manually, once, per admin user):
+-- 8. LINE user ID ("U…"), for messaging a member through the LINE Official
+-- Account later (welcome/booking messages, per-member rich menus). It's the
+-- same ID LINE gives the OA only if the OA's Messaging API channel sits
+-- under the same LINE Developers provider as the LINE Login channel.
+--
+-- Filled in by the app (app/auth/callback and app/complete-profile) from
+-- the account's own LINE identity. One LINE account → one member.
+alter table public.profiles add column if not exists line_user_id text;
+
+create unique index if not exists profiles_line_user_id_key
+  on public.profiles (line_user_id)
+  where line_user_id is not null;
+
+-- Guardrail, same idea as protect_member_no(): a request made through the
+-- app can only set line_user_id to the LINE ID actually linked to that
+-- account in Supabase Auth. Otherwise anyone could write someone else's
+-- LINE ID onto their own profile (from the browser console) and have
+-- member messages meant for them delivered to that person. Direct database
+-- edits (auth.uid() is null — SQL editor, the backfill below) are allowed.
+create or replace function public.protect_line_user_id()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if auth.uid() is null then
+    return new;
+  end if;
+  if tg_op = 'UPDATE' and new.line_user_id is not distinct from old.line_user_id then
+    return new;
+  end if;
+  if tg_op = 'INSERT' and new.line_user_id is null then
+    return new;
+  end if;
+  if new.line_user_id is null or not exists (
+    select 1 from auth.identities
+    where user_id = new.id
+      and provider = 'custom:line'
+      and provider_id = new.line_user_id
+  ) then
+    raise exception 'line_user_id must match the LINE account linked to this member.';
+  end if;
+  return new;
+end;
+$$;
+
+drop trigger if exists protect_line_user_id on public.profiles;
+create trigger protect_line_user_id
+  before insert or update on public.profiles
+  for each row execute function public.protect_line_user_id();
+
+-- Backfill members who already signed in with LINE. Safe to re-run.
+update public.profiles p
+set line_user_id = i.provider_id
+from auth.identities i
+where i.user_id = p.id
+  and i.provider = 'custom:line'
+  and p.line_user_id is null;
+
+-- 9. Promote an account to admin (run manually, once, per admin user):
 -- update public.profiles set role = 'admin' where email = 'owner@raventa.com';

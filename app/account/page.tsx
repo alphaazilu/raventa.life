@@ -5,12 +5,19 @@ import { SiteFooter } from '@/components/site-footer'
 import { AccountView } from '@/components/account/account-view'
 import { createClient } from '@/lib/supabase/server'
 import { signOut } from '@/app/login/actions'
+import { lineUserIdOf } from '@/lib/supabase/line'
+import type { LinkLineResult } from '@/components/account/link-line'
 
 export const metadata: Metadata = {
   title: 'My Account | RAVENTA Wellness Center',
 }
 
-export default async function AccountPage() {
+export default async function AccountPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ linked?: string; link_error?: string }>
+}) {
+  const params = await searchParams
   const supabase = await createClient()
   const {
     data: { user },
@@ -23,6 +30,18 @@ export default async function AccountPage() {
     .select('role, email, first_name, last_name, phone, province, nationality, member_no')
     .eq('id', user.id)
     .single()
+
+  const lineLinked = lineUserIdOf(user) !== null
+  // Outcome of the "link LINE" round trip (see components/account/link-line
+  // and app/auth/callback). identity_already_exists = that LINE account
+  // already belongs to a separate membership.
+  const linkResult: LinkLineResult = params.link_error
+    ? params.link_error === 'identity_already_exists'
+      ? 'already_used'
+      : 'failed'
+    : params.linked === 'line' && lineLinked
+      ? 'linked'
+      : null
 
   return (
     <>
@@ -40,6 +59,8 @@ export default async function AccountPage() {
           role={profile?.role ?? 'customer'}
           memberNo={profile?.member_no ?? null}
           signOutAction={signOut}
+          lineLinked={lineLinked}
+          lineLinkResult={linkResult}
         />
       </main>
       <SiteFooter />

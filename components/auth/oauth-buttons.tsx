@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useLanguage } from '@/components/language-provider'
 import { authCopy } from '@/lib/auth/copy'
 import { createClient } from '@/lib/supabase/client'
@@ -25,7 +25,7 @@ function GoogleIcon(props: React.SVGProps<SVGSVGElement>) {
   )
 }
 
-function LineIcon(props: React.SVGProps<SVGSVGElement>) {
+export function LineIcon(props: React.SVGProps<SVGSVGElement>) {
   return (
     <svg viewBox="0 0 24 24" aria-hidden="true" {...props}>
       <path
@@ -51,10 +51,22 @@ const PROVIDER_SCOPES: Partial<Record<OAuthProvider, string>> = {
   'custom:line': 'openid profile',
 }
 
-export function OAuthButtons({ next }: { next: string }) {
+export function OAuthButtons({ next, autoStart }: { next: string; autoStart?: 'line' }) {
   const { tr } = useLanguage()
   const [loading, setLoading] = useState<OAuthProvider | null>(null)
   const [error, setError] = useState<string | null>(null)
+  // React runs effects twice in development; this keeps the automatic LINE
+  // redirect (see app/login/page.tsx, ?via=line) to a single attempt.
+  const autoStarted = useRef(false)
+
+  useEffect(() => {
+    if (autoStart === 'line' && !autoStarted.current) {
+      autoStarted.current = true
+      void handleOAuth('custom:line')
+    }
+    // Runs once on mount by design — handleOAuth is recreated every render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoStart])
 
   const handleOAuth = async (provider: OAuthProvider) => {
     setError(null)
@@ -73,15 +85,8 @@ export function OAuthButtons({ next }: { next: string }) {
 
   return (
     <div className="mt-6 space-y-3">
-      <button
-        type="button"
-        onClick={() => handleOAuth('google')}
-        disabled={loading !== null}
-        className="flex w-full items-center justify-center gap-2.5 rounded-full border border-border bg-background px-6 py-3 text-sm font-semibold text-foreground transition-colors hover:border-primary/40 disabled:cursor-not-allowed disabled:opacity-50"
-      >
-        <GoogleIcon className="h-4 w-4 shrink-0" />
-        {tr(authCopy.google)}
-      </button>
+      {/* LINE first: it's the main way Thai members sign in. Google stays
+          for existing Google members and guests who don't use LINE. */}
       {/* LINE's own button colours: #06C755 base, darker on hover. */}
       <button
         type="button"
@@ -92,6 +97,18 @@ export function OAuthButtons({ next }: { next: string }) {
         <LineIcon className="h-5 w-5 shrink-0 text-white" />
         {tr(authCopy.line)}
       </button>
+      <button
+        type="button"
+        onClick={() => handleOAuth('google')}
+        disabled={loading !== null}
+        className="flex w-full items-center justify-center gap-2.5 rounded-full border border-border bg-background px-6 py-3 text-sm font-semibold text-foreground transition-colors hover:border-primary/40 disabled:cursor-not-allowed disabled:opacity-50"
+      >
+        <GoogleIcon className="h-4 w-4 shrink-0" />
+        {tr(authCopy.google)}
+      </button>
+      {autoStart === 'line' && loading === 'custom:line' && (
+        <p className="text-center text-xs text-muted-foreground">{tr(authCopy.lineConnecting)}</p>
+      )}
       {error && <p className="text-center text-xs text-destructive">{error}</p>}
     </div>
   )

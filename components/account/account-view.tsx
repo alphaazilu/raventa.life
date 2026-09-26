@@ -5,6 +5,7 @@ import { useLanguage } from '@/components/language-provider'
 import { authCopy } from '@/lib/auth/copy'
 import { fieldClass } from '@/lib/form-field-class'
 import { updateOwnPhone, type UpdatePhoneState } from '@/app/account/actions'
+import { LinkLine, type LinkLineResult } from '@/components/account/link-line'
 
 const initialPhoneState: UpdatePhoneState = null
 
@@ -18,6 +19,8 @@ export function AccountView({
   role,
   memberNo,
   signOutAction,
+  lineLinked,
+  lineLinkResult,
 }: {
   email: string
   firstName: string | null
@@ -28,6 +31,8 @@ export function AccountView({
   role: string
   memberNo: string | null
   signOutAction: () => Promise<void>
+  lineLinked: boolean
+  lineLinkResult: LinkLineResult
 }) {
   const { tr } = useLanguage()
   const fullName = [firstName, lastName].filter(Boolean).join(' ')
@@ -174,6 +179,8 @@ export function AccountView({
         >
           {tr(authCopy.changePasswordLink)}
         </a>
+
+        <LinkLine linked={lineLinked} result={lineLinkResult} />
       </div>
 
       <form action={signOutAction} className="mt-6">

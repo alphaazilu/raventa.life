@@ -21,7 +21,15 @@ const SIGNUP_PASSWORD_PATTERN = '(?=.*[A-Za-z])(?=.*\\d).{8,}'
 const inputBaseClass =
   'mt-1 w-full rounded-xl border border-border bg-background px-4 py-2.5 text-sm text-foreground outline-none focus:border-primary'
 
-export function LoginForm({ next, authError }: { next: string; authError?: 'cancelled' | 'failed' }) {
+export function LoginForm({
+  next,
+  authError,
+  autoStart,
+}: {
+  next: string
+  authError?: 'cancelled' | 'failed'
+  autoStart?: 'line'
+}) {
   const { tr } = useLanguage()
   const [mode, setMode] = useState<Mode>('login')
 
@@ -345,7 +353,7 @@ export function LoginForm({ next, authError }: { next: string; authError?: 'canc
           <span className="h-px flex-1 bg-border" />
         </div>
 
-        <OAuthButtons next={next} />
+        <OAuthButtons next={next} autoStart={autoStart} />
         <p className="mt-3 text-center text-[11px] leading-relaxed text-muted-foreground/80">
           {tr(authCopy.oauthConsentNote)}
         </p>

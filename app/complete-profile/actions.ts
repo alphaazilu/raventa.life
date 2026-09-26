@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase/server'
 import { isPhoneTaken, isUniqueViolation, PHONE_TAKEN_MESSAGE_TH } from '@/lib/supabase/phone'
 import { getResendClient } from '@/lib/resend'
 import { welcomeEmail } from '@/lib/email-templates'
+import { saveLineUserId } from '@/lib/supabase/line'
 
 export type CompleteProfileState = { error?: string; fieldErrors?: Record<string, string> } | null
 
@@ -122,6 +123,10 @@ export async function completeProfile(
     return { error: PHONE_TAKEN_MESSAGE_TH, fieldErrors: { phone: PHONE_TAKEN_MESSAGE_TH } }
   }
   if (error) return { error: error.message }
+
+  // A LINE member whose profile row had to be (re)created just now — the
+  // callback's copy found no row to write to in that case.
+  await saveLineUserId(supabase, user)
 
   // The welcome email normally goes out from the new-user webhook when the
   // profile row is first created — but for a LINE signup there was no email
