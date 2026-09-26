@@ -265,5 +265,39 @@ begin
   end if;
 end $$;
 
--- 7. Promote an account to admin (run manually, once, per admin user):
+-- 7. Email for accounts that signed in without one (LINE, usually). They
+-- type it on /complete-profile, and it's stored in profiles.email only —
+-- their login stays LINE. email_is_taken() stops that typed email from
+-- matching someone who already has an account (their login email, or an
+-- email another LINE member already gave), so the same person can't end
+-- up with a second membership just by signing in a different way.
+--
+-- Deliberately NOT a unique index: a typed email isn't verified, so a
+-- typo (or someone else's address) mustn't be able to lock the real owner
+-- out of signing up with it later. The check only guards the typed entry.
+create or replace function public.email_is_taken(p_email text, p_exclude_id uuid default null)
+returns boolean
+language sql
+security definer
+set search_path = public
+stable
+as $$
+  select trim(coalesce(p_email, '')) <> '' and (
+    exists (
+      select 1 from public.profiles
+      where lower(trim(email)) = lower(trim(p_email))
+        and (p_exclude_id is null or id <> p_exclude_id)
+    )
+    or exists (
+      select 1 from auth.users
+      where lower(email) = lower(trim(p_email))
+        and (p_exclude_id is null or id <> p_exclude_id)
+    )
+  );
+$$;
+
+revoke execute on function public.email_is_taken(text, uuid) from public, anon;
+grant execute on function public.email_is_taken(text, uuid) to authenticated;
+
+-- 8. Promote an account to admin (run manually, once, per admin user):
 -- update public.profiles set role = 'admin' where email = 'owner@raventa.com';

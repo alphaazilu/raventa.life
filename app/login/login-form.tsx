@@ -21,7 +21,7 @@ const SIGNUP_PASSWORD_PATTERN = '(?=.*[A-Za-z])(?=.*\\d).{8,}'
 const inputBaseClass =
   'mt-1 w-full rounded-xl border border-border bg-background px-4 py-2.5 text-sm text-foreground outline-none focus:border-primary'
 
-export function LoginForm({ next }: { next: string }) {
+export function LoginForm({ next, authError }: { next: string; authError?: 'cancelled' | 'failed' }) {
   const { tr } = useLanguage()
   const [mode, setMode] = useState<Mode>('login')
 
@@ -322,6 +322,12 @@ export function LoginForm({ next }: { next: string }) {
             )}
 
             {state?.error && <p className="text-sm text-destructive">{state.error}</p>}
+            {/* A failed Google/LINE round trip, until the person tries again. */}
+            {!state && authError && (
+              <p className="text-sm text-destructive">
+                {tr(authError === 'cancelled' ? authCopy.oauthCancelled : authCopy.oauthFailed)}
+              </p>
+            )}
 
             <button
               type="submit"

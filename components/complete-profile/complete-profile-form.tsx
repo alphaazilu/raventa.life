@@ -15,6 +15,8 @@ const inputBaseClass =
 
 export function CompleteProfileForm({
   next,
+  needsEmail,
+  defaultEmail,
   defaultFirstName,
   defaultLastName,
   defaultPhone,
@@ -22,6 +24,10 @@ export function CompleteProfileForm({
   defaultNationality,
 }: {
   next: string
+  // True when the account came in without an email (LINE) — only then is
+  // the email field shown, and it's required.
+  needsEmail: boolean
+  defaultEmail: string
   defaultFirstName: string
   defaultLastName: string
   defaultPhone: string
@@ -38,6 +44,7 @@ export function CompleteProfileForm({
   // brand-new Google signups any more; an existing member who's only
   // missing nationality shouldn't have to retype a phone/province they
   // already gave.
+  const [email, setEmail] = useState(defaultEmail)
   const [firstName, setFirstName] = useState(defaultFirstName)
   const [lastName, setLastName] = useState(defaultLastName)
   const [phone, setPhone] = useState(defaultPhone)
@@ -95,6 +102,28 @@ export function CompleteProfileForm({
               />
             </div>
           </div>
+
+          {needsEmail && (
+            <div>
+              <label className="text-xs font-semibold tracking-wide uppercase text-muted-foreground" htmlFor="email">
+                {tr(authCopy.emailLabel)}
+              </label>
+              <input
+                id="email"
+                name="email"
+                type="email"
+                autoComplete="email"
+                placeholder="you@example.com"
+                required
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className={fieldClass(inputBaseClass, invalid('email'))}
+              />
+              {state?.fieldErrors?.email && (
+                <p className="mt-1.5 text-xs text-destructive">{state.fieldErrors.email}</p>
+              )}
+            </div>
+          )}
 
           <div>
             <label className="text-xs font-semibold tracking-wide uppercase text-muted-foreground" htmlFor="phone">

@@ -1,6 +1,6 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
-import { isProfileComplete } from '@/lib/supabase/profile'
+import { isProfileComplete, PROFILE_COMPLETENESS_COLUMNS } from '@/lib/supabase/profile'
 
 /**
  * Refreshes the Supabase auth session on every request and gates the
@@ -46,7 +46,7 @@ export async function updateSession(request: NextRequest) {
   if ((isAdminRoute || isAccountRoute) && user) {
     const { data: profile } = await supabase
       .from('profiles')
-      .select('role, first_name, last_name, phone, province, nationality')
+      .select(`role, ${PROFILE_COMPLETENESS_COLUMNS}`)
       .eq('id', user.id)
       .single()
 

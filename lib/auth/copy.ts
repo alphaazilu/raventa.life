@@ -23,6 +23,14 @@ export const authCopy: Record<string, Bilingual> = {
   orContinueWith: { th: 'หรือดำเนินการต่อด้วย', en: 'Or continue with' },
   google: { th: 'ดำเนินการต่อด้วย Google', en: 'Continue with Google' },
   line: { th: 'ดำเนินการต่อด้วย LINE', en: 'Continue with LINE' },
+  oauthCancelled: {
+    th: 'ยกเลิกการเข้าสู่ระบบแล้ว ลองใหม่ได้เลย',
+    en: 'Sign-in was cancelled. You can try again.',
+  },
+  oauthFailed: {
+    th: 'เข้าสู่ระบบไม่สำเร็จ กรุณาลองใหม่อีกครั้ง หากยังไม่ได้ กรุณาติดต่อเรา',
+    en: 'Sign-in didn’t work. Please try again, or contact us if it keeps happening.',
+  },
   signupSuccess: {
     th: 'สมัครสำเร็จ! กรุณาตรวจสอบอีเมลเพื่อยืนยันบัญชีก่อนเข้าสู่ระบบ',
     en: 'Success! Please check your email to confirm your account before logging in.',
