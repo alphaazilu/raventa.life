@@ -69,6 +69,7 @@ export function teamNotificationEmail(details: {
   lastName: string | null
   phone: string | null
   province: string | null
+  nationality: string | null
 }): { subject: string; html: string } {
   const fullName = [details.firstName, details.lastName].filter(Boolean).join(' ') || '(ยังไม่ระบุชื่อ)'
   const row = (label: string, value: string) => `
@@ -83,6 +84,7 @@ export function teamNotificationEmail(details: {
       ${row('อีเมล', details.email)}
       ${row('เบอร์โทรศัพท์', details.phone ?? '(ยังไม่ระบุ)')}
       ${row('จังหวัด', details.province ?? '(ยังไม่ระบุ)')}
+      ${row('สัญชาติ', details.nationality ?? '(ยังไม่ระบุ)')}
     </table>
   `)
   return { subject: `สมาชิกใหม่: ${fullName}`, html }

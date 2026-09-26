@@ -22,7 +22,7 @@ export default async function AdminPage() {
 
   const { data: members } = await supabase
     .from('profiles')
-    .select('id, member_no, first_name, last_name, email, phone, province, role')
+    .select('id, member_no, first_name, last_name, email, phone, province, nationality, role')
     .order('member_no', { ascending: true })
 
   return (

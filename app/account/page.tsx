@@ -20,7 +20,7 @@ export default async function AccountPage() {
 
   const { data: profile } = await supabase
     .from('profiles')
-    .select('role, first_name, last_name, phone, province, member_no')
+    .select('role, first_name, last_name, phone, province, nationality, member_no')
     .eq('id', user.id)
     .single()
 
@@ -34,6 +34,7 @@ export default async function AccountPage() {
           lastName={profile?.last_name ?? null}
           phone={profile?.phone ?? null}
           province={profile?.province ?? null}
+          nationality={profile?.nationality ?? null}
           role={profile?.role ?? 'customer'}
           memberNo={profile?.member_no ?? null}
           signOutAction={signOut}

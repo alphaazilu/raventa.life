@@ -19,6 +19,7 @@ export async function updateMemberProfile(
   const lastName = String(formData.get('lastName') ?? '').trim()
   const phone = String(formData.get('phone') ?? '').trim()
   const province = String(formData.get('province') ?? '').trim()
+  const nationality = String(formData.get('nationality') ?? '').trim()
 
   // Collect every problem at once, same as the other forms in this app.
   const fieldErrors: Record<string, string> = {}
@@ -26,6 +27,7 @@ export async function updateMemberProfile(
   if (!lastName) fieldErrors.lastName = 'กรุณากรอกนามสกุล'
   if (!PHONE_RE.test(phone)) fieldErrors.phone = 'กรุณากรอกเบอร์โทรศัพท์ 9-10 หลัก'
   if (!province) fieldErrors.province = 'กรุณาเลือกจังหวัด'
+  if (!nationality) fieldErrors.nationality = 'กรุณาเลือกสัญชาติ'
   if (Object.keys(fieldErrors).length > 0) {
     return { error: 'กรุณากรอกข้อมูลให้ครบและถูกต้อง', fieldErrors }
   }
@@ -52,7 +54,7 @@ export async function updateMemberProfile(
   // there when a member asks for one).
   const { error } = await supabase
     .from('profiles')
-    .update({ first_name: firstName, last_name: lastName, phone, province })
+    .update({ first_name: firstName, last_name: lastName, phone, province, nationality })
     .eq('id', memberId)
 
   if (error) return { error: error.message }

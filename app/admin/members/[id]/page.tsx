@@ -23,7 +23,7 @@ export default async function EditMemberPage({ params }: { params: Promise<{ id:
 
   const { data: member } = await supabase
     .from('profiles')
-    .select('id, member_no, first_name, last_name, email, phone, province')
+    .select('id, member_no, first_name, last_name, email, phone, province, nationality')
     .eq('id', id)
     .single()
 

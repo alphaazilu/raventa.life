@@ -27,7 +27,7 @@ export default async function CompleteProfilePage({
 
   const { data: profile } = await supabase
     .from('profiles')
-    .select('first_name, last_name, phone, province')
+    .select('first_name, last_name, phone, province, nationality')
     .eq('id', user.id)
     .single()
 
@@ -42,6 +42,9 @@ export default async function CompleteProfilePage({
           next={next}
           defaultFirstName={profile?.first_name ?? ''}
           defaultLastName={profile?.last_name ?? ''}
+          defaultPhone={profile?.phone ?? ''}
+          defaultProvince={profile?.province ?? ''}
+          defaultNationality={profile?.nationality ?? ''}
         />
       </main>
       <SiteFooter />

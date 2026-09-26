@@ -10,6 +10,7 @@ create table if not exists public.profiles (
   last_name text,
   phone text,
   province text,
+  nationality text,
   role text not null default 'customer' check (role in ('customer', 'admin')),
   created_at timestamptz not null default now()
 );
@@ -20,6 +21,12 @@ alter table public.profiles add column if not exists first_name text;
 alter table public.profiles add column if not exists last_name text;
 alter table public.profiles add column if not exists phone text;
 alter table public.profiles add column if not exists province text;
+-- Added later, same reasoning as phone/province: not NOT NULL at the
+-- database level (existing rows would break), enforced as required instead
+-- in the app layer (see lib/supabase/profile.ts's isProfileComplete, which
+-- routes any account missing it — old or new, any signup method — through
+-- /complete-profile).
+alter table public.profiles add column if not exists nationality text;
 
 -- Running 10-digit membership number (e.g. "0000000001"). The column
 -- DEFAULT does the actual number-generation, so every future insert gets
@@ -86,13 +93,14 @@ alter table public.profiles enable row level security;
 
 -- 2. Auto-create a profile row whenever someone signs up (email/password or
 --    Google both funnel through auth.users the same way).
---    Email/password signups send first_name/last_name/phone/province via
---    supabase.auth.signUp({ options: { data: { ... } } }). Google sometimes
---    provides given_name/family_name too, so that's used as a fallback —
---    but phone/province are never provided by either OAuth provider, so
---    those accounts land here with an incomplete profile on purpose: the
---    /complete-profile gate (see proxy.ts + app/complete-profile) catches
---    that and makes the user fill in what's missing before using /account.
+--    Email/password signups send first_name/last_name/phone/province/
+--    nationality via supabase.auth.signUp({ options: { data: { ... } } }).
+--    Google sometimes provides given_name/family_name too, so that's used
+--    as a fallback — but phone/province/nationality are never provided by
+--    either OAuth provider, so those accounts land here with an incomplete
+--    profile on purpose: the /complete-profile gate (see proxy.ts +
+--    app/complete-profile) catches that and makes the user fill in what's
+--    missing before using /account.
 create or replace function public.handle_new_user()
 returns trigger
 language plpgsql
@@ -100,20 +108,22 @@ security definer
 set search_path = public
 as $$
 begin
-  insert into public.profiles (id, email, first_name, last_name, phone, province)
+  insert into public.profiles (id, email, first_name, last_name, phone, province, nationality)
   values (
     new.id,
     new.email,
     coalesce(new.raw_user_meta_data ->> 'first_name', new.raw_user_meta_data ->> 'given_name'),
     coalesce(new.raw_user_meta_data ->> 'last_name', new.raw_user_meta_data ->> 'family_name'),
     new.raw_user_meta_data ->> 'phone',
-    new.raw_user_meta_data ->> 'province'
+    new.raw_user_meta_data ->> 'province',
+    new.raw_user_meta_data ->> 'nationality'
   )
   on conflict (id) do update set
     first_name = coalesce(excluded.first_name, public.profiles.first_name),
     last_name = coalesce(excluded.last_name, public.profiles.last_name),
     phone = coalesce(excluded.phone, public.profiles.phone),
-    province = coalesce(excluded.province, public.profiles.province);
+    province = coalesce(excluded.province, public.profiles.province),
+    nationality = coalesce(excluded.nationality, public.profiles.nationality);
   return new;
 end;
 $$;
@@ -150,7 +160,7 @@ create policy "Users can update own profile"
   with check (auth.uid() = id);
 
 -- Lets the /admin member-edit page (app/admin/actions.ts) update anyone's
--- name/phone/province — deliberately never member_no; see
+-- name/phone/province/nationality — deliberately never member_no; see
 -- protect_member_no() below, which blocks that regardless of this policy.
 drop policy if exists "Admins can update any profile" on public.profiles;
 create policy "Admins can update any profile"

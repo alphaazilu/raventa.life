@@ -15,6 +15,7 @@ type ProfileWebhookPayload = {
     last_name: string | null
     phone: string | null
     province: string | null
+    nationality: string | null
     member_no: string | null
   } | null
 }
@@ -51,7 +52,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: true, skipped: true })
   }
 
-  const { email, first_name, last_name, phone, province, member_no } = payload.record
+  const { email, first_name, last_name, phone, province, nationality, member_no } = payload.record
   const teamEmail = process.env.TEAM_NOTIFICATION_EMAIL
   const fromAddress = process.env.EMAIL_FROM_ADDRESS
 
@@ -69,7 +70,14 @@ export async function POST(request: Request) {
       : Promise.resolve(null),
     teamEmail
       ? (() => {
-          const { subject, html } = teamNotificationEmail({ email: email ?? '(ไม่ทราบอีเมล)', firstName: first_name, lastName: last_name, phone, province })
+          const { subject, html } = teamNotificationEmail({
+            email: email ?? '(ไม่ทราบอีเมล)',
+            firstName: first_name,
+            lastName: last_name,
+            phone,
+            province,
+            nationality,
+          })
           return resend.emails.send({ from: fromAddress, to: teamEmail, subject, html })
         })()
       : Promise.resolve(null),

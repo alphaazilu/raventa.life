@@ -4,6 +4,7 @@ import { useActionState, useState } from 'react'
 import { useLanguage } from '@/components/language-provider'
 import { authCopy } from '@/lib/auth/copy'
 import { THAILAND_PROVINCES } from '@/lib/thailand-provinces'
+import { COUNTRIES } from '@/lib/countries'
 import { fieldClass } from '@/lib/form-field-class'
 import { completeProfile, type CompleteProfileState } from '@/app/complete-profile/actions'
 
@@ -16,21 +17,32 @@ export function CompleteProfileForm({
   next,
   defaultFirstName,
   defaultLastName,
+  defaultPhone,
+  defaultProvince,
+  defaultNationality,
 }: {
   next: string
   defaultFirstName: string
   defaultLastName: string
+  defaultPhone: string
+  defaultProvince: string
+  defaultNationality: string
 }) {
   const { tr } = useLanguage()
   const [state, formAction, pending] = useActionState(completeProfile, initialState)
 
   // Controlled so a failed submission (Server Actions reset uncontrolled
   // <form> fields once the action call resolves, success or not) never
-  // wipes out what the person already typed.
+  // wipes out what the person already typed. Defaults are seeded from
+  // whatever the profile already has — this screen isn't only reached by
+  // brand-new Google signups any more; an existing member who's only
+  // missing nationality shouldn't have to retype a phone/province they
+  // already gave.
   const [firstName, setFirstName] = useState(defaultFirstName)
   const [lastName, setLastName] = useState(defaultLastName)
-  const [phone, setPhone] = useState('')
-  const [province, setProvince] = useState('')
+  const [phone, setPhone] = useState(defaultPhone)
+  const [province, setProvince] = useState(defaultProvince)
+  const [nationality, setNationality] = useState(defaultNationality)
   const [acceptPrivacy, setAcceptPrivacy] = useState(false)
   const invalid = (field: string) => Boolean(state?.fieldErrors?.[field])
 
@@ -122,6 +134,32 @@ export function CompleteProfileForm({
               {THAILAND_PROVINCES.map((p) => (
                 <option key={p} value={p}>
                   {p}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label
+              className="text-xs font-semibold tracking-wide uppercase text-muted-foreground"
+              htmlFor="nationality"
+            >
+              {tr(authCopy.nationalityLabel)}
+            </label>
+            <select
+              id="nationality"
+              name="nationality"
+              required
+              value={nationality}
+              onChange={(e) => setNationality(e.target.value)}
+              className={fieldClass(inputBaseClass, invalid('nationality'))}
+            >
+              <option value="" disabled>
+                {tr(authCopy.nationalityPlaceholder)}
+              </option>
+              {COUNTRIES.map((c) => (
+                <option key={c} value={c}>
+                  {c}
                 </option>
               ))}
             </select>

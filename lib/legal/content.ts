@@ -24,8 +24,8 @@ export const privacyPolicySections: Section[] = [
     heading: { th: '2. ข้อมูลที่เราเก็บรวบรวม', en: '2. Information We Collect' },
     paragraphs: [
       {
-        th: 'ข้อมูลที่ท่านให้แก่เราโดยตรง: เมื่อสมัครสมาชิกด้วยอีเมล เราเก็บชื่อ นามสกุล อีเมล เบอร์โทรศัพท์ จังหวัดที่อยู่อาศัย และรหัสผ่าน (จัดเก็บในรูปแบบเข้ารหัส เราไม่สามารถเห็นรหัสผ่านจริงของท่านได้)',
-        en: 'Information you provide directly: when you create an account with email and password, we collect your first name, last name, email address, phone number, and province of residence. Your password is stored in encrypted form — we never see or store your actual password.',
+        th: 'ข้อมูลที่ท่านให้แก่เราโดยตรง: เมื่อสมัครสมาชิก เราเก็บชื่อ นามสกุล อีเมล เบอร์โทรศัพท์ จังหวัดที่อยู่อาศัย สัญชาติ และรหัสผ่าน (จัดเก็บในรูปแบบเข้ารหัส เราไม่สามารถเห็นรหัสผ่านจริงของท่านได้)',
+        en: 'Information you provide directly: when you create an account, we collect your first name, last name, email address, phone number, province of residence, and nationality. Your password is stored in encrypted form — we never see or store your actual password.',
       },
       {
         th: 'ข้อมูลจากการเข้าสู่ระบบผ่านบุคคลที่สาม: หากท่านเข้าสู่ระบบด้วย Google เราจะได้รับชื่อและอีเมลของท่านตามที่แพลตฟอร์มนั้นอนุญาตให้เข้าถึง หากบัญชีของท่านยังไม่มีเบอร์โทรศัพท์และจังหวัดที่อยู่อาศัย เราจะขอให้ท่านกรอกข้อมูลเพิ่มเติมก่อนใช้งานบัญชี',

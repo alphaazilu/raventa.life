@@ -12,6 +12,7 @@ export type AdminMember = {
   email: string | null
   phone: string | null
   province: string | null
+  nationality: string | null
   role: string
 }
 
@@ -61,6 +62,7 @@ export function AdminView({ email, members }: { email: string; members: AdminMem
               <th className="px-4 py-3">{tr(authCopy.emailFieldLabel)}</th>
               <th className="px-4 py-3">{tr(authCopy.phoneFieldLabel)}</th>
               <th className="px-4 py-3">{tr(authCopy.provinceFieldLabel)}</th>
+              <th className="px-4 py-3">{tr(authCopy.nationalityFieldLabel)}</th>
               <th className="px-4 py-3" />
             </tr>
           </thead>
@@ -72,6 +74,7 @@ export function AdminView({ email, members }: { email: string; members: AdminMem
                 <td className="px-4 py-3">{m.email ?? '—'}</td>
                 <td className="whitespace-nowrap px-4 py-3">{m.phone ?? '—'}</td>
                 <td className="px-4 py-3">{m.province ?? '—'}</td>
+                <td className="px-4 py-3">{m.nationality ?? '—'}</td>
                 <td className="whitespace-nowrap px-4 py-3 text-right">
                   <a
                     href={`/admin/members/${m.id}`}
@@ -84,7 +87,7 @@ export function AdminView({ email, members }: { email: string; members: AdminMem
             ))}
             {filtered.length === 0 && (
               <tr>
-                <td colSpan={6} className="px-4 py-6 text-center text-muted-foreground">
+                <td colSpan={7} className="px-4 py-6 text-center text-muted-foreground">
                   {tr(authCopy.adminNoMembersFound)}
                 </td>
               </tr>

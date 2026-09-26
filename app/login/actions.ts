@@ -53,6 +53,7 @@ export async function signUp(_prevState: AuthActionState, formData: FormData): P
   const lastName = String(formData.get('lastName') ?? '').trim()
   const phone = String(formData.get('phone') ?? '').trim()
   const province = String(formData.get('province') ?? '').trim()
+  const nationality = String(formData.get('nationality') ?? '').trim()
   const acceptPrivacy = formData.get('acceptPrivacy') === 'on'
   const siteUrl = process.env.SITE_URL ?? 'http://localhost:3000'
 
@@ -63,6 +64,7 @@ export async function signUp(_prevState: AuthActionState, formData: FormData): P
   if (!lastName) fieldErrors.lastName = 'Please enter your last name.'
   if (!phone) fieldErrors.phone = 'Please enter your phone number.'
   if (!province) fieldErrors.province = 'Please select a province.'
+  if (!nationality) fieldErrors.nationality = 'Please select your nationality.'
   if (!email) fieldErrors.email = 'Please enter your email.'
   if (!SIGNUP_PASSWORD_RE.test(password)) {
     fieldErrors.password = 'Password must be at least 8 characters and include both letters and numbers.'
@@ -88,7 +90,7 @@ export async function signUp(_prevState: AuthActionState, formData: FormData): P
       // Read by the handle_new_user() trigger (see supabase/schema.sql) to
       // fill in the profiles row — this data rides along on auth.users
       // itself, not a separate write, so it can't drift from the account.
-      data: { first_name: firstName, last_name: lastName, phone, province },
+      data: { first_name: firstName, last_name: lastName, phone, province, nationality },
     },
   })
   if (error) return { error: error.message, fieldErrors: { email: error.message } }

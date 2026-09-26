@@ -3,15 +3,20 @@ export type ProfileCompleteness = {
   last_name: string | null
   phone: string | null
   province: string | null
+  nationality: string | null
 }
 
 /**
- * A profile is "complete" once name, phone, and province are all filled in.
- * Email/password signups always arrive complete (the signup form requires
- * these). Google signups never provide phone/province, so they
- * land here incomplete on purpose — see app/complete-profile.
+ * A profile is "complete" once name, phone, province, and nationality are
+ * all filled in. Email/password signups always arrive complete (the signup
+ * form requires these). Google signups never provide phone/province, so
+ * they land here incomplete on purpose — see app/complete-profile. This
+ * same gate also catches any existing account created before "nationality"
+ * was added, regardless of how it originally signed up.
  */
 export function isProfileComplete(profile: ProfileCompleteness | null): boolean {
   if (!profile) return false
-  return Boolean(profile.first_name && profile.last_name && profile.phone && profile.province)
+  return Boolean(
+    profile.first_name && profile.last_name && profile.phone && profile.province && profile.nationality,
+  )
 }

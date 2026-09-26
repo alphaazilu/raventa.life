@@ -14,6 +14,7 @@ export function AccountView({
   lastName,
   phone,
   province,
+  nationality,
   role,
   memberNo,
   signOutAction,
@@ -23,6 +24,7 @@ export function AccountView({
   lastName: string | null
   phone: string | null
   province: string | null
+  nationality: string | null
   role: string
   memberNo: string | null
   signOutAction: () => Promise<void>
@@ -139,6 +141,15 @@ export function AccountView({
               {tr(authCopy.provinceFieldLabel)}
             </p>
             <p className="mt-1 text-card-foreground">{province}</p>
+          </>
+        )}
+
+        {nationality && (
+          <>
+            <p className="mt-4 text-xs font-semibold tracking-wide uppercase text-muted-foreground first:mt-0">
+              {tr(authCopy.nationalityFieldLabel)}
+            </p>
+            <p className="mt-1 text-card-foreground">{nationality}</p>
           </>
         )}
 

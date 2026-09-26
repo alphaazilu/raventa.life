@@ -46,7 +46,7 @@ export async function updateSession(request: NextRequest) {
   if ((isAdminRoute || isAccountRoute) && user) {
     const { data: profile } = await supabase
       .from('profiles')
-      .select('role, first_name, last_name, phone, province')
+      .select('role, first_name, last_name, phone, province, nationality')
       .eq('id', user.id)
       .single()
 

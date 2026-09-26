@@ -4,6 +4,7 @@ import { useActionState, useState } from 'react'
 import { useLanguage } from '@/components/language-provider'
 import { authCopy } from '@/lib/auth/copy'
 import { THAILAND_PROVINCES } from '@/lib/thailand-provinces'
+import { COUNTRIES } from '@/lib/countries'
 import { fieldClass } from '@/lib/form-field-class'
 import { updateMemberProfile, type UpdateMemberState } from '@/app/admin/actions'
 
@@ -20,6 +21,7 @@ type Member = {
   email: string | null
   phone: string | null
   province: string | null
+  nationality: string | null
 }
 
 export function MemberEditForm({ member }: { member: Member }) {
@@ -32,6 +34,7 @@ export function MemberEditForm({ member }: { member: Member }) {
   const [lastName, setLastName] = useState(member.last_name ?? '')
   const [phone, setPhone] = useState(member.phone ?? '')
   const [province, setProvince] = useState(member.province ?? '')
+  const [nationality, setNationality] = useState(member.nationality ?? '')
   const invalid = (field: string) => Boolean(state?.fieldErrors?.[field])
 
   return (
@@ -130,6 +133,32 @@ export function MemberEditForm({ member }: { member: Member }) {
               {THAILAND_PROVINCES.map((p) => (
                 <option key={p} value={p}>
                   {p}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label
+              className="text-xs font-semibold tracking-wide uppercase text-muted-foreground"
+              htmlFor="nationality"
+            >
+              {tr(authCopy.nationalityLabel)}
+            </label>
+            <select
+              id="nationality"
+              name="nationality"
+              required
+              value={nationality}
+              onChange={(e) => setNationality(e.target.value)}
+              className={fieldClass(inputBaseClass, invalid('nationality'))}
+            >
+              <option value="" disabled>
+                {tr(authCopy.nationalityPlaceholder)}
+              </option>
+              {COUNTRIES.map((c) => (
+                <option key={c} value={c}>
+                  {c}
                 </option>
               ))}
             </select>

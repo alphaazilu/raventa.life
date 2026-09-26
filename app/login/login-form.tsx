@@ -4,6 +4,7 @@ import { useActionState, useState } from 'react'
 import { useLanguage } from '@/components/language-provider'
 import { authCopy } from '@/lib/auth/copy'
 import { THAILAND_PROVINCES } from '@/lib/thailand-provinces'
+import { COUNTRIES } from '@/lib/countries'
 import { OAuthButtons } from '@/components/auth/oauth-buttons'
 import { fieldClass } from '@/lib/form-field-class'
 import { signIn, signUp, type AuthActionState } from './actions'
@@ -32,6 +33,7 @@ export function LoginForm({ next }: { next: string }) {
   const [lastName, setLastName] = useState('')
   const [phone, setPhone] = useState('')
   const [province, setProvince] = useState('')
+  const [nationality, setNationality] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
@@ -50,6 +52,7 @@ export function LoginForm({ next }: { next: string }) {
     setLastName('')
     setPhone('')
     setProvince('')
+    setNationality('')
     setEmail('')
     setPassword('')
     setConfirmPassword('')
@@ -179,6 +182,32 @@ export function LoginForm({ next }: { next: string }) {
                     {THAILAND_PROVINCES.map((p) => (
                       <option key={p} value={p}>
                         {p}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label
+                    className="text-xs font-semibold tracking-wide uppercase text-muted-foreground"
+                    htmlFor="nationality"
+                  >
+                    {tr(authCopy.nationalityLabel)}
+                  </label>
+                  <select
+                    id="nationality"
+                    name="nationality"
+                    required
+                    value={nationality}
+                    onChange={(e) => setNationality(e.target.value)}
+                    className={fieldClass(inputBaseClass, invalid('nationality'))}
+                  >
+                    <option value="" disabled>
+                      {tr(authCopy.nationalityPlaceholder)}
+                    </option>
+                    {COUNTRIES.map((c) => (
+                      <option key={c} value={c}>
+                        {c}
                       </option>
                     ))}
                   </select>
