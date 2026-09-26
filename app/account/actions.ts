@@ -2,6 +2,7 @@
 
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
+import { isPhoneTaken, isUniqueViolation, PHONE_TAKEN_MESSAGE_TH } from '@/lib/supabase/phone'
 
 export type UpdatePhoneState = {
   error?: string
@@ -31,9 +32,18 @@ export async function updateOwnPhone(_prevState: UpdatePhoneState, formData: For
   } = await supabase.auth.getUser()
   if (!user) return { error: 'กรุณาเข้าสู่ระบบอีกครั้ง' }
 
+  // One account per phone number — changing to someone else's number is
+  // blocked the same way signing up with it is.
+  if (await isPhoneTaken(supabase, phone, user.id)) {
+    return { error: PHONE_TAKEN_MESSAGE_TH, fieldErrors: { phone: PHONE_TAKEN_MESSAGE_TH } }
+  }
+
   // RLS's "Users can update own profile" policy (auth.uid() = id) is what
   // actually scopes this to the caller's own row.
   const { error } = await supabase.from('profiles').update({ phone }).eq('id', user.id)
+  if (isUniqueViolation(error)) {
+    return { error: PHONE_TAKEN_MESSAGE_TH, fieldErrors: { phone: PHONE_TAKEN_MESSAGE_TH } }
+  }
   if (error) return { error: error.message, fieldErrors: { phone: error.message } }
 
   revalidatePath('/account')

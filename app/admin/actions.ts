@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
+import { isPhoneTaken, isUniqueViolation } from '@/lib/supabase/phone'
 
 export type UpdateMemberState = { error?: string; fieldErrors?: Record<string, string> } | null
 
@@ -47,6 +48,13 @@ export async function updateMemberProfile(
     return { error: 'คุณไม่มีสิทธิ์แก้ไขข้อมูลนี้' }
   }
 
+  // Admin gets a direct message (not the member-facing one) since they need
+  // to know to go look for the other account.
+  const phoneTakenMessage = 'เบอร์โทรศัพท์นี้เป็นของสมาชิกคนอื่นอยู่แล้ว ค้นหาเบอร์นี้ในรายชื่อสมาชิกเพื่อตรวจสอบ'
+  if (await isPhoneTaken(supabase, phone, memberId)) {
+    return { error: phoneTakenMessage, fieldErrors: { phone: phoneTakenMessage } }
+  }
+
   // Deliberately never mentions member_no — the database's protect_member_no
   // trigger (see supabase/schema.sql) would reject it outright even if this
   // ever tried, since that number can only ever be changed by editing the
@@ -57,6 +65,9 @@ export async function updateMemberProfile(
     .update({ first_name: firstName, last_name: lastName, phone, province, nationality })
     .eq('id', memberId)
 
+  if (isUniqueViolation(error)) {
+    return { error: phoneTakenMessage, fieldErrors: { phone: phoneTakenMessage } }
+  }
   if (error) return { error: error.message }
 
   revalidatePath('/admin')

@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
+import { isPhoneTaken, isUniqueViolation, PHONE_TAKEN_MESSAGE_TH } from '@/lib/supabase/phone'
 
 export type CompleteProfileState = { error?: string; fieldErrors?: Record<string, string> } | null
 
@@ -56,6 +57,12 @@ export async function completeProfile(
   } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
+  // Google signups set their phone here rather than on the signup form, so
+  // the one-account-per-phone rule is checked here too.
+  if (await isPhoneTaken(supabase, phone, user.id)) {
+    return { error: PHONE_TAKEN_MESSAGE_TH, fieldErrors: { phone: PHONE_TAKEN_MESSAGE_TH } }
+  }
+
   // upsert, not update: if the profiles row is missing for any reason (for
   // example it was deleted directly in the table editor), a plain update
   // silently affects 0 rows and returns no error — the person would then
@@ -68,6 +75,9 @@ export async function completeProfile(
       { onConflict: 'id' },
     )
 
+  if (isUniqueViolation(error)) {
+    return { error: PHONE_TAKEN_MESSAGE_TH, fieldErrors: { phone: PHONE_TAKEN_MESSAGE_TH } }
+  }
   if (error) return { error: error.message }
 
   revalidatePath('/', 'layout')

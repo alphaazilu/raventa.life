@@ -202,5 +202,68 @@ create trigger protect_member_no
   before update on public.profiles
   for each row execute function public.protect_member_no();
 
--- 6. Promote an account to admin (run manually, once, per admin user):
+-- 6. One account per phone number. Email is already unique (Supabase Auth
+-- enforces that on auth.users); this does the same for phone.
+--
+-- Phones are compared digits-only so "081-234-5678" and "0812345678" count
+-- as the same number, even for rows saved before the app enforced the
+-- digits-only format.
+--
+-- phone_is_taken() lets the app ask "is this number already used?" before
+-- signing someone up. It's SECURITY DEFINER because a person on the signup
+-- form isn't logged in yet, so RLS wouldn't let them see anyone else's
+-- row — this only ever answers true/false and never returns the row itself.
+-- p_exclude_id skips the caller's own row, so saving your own unchanged
+-- number never counts as a clash.
+create or replace function public.phone_is_taken(p_phone text, p_exclude_id uuid default null)
+returns boolean
+language sql
+security definer
+set search_path = public
+stable
+as $$
+  select exists (
+    select 1 from public.profiles
+    where regexp_replace(coalesce(p_phone, ''), '\D', '', 'g') <> ''
+      and regexp_replace(coalesce(phone, ''), '\D', '', 'g')
+          = regexp_replace(coalesce(p_phone, ''), '\D', '', 'g')
+      and (p_exclude_id is null or id <> p_exclude_id)
+  );
+$$;
+
+grant execute on function public.phone_is_taken(text, uuid) to anon, authenticated;
+
+-- The unique index is the real guarantee: the phone_is_taken() check in the
+-- app can race (two signups with the same number at the same moment), and
+-- this index is what makes the second one fail. It can only be created once
+-- no duplicates exist, so if some are already in the table this skips it
+-- and prints a notice instead of failing the whole file. Find them with:
+--
+--   select regexp_replace(phone, '\D', '', 'g') as phone_digits,
+--          array_agg(member_no || ' ' || coalesce(email, '')) as members
+--   from public.profiles
+--   where coalesce(phone, '') <> ''
+--   group by 1 having count(*) > 1;
+--
+-- Fix those rows (edit or clear the phone), then re-run this file.
+do $$
+begin
+  if exists (select 1 from pg_indexes where schemaname = 'public' and indexname = 'profiles_phone_digits_key') then
+    return;
+  end if;
+  if exists (
+    select 1 from public.profiles
+    where coalesce(phone, '') <> ''
+    group by regexp_replace(phone, '\D', '', 'g')
+    having count(*) > 1
+  ) then
+    raise notice 'profiles_phone_digits_key NOT created: duplicate phone numbers exist. See the query in the comment in section 6.';
+  else
+    create unique index profiles_phone_digits_key
+      on public.profiles ((regexp_replace(phone, '\D', '', 'g')))
+      where coalesce(phone, '') <> '';
+  end if;
+end $$;
+
+-- 7. Promote an account to admin (run manually, once, per admin user):
 -- update public.profiles set role = 'admin' where email = 'owner@raventa.com';
