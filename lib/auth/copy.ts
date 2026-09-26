@@ -66,4 +66,16 @@ export const authCopy: Record<string, Bilingual> = {
   newPasswordLabel: { th: 'รหัสผ่านใหม่', en: 'New Password' },
   resetPasswordButton: { th: 'บันทึกรหัสผ่านใหม่', en: 'Save New Password' },
   changePasswordLink: { th: 'เปลี่ยนรหัสผ่าน', en: 'Change Password' },
+  acceptPrivacyBefore: { th: 'ฉันได้อ่านและยอมรับ', en: 'I have read and agree to the' },
+  acceptPrivacyPolicyLink: { th: 'นโยบายความเป็นส่วนตัว', en: 'Privacy Policy' },
+  acceptPrivacyAnd: { th: 'และ', en: 'and' },
+  acceptPrivacyTermsLink: { th: 'ข้อกำหนดการใช้งาน', en: 'Terms of Service' },
+  acceptPrivacyRequired: {
+    th: 'กรุณายอมรับนโยบายความเป็นส่วนตัวและข้อกำหนดการใช้งานก่อนสมัครสมาชิก',
+    en: 'Please accept the Privacy Policy and Terms of Service before creating an account.',
+  },
+  oauthConsentNote: {
+    th: 'การดำเนินการต่อถือว่าคุณยอมรับนโยบายความเป็นส่วนตัวและข้อกำหนดการใช้งานของเรา',
+    en: 'By continuing, you agree to our Privacy Policy and Terms of Service.',
+  },
 }

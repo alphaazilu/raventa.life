@@ -22,6 +22,7 @@ export async function completeProfile(
   const lastName = String(formData.get('lastName') ?? '').trim()
   const phone = String(formData.get('phone') ?? '').trim()
   const province = String(formData.get('province') ?? '').trim()
+  const acceptPrivacy = formData.get('acceptPrivacy') === 'on'
   const next = safeNext(formData.get('next'))
 
   // Collect every problem at once so every field that needs fixing can be
@@ -36,6 +37,13 @@ export async function completeProfile(
     fieldErrors.phone = 'กรุณากรอกเบอร์โทรศัพท์ 9-10 หลัก'
   }
   if (!province) fieldErrors.province = 'กรุณาเลือกจังหวัด'
+  // This is a first-time OAuth signup's one and only stop before an account
+  // is usable, so it's where consent gets captured for that path — enforced
+  // server-side too since a request can always skip the checkbox's
+  // client-side "required" attribute.
+  if (!acceptPrivacy) {
+    fieldErrors.acceptPrivacy = 'กรุณายอมรับนโยบายความเป็นส่วนตัวและข้อกำหนดการใช้งานก่อนใช้งานบัญชี'
+  }
   if (Object.keys(fieldErrors).length > 0) {
     return { error: 'กรุณากรอกข้อมูลให้ครบและถูกต้อง', fieldErrors }
   }

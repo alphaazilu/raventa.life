@@ -1,6 +1,7 @@
 'use client'
 
 import Image from 'next/image'
+import { usePathname } from 'next/navigation'
 import { useLanguage } from '@/components/language-provider'
 import { t } from '@/lib/i18n'
 
@@ -13,6 +14,14 @@ const links = [
 
 export function SiteFooter() {
   const { tr } = useLanguage()
+  const pathname = usePathname()
+  const isHome = pathname === '/'
+
+  // Hash-only links only work while already on the homepage; elsewhere
+  // (e.g. /privacy, /terms) they need to point back to "/" first so they
+  // actually navigate home before scrolling to the section. Mirrors the
+  // same fix already in site-header.tsx.
+  const resolveHref = (href: string) => (href.startsWith('#') && !isHome ? `/${href}` : href)
 
   return (
     <footer className="bg-accent text-accent-foreground">
@@ -34,7 +43,7 @@ export function SiteFooter() {
             {links.map((link) => (
               <a
                 key={link.key}
-                href={link.href}
+                href={resolveHref(link.href)}
                 className="text-sm font-medium text-accent-foreground/80 transition-colors hover:text-white"
               >
                 {tr(t.nav[link.key])}

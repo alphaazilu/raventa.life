@@ -53,6 +53,7 @@ export async function signUp(_prevState: AuthActionState, formData: FormData): P
   const lastName = String(formData.get('lastName') ?? '').trim()
   const phone = String(formData.get('phone') ?? '').trim()
   const province = String(formData.get('province') ?? '').trim()
+  const acceptPrivacy = formData.get('acceptPrivacy') === 'on'
   const siteUrl = process.env.SITE_URL ?? 'http://localhost:3000'
 
   // Collect every problem at once rather than stopping at the first one,
@@ -68,6 +69,11 @@ export async function signUp(_prevState: AuthActionState, formData: FormData): P
   }
   if (password !== confirmPassword) {
     fieldErrors.confirmPassword = 'Passwords do not match.'
+  }
+  // Enforced again here since a request can always skip the checkbox's
+  // client-side "required" attribute (e.g. a direct form POST).
+  if (!acceptPrivacy) {
+    fieldErrors.acceptPrivacy = 'Please accept the Privacy Policy and Terms of Service.'
   }
   if (Object.keys(fieldErrors).length > 0) {
     return { error: 'Please check the highlighted fields.', fieldErrors }

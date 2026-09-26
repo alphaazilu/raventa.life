@@ -35,6 +35,7 @@ export function LoginForm({ next }: { next: string }) {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
+  const [acceptPrivacy, setAcceptPrivacy] = useState(false)
 
   const [loginState, loginAction, loginPending] = useActionState(signIn, initialState)
   const [signupState, signupAction, signupPending] = useActionState(signUp, initialState)
@@ -52,6 +53,7 @@ export function LoginForm({ next }: { next: string }) {
     setEmail('')
     setPassword('')
     setConfirmPassword('')
+    setAcceptPrivacy(false)
   }
 
   return (
@@ -252,11 +254,49 @@ export function LoginForm({ next }: { next: string }) {
               </div>
             )}
 
+            {mode === 'signup' && (
+              <div>
+                <label className="flex items-start gap-2.5 text-xs leading-relaxed text-muted-foreground">
+                  <input
+                    type="checkbox"
+                    name="acceptPrivacy"
+                    required
+                    checked={acceptPrivacy}
+                    onChange={(e) => setAcceptPrivacy(e.target.checked)}
+                    className="mt-0.5 h-4 w-4 shrink-0 rounded border-border text-primary focus:ring-2 focus:ring-primary"
+                  />
+                  <span>
+                    {tr(authCopy.acceptPrivacyBefore)}{' '}
+                    <a
+                      href="/privacy"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="font-medium text-primary underline-offset-2 hover:underline"
+                    >
+                      {tr(authCopy.acceptPrivacyPolicyLink)}
+                    </a>{' '}
+                    {tr(authCopy.acceptPrivacyAnd)}{' '}
+                    <a
+                      href="/terms"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="font-medium text-primary underline-offset-2 hover:underline"
+                    >
+                      {tr(authCopy.acceptPrivacyTermsLink)}
+                    </a>
+                  </span>
+                </label>
+                {invalid('acceptPrivacy') && (
+                  <p className="mt-1.5 text-xs text-destructive">{tr(authCopy.acceptPrivacyRequired)}</p>
+                )}
+              </div>
+            )}
+
             {state?.error && <p className="text-sm text-destructive">{state.error}</p>}
 
             <button
               type="submit"
-              disabled={pending || passwordsMismatch}
+              disabled={pending || passwordsMismatch || (mode === 'signup' && !acceptPrivacy)}
               className="w-full rounded-full bg-primary px-6 py-3 text-sm font-semibold text-primary-foreground transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
             >
               {mode === 'login' ? tr(authCopy.loginButton) : tr(authCopy.signupButton)}
@@ -271,6 +311,9 @@ export function LoginForm({ next }: { next: string }) {
         </div>
 
         <OAuthButtons next={next} />
+        <p className="mt-3 text-center text-[11px] leading-relaxed text-muted-foreground/80">
+          {tr(authCopy.oauthConsentNote)}
+        </p>
       </div>
     </div>
   )

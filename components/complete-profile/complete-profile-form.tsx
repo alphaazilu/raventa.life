@@ -31,6 +31,7 @@ export function CompleteProfileForm({
   const [lastName, setLastName] = useState(defaultLastName)
   const [phone, setPhone] = useState('')
   const [province, setProvince] = useState('')
+  const [acceptPrivacy, setAcceptPrivacy] = useState(false)
   const invalid = (field: string) => Boolean(state?.fieldErrors?.[field])
 
   return (
@@ -126,11 +127,47 @@ export function CompleteProfileForm({
             </select>
           </div>
 
+          <div>
+            <label className="flex items-start gap-2.5 text-xs leading-relaxed text-muted-foreground">
+              <input
+                type="checkbox"
+                name="acceptPrivacy"
+                required
+                checked={acceptPrivacy}
+                onChange={(e) => setAcceptPrivacy(e.target.checked)}
+                className="mt-0.5 h-4 w-4 shrink-0 rounded border-border text-primary focus:ring-2 focus:ring-primary"
+              />
+              <span>
+                {tr(authCopy.acceptPrivacyBefore)}{' '}
+                <a
+                  href="/privacy"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="font-medium text-primary underline-offset-2 hover:underline"
+                >
+                  {tr(authCopy.acceptPrivacyPolicyLink)}
+                </a>{' '}
+                {tr(authCopy.acceptPrivacyAnd)}{' '}
+                <a
+                  href="/terms"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="font-medium text-primary underline-offset-2 hover:underline"
+                >
+                  {tr(authCopy.acceptPrivacyTermsLink)}
+                </a>
+              </span>
+            </label>
+            {invalid('acceptPrivacy') && (
+              <p className="mt-1.5 text-xs text-destructive">{tr(authCopy.acceptPrivacyRequired)}</p>
+            )}
+          </div>
+
           {state?.error && <p className="text-sm text-destructive">{state.error}</p>}
 
           <button
             type="submit"
-            disabled={pending}
+            disabled={pending || !acceptPrivacy}
             className="w-full rounded-full bg-primary px-6 py-3 text-sm font-semibold text-primary-foreground transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {tr(authCopy.saveButton)}
