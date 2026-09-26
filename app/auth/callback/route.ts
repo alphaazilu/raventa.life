@@ -2,8 +2,8 @@ import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { isProfileComplete } from '@/lib/supabase/profile'
 
-// Handles the redirect back from Supabase after email confirmation or an
-// OAuth provider (Google / Facebook) login.
+// Handles the redirect back from Supabase after email confirmation or a
+// Google OAuth login.
 export async function GET(request: Request) {
   const { searchParams, origin } = new URL(request.url)
   const code = searchParams.get('code')
@@ -13,7 +13,7 @@ export async function GET(request: Request) {
     const supabase = await createClient()
     const { error } = await supabase.auth.exchangeCodeForSession(code)
     if (!error) {
-      // Google/Facebook never send phone/province, so a fresh OAuth signup
+      // Google never sends phone/province, so a fresh OAuth signup
       // is incomplete on the very first request after login — send them to
       // fill it in immediately rather than waiting until they hit /account.
       const {

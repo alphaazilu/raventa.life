@@ -50,7 +50,7 @@ export async function updateSession(request: NextRequest) {
       .eq('id', user.id)
       .single()
 
-    // Google/Facebook signups never collect phone/province — catch that
+    // Google signups never collect phone/province — catch that
     // here too, not just right after OAuth, in case someone navigates
     // straight to /account or /admin later without finishing that step.
     if (!isProfileComplete(profile)) {

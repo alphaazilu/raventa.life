@@ -25,27 +25,19 @@ function GoogleIcon(props: React.SVGProps<SVGSVGElement>) {
   )
 }
 
-function FacebookIcon(props: React.SVGProps<SVGSVGElement>) {
-  return (
-    <svg viewBox="0 0 20 20" fill="#1877F2" {...props}>
-      <path d="M20 10a10 10 0 1 0-11.56 9.88v-6.99H5.9V10h2.54V7.8c0-2.5 1.49-3.89 3.77-3.89 1.1 0 2.24.2 2.24.2v2.46h-1.26c-1.24 0-1.63.77-1.63 1.56V10h2.78l-.44 2.89h-2.34v6.99A10 10 0 0 0 20 10Z" />
-    </svg>
-  )
-}
-
 export function OAuthButtons({ next }: { next: string }) {
   const { tr } = useLanguage()
-  const [loadingProvider, setLoadingProvider] = useState<'google' | 'facebook' | null>(null)
+  const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  const handleOAuth = async (provider: 'google' | 'facebook') => {
+  const handleOAuth = async () => {
     setError(null)
-    setLoadingProvider(provider)
+    setLoading(true)
     const supabase = createClient()
     const redirectTo = `${window.location.origin}/auth/callback?next=${encodeURIComponent(next)}`
-    const { error: oauthError } = await supabase.auth.signInWithOAuth({ provider, options: { redirectTo } })
+    const { error: oauthError } = await supabase.auth.signInWithOAuth({ provider: 'google', options: { redirectTo } })
     if (oauthError) {
-      setLoadingProvider(null)
+      setLoading(false)
       setError(oauthError.message)
     }
   }
@@ -54,21 +46,12 @@ export function OAuthButtons({ next }: { next: string }) {
     <div className="mt-6 space-y-3">
       <button
         type="button"
-        onClick={() => handleOAuth('google')}
-        disabled={loadingProvider !== null}
+        onClick={handleOAuth}
+        disabled={loading}
         className="flex w-full items-center justify-center gap-2.5 rounded-full border border-border bg-background px-6 py-3 text-sm font-semibold text-foreground transition-colors hover:border-primary/40 disabled:cursor-not-allowed disabled:opacity-50"
       >
         <GoogleIcon className="h-4 w-4 shrink-0" />
         {tr(authCopy.google)}
-      </button>
-      <button
-        type="button"
-        onClick={() => handleOAuth('facebook')}
-        disabled={loadingProvider !== null}
-        className="flex w-full items-center justify-center gap-2.5 rounded-full border border-border bg-background px-6 py-3 text-sm font-semibold text-foreground transition-colors hover:border-primary/40 disabled:cursor-not-allowed disabled:opacity-50"
-      >
-        <FacebookIcon className="h-4 w-4 shrink-0" />
-        {tr(authCopy.facebook)}
       </button>
       {error && <p className="text-center text-xs text-destructive">{error}</p>}
     </div>

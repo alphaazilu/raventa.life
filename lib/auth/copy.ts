@@ -20,7 +20,6 @@ export const authCopy: Record<string, Bilingual> = {
   signupButton: { th: 'สมัครสมาชิก', en: 'Create Account' },
   orContinueWith: { th: 'หรือดำเนินการต่อด้วย', en: 'Or continue with' },
   google: { th: 'ดำเนินการต่อด้วย Google', en: 'Continue with Google' },
-  facebook: { th: 'ดำเนินการต่อด้วย Facebook', en: 'Continue with Facebook' },
   signupSuccess: {
     th: 'สมัครสำเร็จ! กรุณาตรวจสอบอีเมลเพื่อยืนยันบัญชีก่อนเข้าสู่ระบบ',
     en: 'Success! Please check your email to confirm your account before logging in.',
@@ -45,8 +44,8 @@ export const authCopy: Record<string, Bilingual> = {
   backHome: { th: '← กลับหน้าหลัก', en: '← Back to homepage' },
   completeProfileHeading: { th: 'กรอกข้อมูลให้ครบก่อนใช้งาน', en: 'Complete Your Profile' },
   completeProfileSub: {
-    th: 'เนื่องจากคุณเข้าสู่ระบบด้วย Google/Facebook เราจึงยังไม่มีเบอร์โทรและจังหวัดของคุณ กรุณากรอกข้อมูลให้ครบก่อนใช้งานบัญชี',
-    en: "Since you signed in with Google or Facebook, we don't have your phone number and province yet. Please fill these in before using your account.",
+    th: 'เนื่องจากคุณเข้าสู่ระบบด้วย Google เราจึงยังไม่มีเบอร์โทรและจังหวัดของคุณ กรุณากรอกข้อมูลให้ครบก่อนใช้งานบัญชี',
+    en: "Since you signed in with Google, we don't have your phone number and province yet. Please fill these in before using your account.",
   },
   saveButton: { th: 'บันทึกและดำเนินการต่อ', en: 'Save and Continue' },
   forgotPasswordLink: { th: 'ลืมรหัสผ่าน?', en: 'Forgot password?' },

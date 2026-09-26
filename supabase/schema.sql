@@ -60,8 +60,8 @@ end $$;
 
 alter table public.profiles enable row level security;
 
--- 2. Auto-create a profile row whenever someone signs up (email/password,
---    Google, or Facebook all funnel through auth.users the same way).
+-- 2. Auto-create a profile row whenever someone signs up (email/password or
+--    Google both funnel through auth.users the same way).
 --    Email/password signups send first_name/last_name/phone/province via
 --    supabase.auth.signUp({ options: { data: { ... } } }). Google sometimes
 --    provides given_name/family_name too, so that's used as a fallback —

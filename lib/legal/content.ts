@@ -28,8 +28,8 @@ export const privacyPolicySections: Section[] = [
         en: 'Information you provide directly: when you create an account with email and password, we collect your first name, last name, email address, phone number, and province of residence. Your password is stored in encrypted form — we never see or store your actual password.',
       },
       {
-        th: 'ข้อมูลจากการเข้าสู่ระบบผ่านบุคคลที่สาม: หากท่านเข้าสู่ระบบด้วย Google หรือ Facebook เราจะได้รับชื่อและอีเมลของท่านตามที่แพลตฟอร์มนั้นอนุญาตให้เข้าถึง หากบัญชีของท่านยังไม่มีเบอร์โทรศัพท์และจังหวัดที่อยู่อาศัย เราจะขอให้ท่านกรอกข้อมูลเพิ่มเติมก่อนใช้งานบัญชี',
-        en: 'Information from third-party sign-in: if you sign in with Google or Facebook, we receive your name and email as permitted by that platform. If your account is still missing a phone number or province, we will ask you to provide them before you can use your account.',
+        th: 'ข้อมูลจากการเข้าสู่ระบบผ่านบุคคลที่สาม: หากท่านเข้าสู่ระบบด้วย Google เราจะได้รับชื่อและอีเมลของท่านตามที่แพลตฟอร์มนั้นอนุญาตให้เข้าถึง หากบัญชีของท่านยังไม่มีเบอร์โทรศัพท์และจังหวัดที่อยู่อาศัย เราจะขอให้ท่านกรอกข้อมูลเพิ่มเติมก่อนใช้งานบัญชี',
+        en: 'Information from third-party sign-in: if you sign in with Google, we receive your name and email as permitted by that platform. If your account is still missing a phone number or province, we will ask you to provide them before you can use your account.',
       },
       {
         th: 'ข้อมูลการใช้งานเว็บไซต์: เราใช้คุกกี้ที่จำเป็นสำหรับการเข้าสู่ระบบ (session cookie) และอาจเก็บสถิติการเข้าชมเว็บไซต์แบบไม่ระบุตัวตนผ่านบริการวิเคราะห์ของ Vercel Analytics',
@@ -50,8 +50,8 @@ export const privacyPolicySections: Section[] = [
     heading: { th: '4. การเปิดเผยข้อมูลต่อบุคคลที่สาม', en: '4. Sharing Your Information' },
     paragraphs: [
       {
-        th: 'เราไม่ขายข้อมูลส่วนบุคคลของท่าน เราเปิดเผยข้อมูลให้แก่ผู้ให้บริการที่จำเป็นต่อการดำเนินงานของเว็บไซต์เท่านั้น ได้แก่: Supabase (ฐานข้อมูลและระบบยืนยันตัวตน), Resend (บริการส่งอีเมล), Google และ Facebook (สำหรับการเข้าสู่ระบบด้วยบัญชีของท่าน), Vercel (โฮสติ้งเว็บไซต์และสถิติการเข้าชม) ผู้ให้บริการเหล่านี้อาจตั้งอยู่นอกประเทศไทย และมีนโยบายคุ้มครองข้อมูลของตนเองซึ่งท่านควรศึกษาเพิ่มเติม',
-        en: 'We do not sell your personal data. We only share information with service providers necessary to operate the Website: Supabase (database and authentication), Resend (transactional email), Google and Facebook (for signing in with your account there), and Vercel (website hosting and analytics). These providers may be located outside Thailand and maintain their own privacy policies, which we encourage you to review.',
+        th: 'เราไม่ขายข้อมูลส่วนบุคคลของท่าน เราเปิดเผยข้อมูลให้แก่ผู้ให้บริการที่จำเป็นต่อการดำเนินงานของเว็บไซต์เท่านั้น ได้แก่: Supabase (ฐานข้อมูลและระบบยืนยันตัวตน), Resend (บริการส่งอีเมล), Google (สำหรับการเข้าสู่ระบบด้วยบัญชีของท่าน), Vercel (โฮสติ้งเว็บไซต์และสถิติการเข้าชม) ผู้ให้บริการเหล่านี้อาจตั้งอยู่นอกประเทศไทย และมีนโยบายคุ้มครองข้อมูลของตนเองซึ่งท่านควรศึกษาเพิ่มเติม',
+        en: 'We do not sell your personal data. We only share information with service providers necessary to operate the Website: Supabase (database and authentication), Resend (transactional email), Google (for signing in with your account there), and Vercel (website hosting and analytics). These providers may be located outside Thailand and maintain their own privacy policies, which we encourage you to review.',
       },
       {
         th: 'หน้าติดต่อเราบนเว็บไซต์มีการฝัง Google Maps ซึ่งอาจมีการเก็บข้อมูลตามนโยบายความเป็นส่วนตัวของ Google เอง',
@@ -192,8 +192,8 @@ export const termsSections: Section[] = [
     heading: { th: '6. บริการของบุคคลที่สาม', en: '6. Third-Party Services' },
     paragraphs: [
       {
-        th: 'เว็บไซต์อาจมีลิงก์หรือฝังบริการของบุคคลที่สาม เช่น Google Maps หรือการเข้าสู่ระบบผ่าน Google และ Facebook เราไม่รับผิดชอบต่อเนื้อหา ความถูกต้อง หรือแนวปฏิบัติด้านความเป็นส่วนตัวของบริการเหล่านั้น ซึ่งอยู่ภายใต้ข้อกำหนดของผู้ให้บริการแต่ละราย',
-        en: 'The Website may link to or embed third-party services such as Google Maps, or offer sign-in through Google and Facebook. We are not responsible for the content, accuracy, or privacy practices of those services, which are governed by each provider’s own terms.',
+        th: 'เว็บไซต์อาจมีลิงก์หรือฝังบริการของบุคคลที่สาม เช่น Google Maps หรือการเข้าสู่ระบบผ่าน Google เราไม่รับผิดชอบต่อเนื้อหา ความถูกต้อง หรือแนวปฏิบัติด้านความเป็นส่วนตัวของบริการเหล่านั้น ซึ่งอยู่ภายใต้ข้อกำหนดของผู้ให้บริการแต่ละราย',
+        en: 'The Website may link to or embed third-party services such as Google Maps, or offer sign-in through Google. We are not responsible for the content, accuracy, or privacy practices of those services, which are governed by each provider’s own terms.',
       },
     ],
   },
