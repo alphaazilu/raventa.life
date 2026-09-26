@@ -46,9 +46,19 @@ alter table public.profiles add column if not exists member_no text;
 -- value, so the loop only ever runs more than once when a manually-assigned
 -- number happens to fall in its path — at that point it's simply skipped
 -- and the next one is tried.
+--
+-- SECURITY DEFINER is what makes that skip actually work. Without it, the
+-- "is this number taken?" check runs under the caller's row-level security:
+-- when a member's own request creates their profile (the upsert in
+-- app/complete-profile/actions.ts, e.g. after the row was deleted), they
+-- can only see their own row, so every other member's number looks free
+-- and a hand-picked number in the sequence's path causes a
+-- duplicate-key error instead of being skipped.
 create or replace function public.next_member_no()
 returns text
 language plpgsql
+security definer
+set search_path = public
 as $$
 declare
   candidate text;
