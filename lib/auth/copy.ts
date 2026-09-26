@@ -22,6 +22,7 @@ export const authCopy: Record<string, Bilingual> = {
   signupButton: { th: 'สมัครสมาชิก', en: 'Create Account' },
   orContinueWith: { th: 'หรือดำเนินการต่อด้วย', en: 'Or continue with' },
   google: { th: 'ดำเนินการต่อด้วย Google', en: 'Continue with Google' },
+  line: { th: 'ดำเนินการต่อด้วย LINE', en: 'Continue with LINE' },
   signupSuccess: {
     th: 'สมัครสำเร็จ! กรุณาตรวจสอบอีเมลเพื่อยืนยันบัญชีก่อนเข้าสู่ระบบ',
     en: 'Success! Please check your email to confirm your account before logging in.',

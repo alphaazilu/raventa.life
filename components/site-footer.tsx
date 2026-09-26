@@ -66,6 +66,11 @@ export function SiteFooter() {
           <p>
             &copy; {new Date().getFullYear()} RAVENTA Wellness Center, Rayong. {tr(t.footer.rights)}
           </p>
+          {/* Set in next.config.mjs from package.json + the Vercel commit. */}
+          <p className="font-mono text-[10px] text-accent-foreground/40">
+            v{process.env.NEXT_PUBLIC_APP_VERSION}
+            {process.env.NEXT_PUBLIC_COMMIT_SHA ? ` · ${process.env.NEXT_PUBLIC_COMMIT_SHA}` : ''}
+          </p>
         </div>
       </div>
     </footer>

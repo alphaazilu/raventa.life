@@ -74,7 +74,8 @@ export function AccountView({
         <p className="mt-4 text-xs font-semibold tracking-wide uppercase text-muted-foreground first:mt-0">
           {tr(authCopy.emailFieldLabel)}
         </p>
-        <p className="mt-1 text-card-foreground">{email}</p>
+        {/* LINE accounts often have no email at all. */}
+        <p className="mt-1 text-card-foreground">{email || '—'}</p>
 
         {phone && (
           <>

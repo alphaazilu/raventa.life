@@ -1,3 +1,12 @@
+import { readFileSync } from 'node:fs'
+
+// Shown in the site footer. The version comes from package.json — bump it
+// there with each release. The short commit hash is filled in by Vercel on
+// every deploy (empty locally), so a footer screenshot always pins down
+// exactly which build someone was looking at.
+const pkg = JSON.parse(readFileSync(new URL('./package.json', import.meta.url), 'utf8'))
+const commitSha = (process.env.VERCEL_GIT_COMMIT_SHA ?? '').slice(0, 7)
+
 // Content-Security-Policy: same-origin by default; explicit allowances only
 // for what this site actually needs — Supabase (auth + data), Vercel
 // Analytics, and the Google Maps embed on the contact section.
@@ -28,6 +37,10 @@ const securityHeaders = [
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  env: {
+    NEXT_PUBLIC_APP_VERSION: pkg.version,
+    NEXT_PUBLIC_COMMIT_SHA: commitSha,
+  },
   typescript: {
     ignoreBuildErrors: true,
   },
