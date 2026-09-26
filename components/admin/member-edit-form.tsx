@@ -52,9 +52,6 @@ export function MemberEditForm({ member }: { member: Member }) {
             {tr(authCopy.memberNoFieldLabel)}
           </p>
           <p className="mt-1 font-mono text-lg tracking-wider text-primary">{member.member_no ?? '—'}</p>
-          <p className="mt-2 text-xs leading-relaxed text-muted-foreground">
-            {tr(authCopy.adminMemberNoReadonlyNote)}
-          </p>
         </div>
 
         <form action={formAction} className="mt-6 space-y-4">

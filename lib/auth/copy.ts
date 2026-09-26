@@ -84,8 +84,4 @@ export const authCopy: Record<string, Bilingual> = {
   adminNoMembersFound: { th: 'ไม่พบสมาชิกที่ค้นหา', en: 'No members match your search.' },
   adminBackToMembers: { th: '← กลับไปรายชื่อสมาชิก', en: '← Back to members' },
   adminEditMemberHeading: { th: 'แก้ไขข้อมูลสมาชิก', en: 'Edit Member' },
-  adminMemberNoReadonlyNote: {
-    th: 'ไม่สามารถแก้ไขหมายเลขสมาชิกได้จากหน้านี้ หากต้องการเปลี่ยน (เช่น เลขมงคลที่สมาชิกร้องขอ) กรุณาแก้ไขในฐานข้อมูลโดยตรง',
-    en: 'The membership number cannot be edited here. To change it (e.g. an auspicious number a member requested), edit it directly in the database.',
-  },
 }
