@@ -20,7 +20,7 @@ export default async function AccountPage() {
 
   const { data: profile } = await supabase
     .from('profiles')
-    .select('role, first_name, last_name, phone, province, nationality, member_no')
+    .select('role, email, first_name, last_name, phone, province, nationality, member_no')
     .eq('id', user.id)
     .single()
 
@@ -29,7 +29,9 @@ export default async function AccountPage() {
       <SiteHeader />
       <main className="min-h-screen bg-background pt-24 md:pt-28">
         <AccountView
-          email={user.email ?? ''}
+          // LINE members have no login email (Supabase gives ""), so fall
+          // back to the one they typed on /complete-profile.
+          email={user.email || profile?.email || ''}
           firstName={profile?.first_name ?? null}
           lastName={profile?.last_name ?? null}
           phone={profile?.phone ?? null}

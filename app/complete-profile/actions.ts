@@ -78,7 +78,9 @@ export async function completeProfile(
     return { error: 'กรุณากรอกข้อมูลให้ครบและถูกต้อง', fieldErrors }
   }
 
-  const email = user.email ?? typedEmail
+  // `||`, not `??`: Supabase reports a LINE account's missing email as ""
+  // rather than null, and "" must fall through to the typed email too.
+  const email = user.email || typedEmail
 
   // Someone who already has an account (e.g. signed up with Google) and
   // now signs in with LINE would otherwise get a second membership. Stop
