@@ -63,7 +63,7 @@ export async function startOAuth(provider: OAuthProvider, next: string) {
   })
 }
 
-export function OAuthButtons({ next }: { next: string }) {
+export function OAuthButtons({ next, hideGoogle = false }: { next: string; hideGoogle?: boolean }) {
   const { tr } = useLanguage()
   const [loading, setLoading] = useState<OAuthProvider | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -92,15 +92,17 @@ export function OAuthButtons({ next }: { next: string }) {
         {loading === 'custom:line' ? <Spinner className="h-5 w-5" /> : <LineIcon className="h-5 w-5 shrink-0 text-white" />}
         {tr(authCopy.line)}
       </button>
-      <button
-        type="button"
-        onClick={() => handleOAuth('google')}
-        disabled={loading !== null}
-        className="flex w-full items-center justify-center gap-2.5 rounded-full border border-border bg-background px-6 py-3 text-sm font-semibold text-foreground transition-colors hover:border-primary/40 disabled:cursor-not-allowed disabled:opacity-50"
-      >
-        {loading === 'google' ? <Spinner /> : <GoogleIcon className="h-4 w-4 shrink-0" />}
-        {tr(authCopy.google)}
-      </button>
+      {!hideGoogle && (
+        <button
+          type="button"
+          onClick={() => handleOAuth('google')}
+          disabled={loading !== null}
+          className="flex w-full items-center justify-center gap-2.5 rounded-full border border-border bg-background px-6 py-3 text-sm font-semibold text-foreground transition-colors hover:border-primary/40 disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          {loading === 'google' ? <Spinner /> : <GoogleIcon className="h-4 w-4 shrink-0" />}
+          {tr(authCopy.google)}
+        </button>
+      )}
       {error && <p className="text-center text-xs text-destructive">{error}</p>}
     </div>
   )

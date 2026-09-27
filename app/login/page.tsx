@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import { redirect } from 'next/navigation'
+import { headers } from 'next/headers'
 import { SiteHeader } from '@/components/site-header'
 import { SiteFooter } from '@/components/site-footer'
 import { createClient } from '@/lib/supabase/server'
@@ -48,11 +49,19 @@ export default async function LoginPage({
     )
   }
 
+  // Google refuses to sign anyone in from inside another app's browser
+  // (error "disallowed_useragent"), and LINE's in-app browser is one of
+  // those — so there the Google button would only ever fail. Hide it inside
+  // LINE; LINE and email/password stay. Opened directly in Safari/Chrome or
+  // on a computer, every option shows.
+  const userAgent = (await headers()).get('user-agent') ?? ''
+  const inLineApp = /\bLine\/\d/i.test(userAgent)
+
   return (
     <>
       <SiteHeader />
       <main className="min-h-screen bg-background pt-24 md:pt-28">
-        <LoginForm next={next} authError={authError} />
+        <LoginForm next={next} authError={authError} hideGoogle={inLineApp} />
       </main>
       <SiteFooter />
     </>
