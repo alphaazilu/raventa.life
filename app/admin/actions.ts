@@ -43,7 +43,7 @@ export async function updateMemberProfile(
   // (see supabase/schema.sql) is what actually enforces this, but checking
   // here too means a non-admin gets a clean message instead of a raw
   // Postgres error.
-  const { data: adminProfile } = await supabase.from('profiles').select('role').eq('id', user.id).single()
+  const { data: adminProfile } = await supabase.from('profiles').select('role').eq('id', user.id).maybeSingle()
   if (adminProfile?.role !== 'admin') {
     return { error: 'คุณไม่มีสิทธิ์แก้ไขข้อมูลนี้' }
   }

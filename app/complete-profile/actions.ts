@@ -5,7 +5,7 @@ import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { isPhoneTaken, isUniqueViolation, PHONE_TAKEN_MESSAGE_TH } from '@/lib/supabase/phone'
 import { getResendClient } from '@/lib/resend'
-import { welcomeEmail } from '@/lib/email-templates'
+import { welcomeEmail, teamNotificationEmail } from '@/lib/email-templates'
 import { saveLineUserId } from '@/lib/supabase/line'
 
 export type CompleteProfileState = {
@@ -14,7 +14,7 @@ export type CompleteProfileState = {
   // Set when the email typed is already a member's: the form then offers
   // "link to that existing account" or "use another email" instead of just
   // an error. See merge-actions.ts.
-  mergeOffer?: { email: string }
+  mergeOffer?: { email: string } | { phone: string }
 } | null
 
 function safeNext(value: FormDataEntryValue | null): string {
@@ -103,15 +103,23 @@ export async function completeProfile(
   }
 
   // Google signups set their phone here rather than on the signup form, so
-  // the one-account-per-phone rule is checked here too.
+  // the one-account-per-phone rule is checked here too. For a LINE sign-in,
+  // a taken phone most likely means an existing member whose email simply
+  // differs from the one typed — offer to link, same as a taken email.
   if (await isPhoneTaken(supabase, phone, user.id)) {
+    if (needsEmail) {
+      return { mergeOffer: { phone }, fieldErrors: { phone: PHONE_TAKEN_MESSAGE_TH } }
+    }
     return { error: PHONE_TAKEN_MESSAGE_TH, fieldErrors: { phone: PHONE_TAKEN_MESSAGE_TH } }
   }
 
   // Read before the save, so the welcome email below only goes out the
   // first time an email lands on this profile — not on a later visit here.
-  const { data: before } = await supabase.from('profiles').select('email').eq('id', user.id).maybeSingle()
+  const { data: before } = await supabase.from('profiles').select('email, phone').eq('id', user.id).maybeSingle()
   const isFirstEmail = needsEmail && !before?.email
+  // A brand-new Google/LINE signup has never had a phone; an existing member
+  // sent back here for one missing field has. Only the former is "new".
+  const isNewSignup = !before?.phone
 
   // upsert, not update: if the profiles row is missing for any reason (for
   // example it was deleted directly in the table editor), a plain update
@@ -142,8 +150,26 @@ export async function completeProfile(
     await sendWelcomeEmail(email, firstName, saved?.member_no ?? null)
   }
 
+  // The new-user webhook skips the team email for signups that arrive
+  // without details (Google/LINE) — this is where they're finally complete.
+  if (isNewSignup) {
+    await sendTeamNotification({ email, firstName, lastName, phone, province, nationality })
+  }
+
   revalidatePath('/', 'layout')
   redirect(next)
+}
+
+async function sendTeamNotification(details: Parameters<typeof teamNotificationEmail>[0]) {
+  const from = process.env.EMAIL_FROM_ADDRESS
+  const to = process.env.TEAM_NOTIFICATION_EMAIL
+  if (!from || !to) return
+  try {
+    const { subject, html } = teamNotificationEmail(details)
+    await getResendClient().emails.send({ from, to, subject, html })
+  } catch (err) {
+    console.error('complete-profile: team notification failed to send', err)
+  }
 }
 
 // Never lets an email problem block the signup itself — the profile is

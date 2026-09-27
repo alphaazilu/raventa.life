@@ -408,5 +408,43 @@ $$;
 revoke execute on function public.find_user_id_by_email(text) from public, anon, authenticated;
 grant execute on function public.find_user_id_by_email(text) to service_role;
 
+-- Same lookup by phone (digits only), for when the phone a LINE sign-in types
+-- belongs to an existing member even though the email they typed doesn't.
+create or replace function public.find_user_id_by_phone(p_phone text)
+returns uuid
+language sql
+security definer
+set search_path = public
+stable
+as $$
+  select id from public.profiles
+  where regexp_replace(coalesce(p_phone, ''), '\D', '', 'g') <> ''
+    and regexp_replace(coalesce(phone, ''), '\D', '', 'g')
+        = regexp_replace(coalesce(p_phone, ''), '\D', '', 'g')
+  limit 1;
+$$;
+
+revoke execute on function public.find_user_id_by_phone(text) from public, anon, authenticated;
+grant execute on function public.find_user_id_by_phone(text) to service_role;
+
+-- Per-membership limits on merge codes. Without these, someone could keep
+-- asking for a fresh code every minute (each allowing 5 guesses) and slowly
+-- guess their way into another member's account while flooding that
+-- member's inbox. Every code sent and every wrong guess is logged against
+-- the membership being joined; merge-actions.ts refuses once a day's limit
+-- is reached. Old rows are just history — they stop counting after 24h.
+create table if not exists public.account_merge_events (
+  id bigint generated always as identity primary key,
+  target_user_id uuid not null references auth.users(id) on delete cascade,
+  kind text not null check (kind in ('code_sent', 'wrong_code')),
+  created_at timestamptz not null default now()
+);
+
+create index if not exists account_merge_events_target_idx
+  on public.account_merge_events (target_user_id, created_at);
+
+alter table public.account_merge_events enable row level security;
+revoke all on public.account_merge_events from anon, authenticated;
+
 -- 10. Promote an account to admin (run manually, once, per admin user):
 -- update public.profiles set role = 'admin' where email = 'owner@raventa.com';

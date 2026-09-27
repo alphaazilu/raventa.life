@@ -22,6 +22,7 @@ export function AccountView({
   signOutAction,
   lineLinked,
   lineLinkResult,
+  hasPassword,
 }: {
   email: string
   firstName: string | null
@@ -34,6 +35,7 @@ export function AccountView({
   signOutAction: () => Promise<void>
   lineLinked: boolean
   lineLinkResult: LinkLineResult
+  hasPassword: boolean
 }) {
   const { tr } = useLanguage()
   const fullName = [firstName, lastName].filter(Boolean).join(' ')
@@ -176,12 +178,14 @@ export function AccountView({
           </a>
         )}
 
-        <a
-          href="/reset-password"
-          className="mt-4 inline-block text-sm font-semibold text-primary underline-offset-2 hover:underline"
-        >
-          {tr(authCopy.changePasswordLink)}
-        </a>
+        {hasPassword && (
+          <a
+            href="/reset-password"
+            className="mt-4 inline-block text-sm font-semibold text-primary underline-offset-2 hover:underline"
+          >
+            {tr(authCopy.changePasswordLink)}
+          </a>
+        )}
 
         <LinkLine linked={lineLinked} result={lineLinkResult} />
       </div>

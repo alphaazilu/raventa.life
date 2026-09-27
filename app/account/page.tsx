@@ -29,9 +29,12 @@ export default async function AccountPage({
     .from('profiles')
     .select('role, email, first_name, last_name, phone, province, nationality, member_no')
     .eq('id', user.id)
-    .single()
+    .maybeSingle()
 
   const lineLinked = lineUserIdOf(user) !== null
+  // Only email/password sign-ups have a password to change; LINE- or
+  // Google-only accounts would just be sent to a form that can't help.
+  const hasPassword = user.identities?.some((i) => i.provider === 'email') ?? false
   // Outcome of the "link LINE" round trip (see components/account/link-line
   // and app/auth/callback). identity_already_exists = that LINE account
   // already belongs to a separate membership.
@@ -60,6 +63,7 @@ export default async function AccountPage({
           memberNo={profile?.member_no ?? null}
           signOutAction={signOut}
           lineLinked={lineLinked}
+          hasPassword={hasPassword}
           lineLinkResult={linkResult}
         />
       </main>

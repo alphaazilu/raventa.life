@@ -29,7 +29,7 @@ export default async function CompleteProfilePage({
     .from('profiles')
     .select(PROFILE_COMPLETENESS_COLUMNS)
     .eq('id', user.id)
-    .single()
+    .maybeSingle()
 
   // Only accounts that came in without an email (LINE, usually) are asked
   // for one. Everyone else's email is the one they log in with, which is

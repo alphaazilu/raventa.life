@@ -48,7 +48,7 @@ export async function updateSession(request: NextRequest) {
       .from('profiles')
       .select(`role, ${PROFILE_COMPLETENESS_COLUMNS}`)
       .eq('id', user.id)
-      .single()
+      .maybeSingle()
 
     // Google signups never collect phone/province — catch that
     // here too, not just right after OAuth, in case someone navigates

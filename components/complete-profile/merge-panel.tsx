@@ -6,7 +6,13 @@ import { authCopy } from '@/lib/auth/copy'
 import { createClient } from '@/lib/supabase/client'
 import { Spinner } from '@/components/ui/spinner'
 import { LineIcon } from '@/components/auth/oauth-buttons'
-import { startMerge, verifyMerge, type StartMergeResult, type VerifyMergeResult } from '@/app/complete-profile/merge-actions'
+import {
+  startMerge,
+  verifyMerge,
+  type MergeTarget,
+  type StartMergeResult,
+  type VerifyMergeResult,
+} from '@/app/complete-profile/merge-actions'
 
 type Step = 'offer' | 'code' | 'linking'
 
@@ -15,6 +21,7 @@ const START_ERRORS: Record<Exclude<StartMergeResult, { ok: true }>['reason'], ke
   not_found: 'mergeNotFound',
   target_has_line: 'mergeTargetHasLine',
   too_soon: 'mergeTooSoon',
+  target_limit: 'mergeTargetLimit',
   failed: 'mergeFailed',
 }
 
@@ -29,10 +36,12 @@ const VERIFY_ERRORS: Record<Exclude<VerifyMergeResult, { ok: true }>['reason'], 
 const buttonBase =
   'inline-flex w-full items-center justify-center gap-2 rounded-full px-6 py-3 text-sm font-semibold transition-opacity disabled:cursor-not-allowed disabled:opacity-50'
 
-// Shown on /complete-profile when a LINE sign-in types an email that's
-// already a member's. The person chooses: prove it's theirs with a code and
-// carry on as that member, or go back and use a different email.
-export function MergePanel({ email, onUseAnotherEmail }: { email: string; onUseAnotherEmail: () => void }) {
+// Shown on /complete-profile when a LINE sign-in types an email or phone
+// that's already a member's. The person chooses: prove it's theirs with a
+// code (sent to that membership's own email) and carry on as that member,
+// or go back and use a different email/phone.
+export function MergePanel({ target, onUseAnother }: { target: MergeTarget; onUseAnother: () => void }) {
+  const byEmail = 'email' in target
   const { tr } = useLanguage()
   const [step, setStep] = useState<Step>('offer')
   const [busy, setBusy] = useState(false)
@@ -43,7 +52,7 @@ export function MergePanel({ email, onUseAnotherEmail }: { email: string; onUseA
   const sendCode = async () => {
     setBusy(true)
     setErrorKey(null)
-    const result = await startMerge(email)
+    const result = await startMerge(target)
     setBusy(false)
     if (result.ok) {
       setMaskedEmail(result.maskedEmail)
@@ -92,8 +101,10 @@ export function MergePanel({ email, onUseAnotherEmail }: { email: string; onUseA
       {step === 'offer' && (
         <>
           <div className="rounded-xl bg-secondary p-4">
-            <p className="font-semibold text-foreground">{tr(authCopy.mergeTitle)}</p>
-            <p className="mt-1 text-sm text-muted-foreground">{email}</p>
+            <p className="font-semibold text-foreground">
+              {tr(byEmail ? authCopy.mergeTitle : authCopy.mergeTitlePhone)}
+            </p>
+            <p className="mt-1 text-sm text-muted-foreground">{'email' in target ? target.email : target.phone}</p>
             <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{tr(authCopy.mergeBody)}</p>
           </div>
           <button
@@ -108,11 +119,11 @@ export function MergePanel({ email, onUseAnotherEmail }: { email: string; onUseA
           </button>
           <button
             type="button"
-            onClick={onUseAnotherEmail}
+            onClick={onUseAnother}
             disabled={busy}
             className={`${buttonBase} border border-border bg-background text-foreground hover:border-primary/40`}
           >
-            {tr(authCopy.mergeUseAnother)}
+            {tr(byEmail ? authCopy.mergeUseAnother : authCopy.mergeUseAnotherPhone)}
           </button>
         </>
       )}
@@ -160,11 +171,11 @@ export function MergePanel({ email, onUseAnotherEmail }: { email: string; onUseA
             </button>
             <button
               type="button"
-              onClick={onUseAnotherEmail}
+              onClick={onUseAnother}
               disabled={busy}
               className="text-muted-foreground hover:underline disabled:opacity-50"
             >
-              {tr(authCopy.mergeUseAnother)}
+              {tr(byEmail ? authCopy.mergeUseAnother : authCopy.mergeUseAnotherPhone)}
             </button>
           </div>
         </form>

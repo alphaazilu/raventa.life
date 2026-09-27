@@ -55,12 +55,13 @@ export function CompleteProfileForm({
   const [acceptPrivacy, setAcceptPrivacy] = useState(false)
   const invalid = (field: string) => Boolean(state?.fieldErrors?.[field])
 
-  // The typed email is already a member's → show the link-or-not choice in
-  // place of the form. "Use another email" hides it again for that email;
-  // a different taken email brings it back.
+  // The typed email or phone is already a member's → show the link-or-not
+  // choice in place of the form. "Use another …" hides it again for that
+  // value; a different taken value brings it back.
   const [dismissedMergeFor, setDismissedMergeFor] = useState<string | null>(null)
-  const mergeEmail = state?.mergeOffer?.email
-  const showMerge = Boolean(mergeEmail) && dismissedMergeFor !== mergeEmail
+  const mergeOffer = state?.mergeOffer
+  const mergeKey = mergeOffer ? ('email' in mergeOffer ? `email:${mergeOffer.email}` : `phone:${mergeOffer.phone}`) : null
+  const showMerge = mergeKey !== null && dismissedMergeFor !== mergeKey
 
   return (
     <div className="mx-auto flex w-full max-w-md flex-col justify-center px-4 py-16 md:py-24">
@@ -70,12 +71,13 @@ export function CompleteProfileForm({
         </h1>
         <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{tr(authCopy.completeProfileSub)}</p>
 
-        {showMerge && mergeEmail && (
+        {showMerge && mergeOffer && (
           <MergePanel
-            email={mergeEmail}
-            onUseAnotherEmail={() => {
-              setDismissedMergeFor(mergeEmail)
-              setEmail('')
+            target={mergeOffer}
+            onUseAnother={() => {
+              setDismissedMergeFor(mergeKey)
+              if ('email' in mergeOffer) setEmail('')
+              else setPhone('')
             }}
           />
         )}

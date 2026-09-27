@@ -31,6 +31,12 @@ export const authCopy: Record<string, Bilingual> = {
     en: 'Link this LINE account to that membership? Your member number and details stay the same.',
   },
   mergeLinkButton: { th: 'เชื่อมกับบัญชีเดิม', en: 'Link to my existing account' },
+  mergeTitlePhone: { th: 'เบอร์นี้เป็นสมาชิก RAVENTA อยู่แล้ว', en: 'This phone number is already a RAVENTA member' },
+  mergeUseAnotherPhone: { th: 'ใช้เบอร์อื่น (สมัครเป็นสมาชิกใหม่)', en: 'Use another number (new membership)' },
+  mergeTargetLimit: {
+    th: 'มีการขอรหัสสำหรับบัญชีนี้หลายครั้งเกินไปวันนี้ กรุณาลองใหม่พรุ่งนี้ หรือติดต่อเรา',
+    en: 'Too many code requests for this membership today. Please try again tomorrow or contact us.',
+  },
   mergeUseAnother: { th: 'ใช้อีเมลอื่น (สมัครเป็นสมาชิกใหม่)', en: 'Use another email (new membership)' },
   mergeCodeSent: { th: 'ส่งรหัส 6 หลักไปที่', en: 'We sent a 6-digit code to' },
   mergeCodeLabel: { th: 'รหัสยืนยัน', en: 'Verification code' },

@@ -31,7 +31,7 @@ export async function GET(request: Request) {
           .from('profiles')
           .select(PROFILE_COMPLETENESS_COLUMNS)
           .eq('id', user.id)
-          .single()
+          .maybeSingle()
 
         if (!isProfileComplete(profile)) {
           const url = new URL('/complete-profile', origin)

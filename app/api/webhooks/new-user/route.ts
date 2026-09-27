@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { timingSafeEqual } from 'crypto'
 import { getResendClient } from '@/lib/resend'
 import { welcomeEmail, teamNotificationEmail } from '@/lib/email-templates'
+import { isProfileComplete } from '@/lib/supabase/profile'
 
 // Supabase Database Webhook payload shape for an INSERT on public.profiles.
 // https://supabase.com/docs/guides/database/webhooks
@@ -68,7 +69,12 @@ export async function POST(request: Request) {
           return resend.emails.send({ from: fromAddress, to: email, subject, html })
         })()
       : Promise.resolve(null),
-    teamEmail
+    // Only when the signup already has its details (email/password signups
+    // fill everything on the form). Google/LINE signups arrive empty — their
+    // team email is sent from app/complete-profile/actions.ts once they've
+    // filled the form, so the team gets real details, and a LINE sign-in
+    // that ends up merged into an existing member never triggers one.
+    teamEmail && isProfileComplete({ email, first_name, last_name, phone, province, nationality })
       ? (() => {
           const { subject, html } = teamNotificationEmail({
             email: email ?? '(ไม่ทราบอีเมล)',
