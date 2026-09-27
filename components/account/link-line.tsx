@@ -5,6 +5,7 @@ import { useLanguage } from '@/components/language-provider'
 import { authCopy } from '@/lib/auth/copy'
 import { createClient } from '@/lib/supabase/client'
 import { LineIcon } from '@/components/auth/oauth-buttons'
+import { Spinner } from '@/components/ui/spinner'
 
 export type LinkLineResult = 'linked' | 'already_used' | 'failed' | null
 
@@ -68,7 +69,7 @@ export function LinkLine({ linked, result }: { linked: boolean; result: LinkLine
             disabled={pending}
             className="mt-3 inline-flex items-center gap-2 rounded-full bg-[#06C755] px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-[#05B34C] disabled:cursor-not-allowed disabled:opacity-50"
           >
-            <LineIcon className="h-5 w-5 shrink-0 text-white" />
+            {pending ? <Spinner className="h-5 w-5" /> : <LineIcon className="h-5 w-5 shrink-0 text-white" />}
             {tr(authCopy.lineLinkButton)}
           </button>
         </>

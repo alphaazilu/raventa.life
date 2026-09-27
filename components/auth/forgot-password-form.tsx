@@ -5,6 +5,7 @@ import { useLanguage } from '@/components/language-provider'
 import { authCopy } from '@/lib/auth/copy'
 import { fieldClass } from '@/lib/form-field-class'
 import { requestPasswordReset, type ForgotPasswordState } from '@/app/forgot-password/actions'
+import { Spinner } from '@/components/ui/spinner'
 
 const initialState: ForgotPasswordState = null
 
@@ -52,8 +53,10 @@ export function ForgotPasswordForm() {
             <button
               type="submit"
               disabled={pending}
-              className="w-full rounded-full bg-primary px-6 py-3 text-sm font-semibold text-primary-foreground transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+              className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-primary px-6 py-3 text-sm font-semibold text-primary-foreground transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+              aria-busy={pending}
             >
+              {pending && <Spinner />}
               {tr(authCopy.forgotPasswordButton)}
             </button>
           </form>

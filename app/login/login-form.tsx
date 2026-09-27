@@ -8,6 +8,7 @@ import { COUNTRIES } from '@/lib/countries'
 import { OAuthButtons } from '@/components/auth/oauth-buttons'
 import { fieldClass } from '@/lib/form-field-class'
 import { signIn, signUp, type AuthActionState } from './actions'
+import { Spinner } from '@/components/ui/spinner'
 
 type Mode = 'login' | 'signup'
 
@@ -340,8 +341,10 @@ export function LoginForm({
             <button
               type="submit"
               disabled={pending || passwordsMismatch || (mode === 'signup' && !acceptPrivacy)}
-              className="w-full rounded-full bg-primary px-6 py-3 text-sm font-semibold text-primary-foreground transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+              className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-primary px-6 py-3 text-sm font-semibold text-primary-foreground transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+              aria-busy={pending}
             >
+              {pending && <Spinner />}
               {mode === 'login' ? tr(authCopy.loginButton) : tr(authCopy.signupButton)}
             </button>
           </form>

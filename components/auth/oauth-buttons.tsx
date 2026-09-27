@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useLanguage } from '@/components/language-provider'
 import { authCopy } from '@/lib/auth/copy'
 import { createClient } from '@/lib/supabase/client'
+import { Spinner } from '@/components/ui/spinner'
 
 function GoogleIcon(props: React.SVGProps<SVGSVGElement>) {
   return (
@@ -94,7 +95,7 @@ export function OAuthButtons({ next, autoStart }: { next: string; autoStart?: 'l
         disabled={loading !== null}
         className="flex w-full items-center justify-center gap-2.5 rounded-full bg-[#06C755] px-6 py-3 text-sm font-semibold text-white transition-colors hover:bg-[#05B34C] disabled:cursor-not-allowed disabled:opacity-50"
       >
-        <LineIcon className="h-5 w-5 shrink-0 text-white" />
+        {loading === 'custom:line' ? <Spinner className="h-5 w-5" /> : <LineIcon className="h-5 w-5 shrink-0 text-white" />}
         {tr(authCopy.line)}
       </button>
       <button
@@ -103,7 +104,7 @@ export function OAuthButtons({ next, autoStart }: { next: string; autoStart?: 'l
         disabled={loading !== null}
         className="flex w-full items-center justify-center gap-2.5 rounded-full border border-border bg-background px-6 py-3 text-sm font-semibold text-foreground transition-colors hover:border-primary/40 disabled:cursor-not-allowed disabled:opacity-50"
       >
-        <GoogleIcon className="h-4 w-4 shrink-0" />
+        {loading === 'google' ? <Spinner /> : <GoogleIcon className="h-4 w-4 shrink-0" />}
         {tr(authCopy.google)}
       </button>
       {autoStart === 'line' && loading === 'custom:line' && (

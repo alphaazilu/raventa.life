@@ -7,6 +7,7 @@ import { THAILAND_PROVINCES } from '@/lib/thailand-provinces'
 import { COUNTRIES } from '@/lib/countries'
 import { fieldClass } from '@/lib/form-field-class'
 import { completeProfile, type CompleteProfileState } from '@/app/complete-profile/actions'
+import { Spinner } from '@/components/ui/spinner'
 
 const initialState: CompleteProfileState = null
 
@@ -235,8 +236,10 @@ export function CompleteProfileForm({
           <button
             type="submit"
             disabled={pending || !acceptPrivacy}
-            className="w-full rounded-full bg-primary px-6 py-3 text-sm font-semibold text-primary-foreground transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+            className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-primary px-6 py-3 text-sm font-semibold text-primary-foreground transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+            aria-busy={pending}
           >
+            {pending && <Spinner />}
             {tr(authCopy.saveButton)}
           </button>
         </form>

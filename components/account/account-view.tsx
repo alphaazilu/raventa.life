@@ -6,6 +6,7 @@ import { authCopy } from '@/lib/auth/copy'
 import { fieldClass } from '@/lib/form-field-class'
 import { updateOwnPhone, type UpdatePhoneState } from '@/app/account/actions'
 import { LinkLine, type LinkLineResult } from '@/components/account/link-line'
+import { Spinner } from '@/components/ui/spinner'
 
 const initialPhoneState: UpdatePhoneState = null
 
@@ -105,8 +106,10 @@ export function AccountView({
                 <button
                   type="submit"
                   disabled={phonePending}
-                  className="rounded-full bg-primary px-4 py-2 text-xs font-semibold text-primary-foreground transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+                  className="inline-flex items-center gap-1.5 rounded-full bg-primary px-4 py-2 text-xs font-semibold text-primary-foreground transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+                  aria-busy={phonePending}
                 >
+                  {phonePending && <Spinner className="h-3.5 w-3.5" />}
                   {tr(authCopy.saveButton)}
                 </button>
                 <button
