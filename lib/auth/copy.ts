@@ -24,6 +24,42 @@ export const authCopy: Record<string, Bilingual> = {
   google: { th: 'ดำเนินการต่อด้วย Google', en: 'Continue with Google' },
   line: { th: 'ดำเนินการต่อด้วย LINE', en: 'Continue with LINE' },
   lineConnecting: { th: 'กำลังเข้าสู่ระบบด้วย LINE…', en: 'Signing you in with LINE…' },
+  otherSignInOptions: { th: 'เข้าสู่ระบบด้วยวิธีอื่น', en: 'Other ways to sign in' },
+  mergeTitle: { th: 'อีเมลนี้เป็นสมาชิก RAVENTA อยู่แล้ว', en: 'This email is already a RAVENTA member' },
+  mergeBody: {
+    th: 'ต้องการเชื่อม LINE นี้เข้ากับบัญชีเดิมไหม เลขสมาชิกและข้อมูลเดิมจะยังอยู่ครบ',
+    en: 'Link this LINE account to that membership? Your member number and details stay the same.',
+  },
+  mergeLinkButton: { th: 'เชื่อมกับบัญชีเดิม', en: 'Link to my existing account' },
+  mergeUseAnother: { th: 'ใช้อีเมลอื่น (สมัครเป็นสมาชิกใหม่)', en: 'Use another email (new membership)' },
+  mergeCodeSent: { th: 'ส่งรหัส 6 หลักไปที่', en: 'We sent a 6-digit code to' },
+  mergeCodeLabel: { th: 'รหัสยืนยัน', en: 'Verification code' },
+  mergeVerifyButton: { th: 'ยืนยัน', en: 'Verify' },
+  mergeResend: { th: 'ส่งรหัสอีกครั้ง', en: 'Send a new code' },
+  mergeLinking: { th: 'กำลังเชื่อม LINE เข้ากับบัญชีของคุณ…', en: 'Linking LINE to your account…' },
+  mergeWrongCode: { th: 'รหัสไม่ถูกต้อง กรุณาลองอีกครั้ง', en: 'That code isn’t right. Please try again.' },
+  mergeExpired: { th: 'รหัสหมดอายุแล้ว กรุณากดส่งรหัสอีกครั้ง', en: 'That code has expired. Please send a new one.' },
+  mergeTooMany: {
+    th: 'กรอกรหัสผิดหลายครั้งเกินไป กรุณากดส่งรหัสใหม่',
+    en: 'Too many wrong attempts. Please send a new code.',
+  },
+  mergeTooSoon: { th: 'เพิ่งส่งรหัสไป กรุณารอสักครู่แล้วลองใหม่', en: 'A code was just sent. Please wait a minute.' },
+  mergeTargetHasLine: {
+    th: 'บัญชีเดิมนี้เชื่อมกับ LINE อีกบัญชีไว้แล้ว กรุณาติดต่อเรา',
+    en: 'That membership is already linked to a different LINE account. Please contact us.',
+  },
+  mergeNotFound: {
+    th: 'เชื่อมกับบัญชีนี้จากที่นี่ไม่ได้ กรุณาติดต่อเรา หรือใช้อีเมลอื่น',
+    en: 'We can’t link that membership from here. Please contact us or use another email.',
+  },
+  mergeFailed: {
+    th: 'เกิดข้อผิดพลาด กรุณาลองใหม่อีกครั้ง หากยังไม่ได้ กรุณาติดต่อเรา',
+    en: 'Something went wrong. Please try again, or contact us if it keeps happening.',
+  },
+  emailWhyHint: {
+    th: 'ใช้ส่งเลขสมาชิกและข่าวสารสำคัญเกี่ยวกับบัญชีของคุณ',
+    en: 'We’ll send your member number and important account updates here.',
+  },
   lineLinkLabel: { th: 'บัญชี LINE', en: 'LINE Account' },
   lineLinkHint: {
     th: 'เชื่อม LINE ไว้ แล้วครั้งต่อไปกดเข้าสู่ระบบด้วย LINE ได้เลย และรับข่าวสารสมาชิกทาง LINE',

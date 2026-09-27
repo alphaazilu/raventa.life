@@ -8,7 +8,14 @@ import { getResendClient } from '@/lib/resend'
 import { welcomeEmail } from '@/lib/email-templates'
 import { saveLineUserId } from '@/lib/supabase/line'
 
-export type CompleteProfileState = { error?: string; fieldErrors?: Record<string, string> } | null
+export type CompleteProfileState = {
+  error?: string
+  fieldErrors?: Record<string, string>
+  // Set when the email typed is already a member's: the form then offers
+  // "link to that existing account" or "use another email" instead of just
+  // an error. See merge-actions.ts.
+  mergeOffer?: { email: string }
+} | null
 
 function safeNext(value: FormDataEntryValue | null): string {
   const next = String(value ?? '/account')
@@ -21,8 +28,7 @@ const PHONE_RE = /^[0-9]{9,10}$/
 // does the finer check; this just stops obvious junk on a direct POST.
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
-const EMAIL_TAKEN_MESSAGE_TH =
-  'อีเมลนี้มีบัญชีสมาชิกอยู่แล้ว กรุณาเข้าสู่ระบบด้วยวิธีที่เคยสมัครไว้ หรือติดต่อเรา'
+const EMAIL_TAKEN_MESSAGE_TH = 'อีเมลนี้เป็นสมาชิก RAVENTA อยู่แล้ว'
 
 export async function completeProfile(
   _prevState: CompleteProfileState,
@@ -92,7 +98,7 @@ export async function completeProfile(
       p_exclude_id: user.id,
     })
     if (emailTaken === true) {
-      return { error: EMAIL_TAKEN_MESSAGE_TH, fieldErrors: { email: EMAIL_TAKEN_MESSAGE_TH } }
+      return { mergeOffer: { email }, fieldErrors: { email: EMAIL_TAKEN_MESSAGE_TH } }
     }
   }
 

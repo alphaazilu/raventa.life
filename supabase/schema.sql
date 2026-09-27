@@ -369,5 +369,44 @@ where i.user_id = p.id
   and i.provider = 'custom:line'
   and p.line_user_id is null;
 
--- 9. Promote an account to admin (run manually, once, per admin user):
+-- 9. Joining a LINE sign-in onto an existing membership. Someone who joined
+-- with Google/email and later taps the LINE OA rich menu gets a brand-new,
+-- empty LINE account. When the email they type on /complete-profile is
+-- already a member's, they can prove it's theirs with a 6-digit code sent
+-- there, and app/complete-profile/merge-actions.ts moves them onto the
+-- existing membership (see that file for the exact steps).
+--
+-- Both objects below are only for the server's service-role key: no
+-- policies and no grants for anon/authenticated, so the browser can never
+-- read codes or look accounts up by email.
+create table if not exists public.account_merge_codes (
+  -- the new, empty LINE account asking to merge
+  user_id uuid primary key references auth.users(id) on delete cascade,
+  -- the existing membership it wants to join
+  target_user_id uuid not null references auth.users(id) on delete cascade,
+  code_hash text not null,
+  expires_at timestamptz not null,
+  attempts int not null default 0,
+  created_at timestamptz not null default now()
+);
+
+alter table public.account_merge_codes enable row level security;
+revoke all on public.account_merge_codes from anon, authenticated;
+
+create or replace function public.find_user_id_by_email(p_email text)
+returns uuid
+language sql
+security definer
+set search_path = public
+stable
+as $$
+  select id from auth.users
+  where lower(email) = lower(trim(p_email))
+  limit 1;
+$$;
+
+revoke execute on function public.find_user_id_by_email(text) from public, anon, authenticated;
+grant execute on function public.find_user_id_by_email(text) to service_role;
+
+-- 10. Promote an account to admin (run manually, once, per admin user):
 -- update public.profiles set role = 'admin' where email = 'owner@raventa.com';

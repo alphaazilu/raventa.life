@@ -89,3 +89,23 @@ export function teamNotificationEmail(details: {
   `)
   return { subject: `สมาชิกใหม่: ${fullName}`, html }
 }
+
+// Sent when someone signed in with LINE says an existing membership is
+// theirs (app/complete-profile/merge-actions.ts). Going to that
+// membership's own email address is what proves it's really them.
+export function mergeCodeEmail(code: string): { subject: string; html: string } {
+  const html = wrapper(`
+    <h1 style="margin:0 0 16px;font-size:20px;color:${COLORS.text};">รหัสยืนยันการเชื่อมบัญชี LINE</h1>
+    <p style="margin:0 0 12px;font-size:15px;line-height:1.7;color:${COLORS.text};">
+      มีคำขอเชื่อมบัญชี LINE เข้ากับบัญชีสมาชิก RAVENTA ของอีเมลนี้ กรอกรหัสด้านล่างในหน้าเว็บเพื่อยืนยัน
+    </p>
+    <p style="margin:20px 0;padding:16px;background-color:${COLORS.sand};border-radius:10px;text-align:center;">
+      <span style="display:block;font-size:30px;font-weight:700;letter-spacing:0.3em;color:${COLORS.primary};">${code}</span>
+      <span style="display:block;margin-top:6px;font-size:12px;color:${COLORS.muted};">รหัสนี้ใช้ได้ 10 นาที</span>
+    </p>
+    <p style="margin:0;font-size:13px;line-height:1.6;color:${COLORS.muted};">
+      หากคุณไม่ได้ขอเชื่อมบัญชี ไม่ต้องทำอะไร บัญชีของคุณจะไม่มีการเปลี่ยนแปลง
+    </p>
+  `)
+  return { subject: `${code} คือรหัสยืนยันการเชื่อมบัญชี LINE กับ RAVENTA`, html }
+}

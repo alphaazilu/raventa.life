@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useState } from 'react'
 import { useLanguage } from '@/components/language-provider'
 import { authCopy } from '@/lib/auth/copy'
 import { createClient } from '@/lib/supabase/client'
@@ -52,32 +52,26 @@ const PROVIDER_SCOPES: Partial<Record<OAuthProvider, string>> = {
   'custom:line': 'openid profile',
 }
 
-export function OAuthButtons({ next, autoStart }: { next: string; autoStart?: 'line' }) {
+// Sends the browser off to the provider. Resolves with an error only when
+// the redirect couldn't even start; on success the page is already leaving.
+export async function startOAuth(provider: OAuthProvider, next: string) {
+  const supabase = createClient()
+  const redirectTo = `${window.location.origin}/auth/callback?next=${encodeURIComponent(next)}`
+  return supabase.auth.signInWithOAuth({
+    provider,
+    options: { redirectTo, scopes: PROVIDER_SCOPES[provider] },
+  })
+}
+
+export function OAuthButtons({ next }: { next: string }) {
   const { tr } = useLanguage()
   const [loading, setLoading] = useState<OAuthProvider | null>(null)
   const [error, setError] = useState<string | null>(null)
-  // React runs effects twice in development; this keeps the automatic LINE
-  // redirect (see app/login/page.tsx, ?via=line) to a single attempt.
-  const autoStarted = useRef(false)
-
-  useEffect(() => {
-    if (autoStart === 'line' && !autoStarted.current) {
-      autoStarted.current = true
-      void handleOAuth('custom:line')
-    }
-    // Runs once on mount by design — handleOAuth is recreated every render.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [autoStart])
 
   const handleOAuth = async (provider: OAuthProvider) => {
     setError(null)
     setLoading(provider)
-    const supabase = createClient()
-    const redirectTo = `${window.location.origin}/auth/callback?next=${encodeURIComponent(next)}`
-    const { error: oauthError } = await supabase.auth.signInWithOAuth({
-      provider,
-      options: { redirectTo, scopes: PROVIDER_SCOPES[provider] },
-    })
+    const { error: oauthError } = await startOAuth(provider, next)
     if (oauthError) {
       setLoading(null)
       setError(oauthError.message)
@@ -107,9 +101,6 @@ export function OAuthButtons({ next, autoStart }: { next: string; autoStart?: 'l
         {loading === 'google' ? <Spinner /> : <GoogleIcon className="h-4 w-4 shrink-0" />}
         {tr(authCopy.google)}
       </button>
-      {autoStart === 'line' && loading === 'custom:line' && (
-        <p className="text-center text-xs text-muted-foreground">{tr(authCopy.lineConnecting)}</p>
-      )}
       {error && <p className="text-center text-xs text-destructive">{error}</p>}
     </div>
   )

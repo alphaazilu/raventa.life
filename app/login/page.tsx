@@ -4,6 +4,7 @@ import { SiteHeader } from '@/components/site-header'
 import { SiteFooter } from '@/components/site-footer'
 import { createClient } from '@/lib/supabase/server'
 import { LoginForm } from './login-form'
+import { LineAutoLogin } from '@/components/auth/line-auto-login'
 
 export const metadata: Metadata = {
   title: 'Log In | RAVENTA Wellness Center',
@@ -37,11 +38,21 @@ export default async function LoginPage({
     if (user) redirect(next)
   }
 
+  // No site header/footer here: this screen is on-screen for a second or
+  // two inside LINE, and a full website menu only adds noise.
+  if (viaLine) {
+    return (
+      <main className="min-h-screen bg-background">
+        <LineAutoLogin next={next} />
+      </main>
+    )
+  }
+
   return (
     <>
       <SiteHeader />
       <main className="min-h-screen bg-background pt-24 md:pt-28">
-        <LoginForm next={next} authError={authError} autoStart={viaLine ? 'line' : undefined} />
+        <LoginForm next={next} authError={authError} />
       </main>
       <SiteFooter />
     </>

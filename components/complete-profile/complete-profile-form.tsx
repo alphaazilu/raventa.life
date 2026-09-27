@@ -8,6 +8,7 @@ import { COUNTRIES } from '@/lib/countries'
 import { fieldClass } from '@/lib/form-field-class'
 import { completeProfile, type CompleteProfileState } from '@/app/complete-profile/actions'
 import { Spinner } from '@/components/ui/spinner'
+import { MergePanel } from '@/components/complete-profile/merge-panel'
 
 const initialState: CompleteProfileState = null
 
@@ -54,6 +55,13 @@ export function CompleteProfileForm({
   const [acceptPrivacy, setAcceptPrivacy] = useState(false)
   const invalid = (field: string) => Boolean(state?.fieldErrors?.[field])
 
+  // The typed email is already a member's → show the link-or-not choice in
+  // place of the form. "Use another email" hides it again for that email;
+  // a different taken email brings it back.
+  const [dismissedMergeFor, setDismissedMergeFor] = useState<string | null>(null)
+  const mergeEmail = state?.mergeOffer?.email
+  const showMerge = Boolean(mergeEmail) && dismissedMergeFor !== mergeEmail
+
   return (
     <div className="mx-auto flex w-full max-w-md flex-col justify-center px-4 py-16 md:py-24">
       <div className="rounded-2xl border border-border bg-card p-8 shadow-sm">
@@ -62,7 +70,17 @@ export function CompleteProfileForm({
         </h1>
         <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{tr(authCopy.completeProfileSub)}</p>
 
-        <form action={formAction} className="mt-6 space-y-4">
+        {showMerge && mergeEmail && (
+          <MergePanel
+            email={mergeEmail}
+            onUseAnotherEmail={() => {
+              setDismissedMergeFor(mergeEmail)
+              setEmail('')
+            }}
+          />
+        )}
+
+        <form action={formAction} className={showMerge ? 'hidden' : 'mt-6 space-y-4'}>
           <input type="hidden" name="next" value={next} />
 
           <div className="grid grid-cols-2 gap-3">
@@ -120,8 +138,10 @@ export function CompleteProfileForm({
                 onChange={(e) => setEmail(e.target.value)}
                 className={fieldClass(inputBaseClass, invalid('email'))}
               />
-              {state?.fieldErrors?.email && (
+              {state?.fieldErrors?.email ? (
                 <p className="mt-1.5 text-xs text-destructive">{state.fieldErrors.email}</p>
+              ) : (
+                <p className="mt-1.5 text-xs text-muted-foreground">{tr(authCopy.emailWhyHint)}</p>
               )}
             </div>
           )}
