@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { isProfileComplete, PROFILE_COMPLETENESS_COLUMNS } from '@/lib/supabase/profile'
 import { saveLineUserId } from '@/lib/supabase/line'
+import { saveProviderAvatar } from '@/lib/supabase/avatar'
 
 // Handles the redirect back from Supabase after email confirmation or an
 // OAuth login (Google, LINE).
@@ -26,6 +27,7 @@ export async function GET(request: Request) {
         // Every LINE sign-in, so members who joined before this existed get
         // it too. A no-op once it's set, or for non-LINE accounts.
         await saveLineUserId(supabase, user)
+        await saveProviderAvatar(supabase, user)
 
         const { data: profile } = await supabase
           .from('profiles')

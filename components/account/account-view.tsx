@@ -6,6 +6,7 @@ import { authCopy } from '@/lib/auth/copy'
 import { fieldClass } from '@/lib/form-field-class'
 import { updateOwnPhone, type UpdatePhoneState } from '@/app/account/actions'
 import { LinkLine, type LinkLineResult } from '@/components/account/link-line'
+import { AvatarEditor } from '@/components/account/avatar'
 import { Spinner } from '@/components/ui/spinner'
 
 const initialPhoneState: UpdatePhoneState = null
@@ -23,6 +24,9 @@ export function AccountView({
   lineLinked,
   lineLinkResult,
   hasPassword,
+  userId,
+  avatarUrl,
+  hasUploadedAvatar,
 }: {
   email: string
   firstName: string | null
@@ -36,6 +40,9 @@ export function AccountView({
   lineLinked: boolean
   lineLinkResult: LinkLineResult
   hasPassword: boolean
+  userId: string
+  avatarUrl: string | null
+  hasUploadedAvatar: boolean
 }) {
   const { tr } = useLanguage()
   const fullName = [firstName, lastName].filter(Boolean).join(' ')
@@ -61,6 +68,14 @@ export function AccountView({
       </h1>
 
       <div className="mt-8 rounded-2xl border border-border bg-card p-6">
+        <div className="mb-6 border-b border-border pb-6">
+          <AvatarEditor
+            userId={userId}
+            src={avatarUrl}
+            name={fullName || email || '?'}
+            hasUploaded={hasUploadedAvatar}
+          />
+        </div>
         {memberNo && (
           <>
             <p className="mt-4 text-xs font-semibold tracking-wide uppercase text-muted-foreground first:mt-0">

@@ -25,6 +25,13 @@ export const authCopy: Record<string, Bilingual> = {
   line: { th: 'ดำเนินการต่อด้วย LINE', en: 'Continue with LINE' },
   lineConnecting: { th: 'กำลังเข้าสู่ระบบด้วย LINE…', en: 'Signing you in with LINE…' },
   otherSignInOptions: { th: 'เข้าสู่ระบบด้วยวิธีอื่น', en: 'Other ways to sign in' },
+  avatarChange: { th: 'เปลี่ยนรูปโปรไฟล์', en: 'Change photo' },
+  avatarRemove: { th: 'ลบรูปที่อัปโหลด', en: 'Remove uploaded photo' },
+  avatarBadFile: {
+    th: 'เปิดไฟล์รูปนี้ไม่ได้ กรุณาเลือกรูป JPG หรือ PNG',
+    en: 'That file couldn’t be opened. Please choose a JPG or PNG photo.',
+  },
+  avatarUploadFailed: { th: 'อัปโหลดรูปไม่สำเร็จ กรุณาลองใหม่อีกครั้ง', en: 'Upload failed. Please try again.' },
   mergeTitle: { th: 'อีเมลนี้เป็นสมาชิก RAVENTA อยู่แล้ว', en: 'This email is already a RAVENTA member' },
   mergeBody: {
     th: 'ต้องการเชื่อม LINE นี้เข้ากับบัญชีเดิมไหม เลขสมาชิกและข้อมูลเดิมจะยังอยู่ครบ',

@@ -6,6 +6,7 @@ import { AccountView } from '@/components/account/account-view'
 import { createClient } from '@/lib/supabase/server'
 import { signOut } from '@/app/login/actions'
 import { lineUserIdOf } from '@/lib/supabase/line'
+import { resolveAvatarUrl } from '@/lib/supabase/avatar'
 import type { LinkLineResult } from '@/components/account/link-line'
 
 export const metadata: Metadata = {
@@ -27,10 +28,11 @@ export default async function AccountPage({
 
   const { data: profile } = await supabase
     .from('profiles')
-    .select('role, email, first_name, last_name, phone, province, nationality, member_no')
+    .select('role, email, first_name, last_name, phone, province, nationality, member_no, avatar_path, provider_avatar_url')
     .eq('id', user.id)
     .maybeSingle()
 
+  const avatarUrl = await resolveAvatarUrl(supabase, profile)
   const lineLinked = lineUserIdOf(user) !== null
   // Only email/password sign-ups have a password to change; LINE- or
   // Google-only accounts would just be sent to a form that can't help.
@@ -64,6 +66,9 @@ export default async function AccountPage({
           signOutAction={signOut}
           lineLinked={lineLinked}
           hasPassword={hasPassword}
+          userId={user.id}
+          avatarUrl={avatarUrl}
+          hasUploadedAvatar={Boolean(profile?.avatar_path)}
           lineLinkResult={linkResult}
         />
       </main>

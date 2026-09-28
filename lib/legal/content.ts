@@ -2,8 +2,8 @@ type Bilingual = { th: string; en: string }
 type Section = { heading: Bilingual; paragraphs: Bilingual[] }
 
 export const privacyPolicyUpdated: Bilingual = {
-  th: 'ปรับปรุงล่าสุด: 21 กันยายน 2569',
-  en: 'Last updated: September 21, 2026',
+  th: 'ปรับปรุงล่าสุด: 27 กันยายน 2569',
+  en: 'Last updated: September 27, 2026',
 }
 
 export const privacyPolicySections: Section[] = [
@@ -28,8 +28,12 @@ export const privacyPolicySections: Section[] = [
         en: 'Information you provide directly: when you create an account, we collect your first name, last name, email address, phone number, province of residence, and nationality. Your password is stored in encrypted form — we never see or store your actual password.',
       },
       {
-        th: 'ข้อมูลจากการเข้าสู่ระบบผ่านบุคคลที่สาม: หากท่านเข้าสู่ระบบด้วย Google เราจะได้รับชื่อและอีเมลของท่านตามที่แพลตฟอร์มนั้นอนุญาตให้เข้าถึง หากบัญชีของท่านยังไม่มีเบอร์โทรศัพท์และจังหวัดที่อยู่อาศัย เราจะขอให้ท่านกรอกข้อมูลเพิ่มเติมก่อนใช้งานบัญชี',
-        en: 'Information from third-party sign-in: if you sign in with Google, we receive your name and email as permitted by that platform. If your account is still missing a phone number or province, we will ask you to provide them before you can use your account.',
+        th: 'ข้อมูลจากการเข้าสู่ระบบผ่านบุคคลที่สาม: หากท่านเข้าสู่ระบบด้วย Google เราจะได้รับชื่อ อีเมล และรูปโปรไฟล์ของท่าน หากท่านเข้าสู่ระบบด้วย LINE เราจะได้รับชื่อที่แสดงใน LINE รูปโปรไฟล์ และรหัสผู้ใช้ LINE (LINE user ID) ตามที่แพลตฟอร์มนั้นอนุญาตให้เข้าถึง หากบัญชีของท่านยังไม่มีข้อมูลที่จำเป็น เช่น อีเมล เบอร์โทรศัพท์ หรือจังหวัดที่อยู่อาศัย เราจะขอให้ท่านกรอกข้อมูลเพิ่มเติมก่อนใช้งานบัญชี',
+        en: 'Information from third-party sign-in: if you sign in with Google, we receive your name, email, and profile picture. If you sign in with LINE, we receive your LINE display name, profile picture, and LINE user ID, as permitted by that platform. If your account is still missing required details such as an email, phone number, or province, we will ask you to provide them before you can use your account.',
+      },
+      {
+        th: 'รูปโปรไฟล์: ท่านสามารถอัปโหลดรูปโปรไฟล์ของท่านเองได้ในหน้าบัญชี รูปจะถูกย่อขนาดและจัดเก็บแบบส่วนตัว (ไม่สามารถเปิดดูได้จากลิงก์สาธารณะ) โดยมีเพียงท่านและเจ้าหน้าที่ของเราที่ดูได้ เพื่อใช้ยืนยันตัวตนเมื่อท่านมาใช้บริการ ท่านสามารถลบรูปที่อัปโหลดได้ทุกเมื่อจากหน้าบัญชี และหากท่านไม่ได้อัปโหลดรูป เราจะแสดงรูปโปรไฟล์จาก LINE หรือ Google แทน (ถ้ามี)',
+        en: 'Profile photo: you may upload your own profile photo on your account page. It is resized and stored privately (it cannot be opened from a public link) and is visible only to you and our staff, who use it to recognise you when you visit. You can remove an uploaded photo at any time from your account page. If you have not uploaded one, we show your LINE or Google profile picture instead, if available.',
       },
       {
         th: 'ข้อมูลการใช้งานเว็บไซต์: เราใช้คุกกี้ที่จำเป็นสำหรับการเข้าสู่ระบบ (session cookie) และอาจเก็บสถิติการเข้าชมเว็บไซต์แบบไม่ระบุตัวตนผ่านบริการวิเคราะห์ของ Vercel Analytics',
@@ -50,8 +54,8 @@ export const privacyPolicySections: Section[] = [
     heading: { th: '4. การเปิดเผยข้อมูลต่อบุคคลที่สาม', en: '4. Sharing Your Information' },
     paragraphs: [
       {
-        th: 'เราไม่ขายข้อมูลส่วนบุคคลของท่าน เราเปิดเผยข้อมูลให้แก่ผู้ให้บริการที่จำเป็นต่อการดำเนินงานของเว็บไซต์เท่านั้น ได้แก่: Supabase (ฐานข้อมูลและระบบยืนยันตัวตน), Resend (บริการส่งอีเมล), Google (สำหรับการเข้าสู่ระบบด้วยบัญชีของท่าน), Vercel (โฮสติ้งเว็บไซต์และสถิติการเข้าชม) ผู้ให้บริการเหล่านี้อาจตั้งอยู่นอกประเทศไทย และมีนโยบายคุ้มครองข้อมูลของตนเองซึ่งท่านควรศึกษาเพิ่มเติม',
-        en: 'We do not sell your personal data. We only share information with service providers necessary to operate the Website: Supabase (database and authentication), Resend (transactional email), Google (for signing in with your account there), and Vercel (website hosting and analytics). These providers may be located outside Thailand and maintain their own privacy policies, which we encourage you to review.',
+        th: 'เราไม่ขายข้อมูลส่วนบุคคลของท่าน เราเปิดเผยข้อมูลให้แก่ผู้ให้บริการที่จำเป็นต่อการดำเนินงานของเว็บไซต์เท่านั้น ได้แก่: Supabase (ฐานข้อมูลและระบบยืนยันตัวตน), Resend (บริการส่งอีเมล), Google และ LINE (สำหรับการเข้าสู่ระบบด้วยบัญชีของท่าน), Vercel (โฮสติ้งเว็บไซต์และสถิติการเข้าชม) ผู้ให้บริการเหล่านี้อาจตั้งอยู่นอกประเทศไทย และมีนโยบายคุ้มครองข้อมูลของตนเองซึ่งท่านควรศึกษาเพิ่มเติม',
+        en: 'We do not sell your personal data. We only share information with service providers necessary to operate the Website: Supabase (database and authentication), Resend (transactional email), Google and LINE (for signing in with your account there), and Vercel (website hosting and analytics). These providers may be located outside Thailand and maintain their own privacy policies, which we encourage you to review.',
       },
       {
         th: 'หน้าติดต่อเราบนเว็บไซต์มีการฝัง Google Maps ซึ่งอาจมีการเก็บข้อมูลตามนโยบายความเป็นส่วนตัวของ Google เอง',

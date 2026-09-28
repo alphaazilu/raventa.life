@@ -3,6 +3,7 @@
 import { useMemo, useState } from 'react'
 import { useLanguage } from '@/components/language-provider'
 import { authCopy } from '@/lib/auth/copy'
+import { AvatarCircle } from '@/components/account/avatar'
 
 export type AdminMember = {
   id: string
@@ -14,6 +15,7 @@ export type AdminMember = {
   province: string | null
   nationality: string | null
   role: string
+  avatar_url: string | null
 }
 
 export function AdminView({ email, members }: { email: string; members: AdminMember[] }) {
@@ -70,7 +72,16 @@ export function AdminView({ email, members }: { email: string; members: AdminMem
             {filtered.map((m) => (
               <tr key={m.id} className="bg-card">
                 <td className="whitespace-nowrap px-4 py-3 font-mono text-primary">{m.member_no ?? '—'}</td>
-                <td className="px-4 py-3">{[m.first_name, m.last_name].filter(Boolean).join(' ') || '—'}</td>
+                <td className="px-4 py-3">
+                  <span className="flex items-center gap-2.5">
+                    <AvatarCircle
+                      src={m.avatar_url}
+                      name={[m.first_name, m.last_name].filter(Boolean).join(' ') || m.email || '?'}
+                      className="h-8 w-8 text-xs"
+                    />
+                    {[m.first_name, m.last_name].filter(Boolean).join(' ') || '—'}
+                  </span>
+                </td>
                 <td className="px-4 py-3">{m.email ?? '—'}</td>
                 <td className="whitespace-nowrap px-4 py-3">{m.phone ?? '—'}</td>
                 <td className="px-4 py-3">{m.province ?? '—'}</td>

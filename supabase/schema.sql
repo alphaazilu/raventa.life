@@ -446,5 +446,76 @@ create index if not exists account_merge_events_target_idx
 alter table public.account_merge_events enable row level security;
 revoke all on public.account_merge_events from anon, authenticated;
 
--- 10. Promote an account to admin (run manually, once, per admin user):
+-- 10. Profile photos. Members can upload their own photo; it's stored in a
+-- PRIVATE Storage bucket (a face is personal data under PDPA), so no one can
+-- open it by URL alone — the site hands out short-lived signed links only to
+-- the member themself and to admins.
+--
+-- avatar_path          = uploaded photo, "<user id>/<file>" in bucket avatars
+-- provider_avatar_url  = picture from LINE/Google, refreshed on each sign-in
+-- Shown in that order; with neither, the site shows the name's first letter.
+alter table public.profiles add column if not exists avatar_path text;
+alter table public.profiles add column if not exists provider_avatar_url text;
+
+-- Backfill LINE/Google pictures for members who signed up before this
+-- existed (otherwise they'd only appear after each member's next sign-in).
+-- LINE first, like the app. Safe to re-run: only fills empty ones.
+update public.profiles p
+set provider_avatar_url = pic.url
+from (
+  select distinct on (i.user_id)
+    i.user_id,
+    coalesce(i.identity_data->>'picture', i.identity_data->>'avatar_url') as url
+  from auth.identities i
+  where i.provider in ('custom:line', 'google')
+    and coalesce(i.identity_data->>'picture', i.identity_data->>'avatar_url') like 'https://%'
+  order by i.user_id, (i.provider = 'custom:line') desc
+) pic
+where pic.user_id = p.id
+  and p.provider_avatar_url is null;
+
+-- A member can only ever point avatar_path at a file in their own folder.
+do $$
+begin
+  if not exists (select 1 from pg_constraint where conname = 'profiles_avatar_path_own_folder') then
+    alter table public.profiles
+      add constraint profiles_avatar_path_own_folder
+      check (avatar_path is null or avatar_path like (id::text || '/%'));
+  end if;
+end $$;
+
+-- Private bucket: 1 MB per file, images only. The browser shrinks photos to
+-- ~512px JPEG before upload, so real files are far smaller than the limit.
+insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+values ('avatars', 'avatars', false, 1048576, array['image/jpeg', 'image/png', 'image/webp'])
+on conflict (id) do update set
+  public = excluded.public,
+  file_size_limit = excluded.file_size_limit,
+  allowed_mime_types = excluded.allowed_mime_types;
+
+-- Each member reads/writes only their own folder (<user id>/...); admins can
+-- read everyone's (for the member list) and delete (to remove an
+-- inappropriate photo).
+drop policy if exists "Avatars: read own or admin" on storage.objects;
+create policy "Avatars: read own or admin"
+  on storage.objects for select to authenticated
+  using (bucket_id = 'avatars' and ((storage.foldername(name))[1] = auth.uid()::text or public.is_admin()));
+
+drop policy if exists "Avatars: upload own" on storage.objects;
+create policy "Avatars: upload own"
+  on storage.objects for insert to authenticated
+  with check (bucket_id = 'avatars' and (storage.foldername(name))[1] = auth.uid()::text);
+
+drop policy if exists "Avatars: update own" on storage.objects;
+create policy "Avatars: update own"
+  on storage.objects for update to authenticated
+  using (bucket_id = 'avatars' and (storage.foldername(name))[1] = auth.uid()::text)
+  with check (bucket_id = 'avatars' and (storage.foldername(name))[1] = auth.uid()::text);
+
+drop policy if exists "Avatars: delete own or admin" on storage.objects;
+create policy "Avatars: delete own or admin"
+  on storage.objects for delete to authenticated
+  using (bucket_id = 'avatars' and ((storage.foldername(name))[1] = auth.uid()::text or public.is_admin()));
+
+-- 11. Promote an account to admin (run manually, once, per admin user):
 -- update public.profiles set role = 'admin' where email = 'owner@raventa.com';
