@@ -1,6 +1,7 @@
 'use client'
 
 import { useActionState, useEffect, useState } from 'react'
+import { ChevronRight } from 'lucide-react'
 import { useLanguage } from '@/components/language-provider'
 import { authCopy } from '@/lib/auth/copy'
 import { fieldClass } from '@/lib/form-field-class'
@@ -65,7 +66,7 @@ export function AccountView({
   }, [phoneState])
 
   return (
-    <div className="mx-auto max-w-2xl px-4 py-16">
+    <div className="mx-auto max-w-lg px-4 py-16">
       <h1 className="font-display text-3xl font-extrabold text-foreground md:text-4xl">
         {tr(authCopy.accountHeading)}
       </h1>
@@ -79,46 +80,25 @@ export function AccountView({
         />
       </div>
 
-      <div className="mt-8 rounded-2xl border border-border bg-card p-6">
-        <div className="mb-6 border-b border-border pb-6">
-          <AvatarEditor
-            userId={userId}
-            src={avatarUrl}
-            name={fullName || email || '?'}
-            hasUploaded={hasUploadedAvatar}
-          />
-        </div>
-        {memberNo && (
-          <>
-            <p className="mt-4 text-xs font-semibold tracking-wide uppercase text-muted-foreground first:mt-0">
-              {tr(authCopy.memberNoFieldLabel)}
-            </p>
-            <p className="mt-1 font-mono text-lg tracking-wider text-primary">{memberNo}</p>
-          </>
-        )}
+      <section className="mt-8 rounded-2xl border border-border bg-card p-5">
+        <h2 className="mb-4 text-base font-semibold text-card-foreground">{tr(authCopy.profilePhotoHeading)}</h2>
+        <AvatarEditor
+          userId={userId}
+          src={avatarUrl}
+          name={fullName || email || '?'}
+          hasUploaded={hasUploadedAvatar}
+        />
+      </section>
 
-        {fullName && (
-          <>
-            <p className="mt-4 text-xs font-semibold tracking-wide uppercase text-muted-foreground first:mt-0">
-              {tr(authCopy.nameFieldLabel)}
-            </p>
-            <p className="mt-1 text-card-foreground">{fullName}</p>
-          </>
-        )}
-
-        <p className="mt-4 text-xs font-semibold tracking-wide uppercase text-muted-foreground first:mt-0">
-          {tr(authCopy.emailFieldLabel)}
-        </p>
+      <section className="mt-4 rounded-2xl border border-border bg-card px-5 pt-5 pb-2">
+        <h2 className="mb-1 text-base font-semibold text-card-foreground">{tr(authCopy.personalInfoHeading)}</h2>
+        {fullName && <InfoRow label={tr(authCopy.nameFieldLabel)}>{fullName}</InfoRow>}
         {/* LINE accounts often have no email at all. */}
-        <p className="mt-1 text-card-foreground">{email || '—'}</p>
-
+        <InfoRow label={tr(authCopy.emailFieldLabel)}>{email || '—'}</InfoRow>
         {phone && (
-          <>
-            <p className="mt-4 text-xs font-semibold tracking-wide uppercase text-muted-foreground first:mt-0">
-              {tr(authCopy.phoneFieldLabel)}
-            </p>
+          <InfoRow label={tr(authCopy.phoneFieldLabel)}>
             {editingPhone ? (
-              <form action={phoneAction} className="mt-1 flex flex-wrap items-center gap-2">
+              <form action={phoneAction} className="flex flex-wrap items-center justify-end gap-2">
                 <input
                   type="tel"
                   name="phone"
@@ -127,8 +107,9 @@ export function AccountView({
                   pattern="[0-9]{9,10}"
                   value={phoneValue}
                   onChange={(e) => setPhoneValue(e.target.value)}
+                  aria-label={tr(authCopy.phoneFieldLabel)}
                   className={fieldClass(
-                    'w-full max-w-[200px] rounded-xl border border-border bg-background px-3 py-2 text-sm text-foreground outline-none focus:border-primary',
+                    'w-full max-w-[160px] rounded-xl border border-border bg-background px-3 py-2 text-sm text-foreground outline-none focus:border-primary',
                     Boolean(phoneState?.fieldErrors?.phone),
                   )}
                 />
@@ -152,11 +133,11 @@ export function AccountView({
                   {tr(authCopy.cancelButton)}
                 </button>
                 {phoneState?.fieldErrors?.phone && (
-                  <p className="w-full text-xs text-destructive">{phoneState.fieldErrors.phone}</p>
+                  <p className="w-full text-right text-xs text-destructive">{phoneState.fieldErrors.phone}</p>
                 )}
               </form>
             ) : (
-              <p className="mt-1 flex items-center gap-3 text-card-foreground">
+              <span className="inline-flex items-center gap-3">
                 {phone}
                 <button
                   type="button"
@@ -168,63 +149,61 @@ export function AccountView({
                 >
                   {tr(authCopy.editButton)}
                 </button>
-              </p>
+              </span>
             )}
-          </>
+          </InfoRow>
         )}
+        {province && <InfoRow label={tr(authCopy.provinceFieldLabel)}>{province}</InfoRow>}
+        {nationality && <InfoRow label={tr(authCopy.nationalityFieldLabel)}>{nationality}</InfoRow>}
+        <InfoRow label={tr(authCopy.roleFieldLabel)} last>
+          {role === 'admin' ? tr(authCopy.roleAdmin) : tr(authCopy.roleCustomer)}
+        </InfoRow>
+      </section>
 
-        {province && (
-          <>
-            <p className="mt-4 text-xs font-semibold tracking-wide uppercase text-muted-foreground first:mt-0">
-              {tr(authCopy.provinceFieldLabel)}
-            </p>
-            <p className="mt-1 text-card-foreground">{province}</p>
-          </>
-        )}
-
-        {nationality && (
-          <>
-            <p className="mt-4 text-xs font-semibold tracking-wide uppercase text-muted-foreground first:mt-0">
-              {tr(authCopy.nationalityFieldLabel)}
-            </p>
-            <p className="mt-1 text-card-foreground">{nationality}</p>
-          </>
-        )}
-
-        <p className="mt-4 text-xs font-semibold tracking-wide uppercase text-muted-foreground first:mt-0">
-          {tr(authCopy.roleFieldLabel)}
-        </p>
-        <p className="mt-1 text-card-foreground">{role === 'admin' ? tr(authCopy.roleAdmin) : tr(authCopy.roleCustomer)}</p>
-
-        {role === 'admin' && (
-          <a
-            href="/admin"
-            className="mt-4 inline-block text-sm font-semibold text-primary underline-offset-2 hover:underline"
-          >
-            {tr(authCopy.goToAdmin)}
-          </a>
-        )}
-
-        {hasPassword && (
-          <a
-            href="/reset-password"
-            className="mt-4 inline-block text-sm font-semibold text-primary underline-offset-2 hover:underline"
-          >
-            {tr(authCopy.changePasswordLink)}
-          </a>
-        )}
-
+      <section className="mt-4 rounded-2xl border border-border bg-card p-5">
         <LinkLine linked={lineLinked} result={lineLinkResult} />
-      </div>
+      </section>
 
-      <form action={signOutAction} className="mt-6">
+      {(hasPassword || role === 'admin') && (
+        <nav className="mt-4 overflow-hidden rounded-2xl border border-border bg-card">
+          {hasPassword && <LinkRow href="/reset-password">{tr(authCopy.changePasswordLink)}</LinkRow>}
+          {role === 'admin' && <LinkRow href="/admin">{tr(authCopy.adminLinkLabel)}</LinkRow>}
+        </nav>
+      )}
+
+      <form action={signOutAction} className="mt-8">
         <button
           type="submit"
-          className="rounded-full border border-border px-6 py-2.5 text-sm font-semibold text-foreground transition-colors hover:border-primary/40"
+          className="h-12 w-full rounded-2xl border border-border bg-transparent text-sm font-semibold text-foreground transition-colors hover:border-primary/40 hover:text-primary"
         >
           {tr(authCopy.signOutButton)}
         </button>
       </form>
     </div>
+  )
+}
+
+// One "label ........ value" line of the personal-info box.
+function InfoRow({ label, children, last }: { label: string; children: React.ReactNode; last?: boolean }) {
+  return (
+    <div
+      className={`flex flex-wrap items-center justify-between gap-x-4 gap-y-1 py-3 text-sm ${last ? '' : 'border-b border-border'}`}
+    >
+      <span className="text-muted-foreground">{label}</span>
+      <span className="text-right font-medium text-card-foreground">{children}</span>
+    </div>
+  )
+}
+
+// A tappable row that goes somewhere (change password, admin).
+function LinkRow({ href, children }: { href: string; children: React.ReactNode }) {
+  return (
+    <a
+      href={href}
+      className="flex min-h-[52px] items-center justify-between border-b border-border px-5 text-sm font-medium text-card-foreground transition-colors last:border-b-0 hover:bg-background"
+    >
+      <span>{children}</span>
+      <ChevronRight className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
+    </a>
   )
 }

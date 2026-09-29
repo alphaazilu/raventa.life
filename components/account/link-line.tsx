@@ -49,10 +49,8 @@ export function LinkLine({ linked, result }: { linked: boolean; result: LinkLine
           : null
 
   return (
-    <div className="mt-6 border-t border-border pt-5">
-      <p className="text-xs font-semibold tracking-wide uppercase text-muted-foreground">
-        {tr(authCopy.lineLinkLabel)}
-      </p>
+    <div>
+      <h2 className="text-base font-semibold text-card-foreground">{tr(authCopy.lineLinkLabel)}</h2>
       {linked ? (
         <p className="mt-2 flex items-center gap-2 text-sm text-card-foreground">
           <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-[#06C755]">
