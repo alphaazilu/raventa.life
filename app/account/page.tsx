@@ -45,7 +45,7 @@ export default async function AccountPage({
   return (
     <>
       <SiteHeader />
-      <main className="min-h-screen bg-background pt-24 md:pt-28">
+      <main className="min-h-screen bg-background pt-20 md:pt-24">
         <AccountHome
           name={fullName || user.email || profile?.email || '—'}
           memberNo={profile?.member_no ?? null}

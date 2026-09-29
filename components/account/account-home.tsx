@@ -23,7 +23,7 @@ export function AccountHome({
 }) {
   const { tr } = useLanguage()
   return (
-    <div className="mx-auto max-w-lg px-4 pt-4 pb-16 md:pt-8">
+    <div className="mx-auto max-w-lg px-4 pt-4 pb-16 md:pt-6">
       <h1 className="font-display text-3xl font-extrabold text-foreground md:text-4xl">
         {tr(authCopy.accountHeading)}
       </h1>

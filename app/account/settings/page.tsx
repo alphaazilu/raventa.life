@@ -53,7 +53,7 @@ export default async function AccountSettingsPage({
   return (
     <>
       <SiteHeader />
-      <main className="min-h-screen bg-background pt-24 md:pt-28">
+      <main className="min-h-screen bg-background pt-20 md:pt-24">
         <AccountSettingsView
           // LINE members have no login email (Supabase gives ""), so fall
           // back to the one they typed on /complete-profile.

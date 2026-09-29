@@ -70,7 +70,7 @@ export function AccountSettingsView({
   }, [phoneState])
 
   return (
-    <div className="mx-auto max-w-lg px-4 pt-4 pb-16 md:pt-8">
+    <div className="mx-auto max-w-lg px-4 pt-4 pb-16 md:pt-6">
       <a
         href="/account"
         className="inline-flex min-h-11 items-center gap-1 text-sm font-semibold text-primary underline-offset-2 hover:underline"
