@@ -51,10 +51,10 @@ export async function GET(request: Request) {
   // can say something instead of silently showing an empty form.
   const reason = searchParams.get('error_code') ?? searchParams.get('error') ?? 'auth'
 
-  // A failed "link LINE" from /account: the member is still signed in, so
+  // A failed "link LINE" from the settings page: the member is still signed in, so
   // send them back there, not to the login page.
   if (searchParams.get('link') === 'line') {
-    const url = new URL('/account', origin)
+    const url = new URL('/account/settings', origin)
     url.searchParams.set('link_error', reason)
     return NextResponse.redirect(url)
   }

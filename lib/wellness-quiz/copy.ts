@@ -66,7 +66,7 @@ export const quizCopy = {
     next: { th: 'ถัดไป', en: 'Next' },
     seeResult: { th: 'ดูเส้นทางของฉัน', en: 'See My Journey' },
     retake: { th: 'ทำแบบทดสอบใหม่', en: 'Retake the Quiz' },
-    book: { th: 'จองคิวเลย', en: 'Book This Journey' },
+    book: { th: 'วางแผนการมา', en: 'Plan Your Visit' },
   },
   result: {
     eyebrow: { th: 'เส้นทางของคุณวันนี้', en: 'Your Journey Today' },

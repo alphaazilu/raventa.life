@@ -36,7 +36,25 @@ export function SiteHeader() {
 
   // On any page other than the homepage there is no dark hero behind the
   // header, so force the solid/dark-text style regardless of scroll position.
-  const solid = scrolled || !isHome
+  // An open mobile menu also needs the solid header, or its white text
+  // would sit on the dimmed page.
+  const solid = scrolled || !isHome || open
+
+  // While the mobile menu is open: dim the page (below), stop it scrolling
+  // behind the menu, and let Escape close it.
+  useEffect(() => {
+    if (!open) return
+    const prev = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setOpen(false)
+    }
+    window.addEventListener('keydown', onKey)
+    return () => {
+      document.body.style.overflow = prev
+      window.removeEventListener('keydown', onKey)
+    }
+  }, [open])
 
   // Hash-only links only work while already on the homepage; elsewhere they
   // need to point back to "/" first so they actually navigate home.
@@ -44,10 +62,22 @@ export function SiteHeader() {
   const homeHref = isHome ? '#top' : '/'
 
   return (
+    <>
+    {/* Dims everything behind the open mobile menu; tapping it closes the menu. */}
+    <div
+      aria-hidden="true"
+      onClick={() => setOpen(false)}
+      className={cn(
+        'fixed inset-0 z-40 bg-black/50 transition-opacity duration-200 md:hidden',
+        open ? 'opacity-100' : 'pointer-events-none opacity-0',
+      )}
+    />
     <header
       className={cn(
         'fixed inset-x-0 top-0 z-50 transition-colors duration-300',
-        solid ? 'bg-background/90 backdrop-blur-md border-b border-border shadow-sm' : 'bg-transparent',
+        solid
+          ? cn(open ? 'bg-background' : 'bg-background/90 backdrop-blur-md', 'border-b border-border shadow-sm')
+          : 'bg-transparent',
       )}
     >
       <div className="mx-auto flex h-16 max-w-6xl items-center justify-between gap-4 px-4 md:h-20 md:px-6">
@@ -124,6 +154,7 @@ export function SiteHeader() {
             type="button"
             onClick={() => setOpen((v) => !v)}
             aria-label="Toggle menu"
+            aria-expanded={open}
             className={cn('md:hidden', solid ? 'text-foreground' : 'text-white')}
           >
             {open ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
@@ -162,5 +193,6 @@ export function SiteHeader() {
         </div>
       )}
     </header>
+    </>
   )
 }

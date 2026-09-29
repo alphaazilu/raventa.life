@@ -169,7 +169,7 @@ export const t = {
     benefits: { th: 'ประโยชน์', en: 'Benefits' },
     quiz: { th: 'หาเส้นทางของคุณ', en: 'Find My Journey' },
     contact: { th: 'ติดต่อ', en: 'Contact' },
-    book: { th: 'จองคิว', en: 'Book Now' },
+    book: { th: 'วางแผนการมา', en: 'Plan Your Visit' },
     login: { th: 'เข้าสู่ระบบ', en: 'Log In' },
     account: { th: 'บัญชีของฉัน', en: 'My Account' },
   },
@@ -181,7 +181,7 @@ export const t = {
       en: 'The journey back to your best self, through the art of heat and cold.',
     },
     tagline: { th: 'NATURE MEETS MODERN WELLNESS', en: 'NATURE MEETS MODERN WELLNESS' },
-    ctaPrimary: { th: 'จองคิว', en: 'Book a Session' },
+    ctaPrimary: { th: 'วางแผนการมา', en: 'Plan Your Visit' },
     ctaSecondary: { th: 'สำรวจโซนบำบัด', en: 'Explore the Zones' },
   },
   about: {
@@ -231,8 +231,8 @@ export const t = {
     hours: { th: 'ทุกวัน 09:00 – 21:00 น.', en: 'Daily 9:00 AM – 9:00 PM' },
     phoneLabel: { th: 'โทรศัพท์', en: 'Phone' },
     emailLabel: { th: 'อีเมล', en: 'Email' },
-    cta: { th: 'จองคิวเลย', en: 'Book Your Session' },
-    note: { th: 'กรุณาจองล่วงหน้าเพื่อรับประสบการณ์ที่ดีที่สุด', en: 'Advance booking is recommended for the best experience.' },
+    cta: { th: 'โทรสอบถาม', en: 'Call Us' },
+    note: { th: 'Walk-in ได้ทุกวัน ไม่ต้องจองล่วงหน้า', en: 'Walk in any day, no booking needed.' },
   },
   footer: {
     tagline: { th: 'NATURE MEETS MODERN WELLNESS', en: 'NATURE MEETS MODERN WELLNESS' },

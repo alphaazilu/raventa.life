@@ -1,6 +1,7 @@
 'use client'
 
 import { useRef, useState } from 'react'
+import { Camera } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { useLanguage } from '@/components/language-provider'
 import { authCopy } from '@/lib/auth/copy'
@@ -72,11 +73,13 @@ export function AvatarEditor({
   src,
   name,
   hasUploaded,
+  subtitle,
 }: {
   userId: string
   src: string | null
   name: string
   hasUploaded: boolean
+  subtitle?: string | null
 }) {
   const { tr } = useLanguage()
   const router = useRouter()
@@ -128,42 +131,38 @@ export function AvatarEditor({
   }
 
   return (
-    <div className="flex items-center gap-4">
+    <div className="flex flex-col items-center text-center">
       <button
         type="button"
         onClick={() => inputRef.current?.click()}
         disabled={busy}
         aria-label={tr(authCopy.avatarChange)}
-        className="relative rounded-full focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+        className="relative rounded-full focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-4 focus-visible:ring-offset-background"
       >
-        <AvatarCircle src={src} name={name} className="h-20 w-20 text-3xl" />
+        <AvatarCircle src={src} name={name} className="h-28 w-28 text-4xl" />
         {busy && (
           <span className="absolute inset-0 flex items-center justify-center rounded-full bg-black/40 text-white">
-            <Spinner className="h-6 w-6" />
+            <Spinner className="h-7 w-7" />
           </span>
         )}
+        {/* Camera badge: says "tap to change" without any words. */}
+        <span className="absolute right-0 bottom-0 flex h-9 w-9 items-center justify-center rounded-full bg-foreground text-background ring-4 ring-background">
+          <Camera className="h-4 w-4" aria-hidden="true" />
+        </span>
       </button>
-      <div className="flex flex-col items-start gap-1">
+      <p className="mt-4 text-lg font-semibold text-foreground">{name}</p>
+      {subtitle && <p className="text-sm text-muted-foreground">{subtitle}</p>}
+      {hasUploaded && (
         <button
           type="button"
-          onClick={() => inputRef.current?.click()}
+          onClick={onRemove}
           disabled={busy}
-          className="text-sm font-semibold text-primary underline-offset-2 hover:underline disabled:opacity-50"
+          className="mt-2 text-xs font-semibold text-muted-foreground underline-offset-2 hover:underline disabled:opacity-50"
         >
-          {tr(authCopy.avatarChange)}
+          {tr(authCopy.avatarRemove)}
         </button>
-        {hasUploaded && (
-          <button
-            type="button"
-            onClick={onRemove}
-            disabled={busy}
-            className="text-xs font-semibold text-muted-foreground underline-offset-2 hover:underline disabled:opacity-50"
-          >
-            {tr(authCopy.avatarRemove)}
-          </button>
-        )}
-        {error && <p className="text-xs text-destructive">{tr(authCopy[error])}</p>}
-      </div>
+      )}
+      {error && <p className="mt-2 text-xs text-destructive">{tr(authCopy[error])}</p>}
       <input
         ref={inputRef}
         type="file"

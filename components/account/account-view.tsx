@@ -1,19 +1,19 @@
 'use client'
 
 import { useActionState, useEffect, useState } from 'react'
-import { ChevronRight } from 'lucide-react'
+import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { useLanguage } from '@/components/language-provider'
 import { authCopy } from '@/lib/auth/copy'
 import { fieldClass } from '@/lib/form-field-class'
 import { updateOwnPhone, type UpdatePhoneState } from '@/app/account/actions'
-import { LinkLine, type LinkLineResult } from '@/components/account/link-line'
+import { LoginMethods, type LinkLineResult } from '@/components/account/link-line'
 import { AvatarEditor } from '@/components/account/avatar'
-import { MemberCard } from '@/components/account/member-card'
 import { Spinner } from '@/components/ui/spinner'
+import { formatMemberDate } from '@/lib/format-date'
 
 const initialPhoneState: UpdatePhoneState = null
 
-export function AccountView({
+export function AccountSettingsView({
   email,
   firstName,
   lastName,
@@ -21,7 +21,6 @@ export function AccountView({
   province,
   nationality,
   role,
-  memberNo,
   signOutAction,
   lineLinked,
   lineLinkResult,
@@ -29,7 +28,9 @@ export function AccountView({
   userId,
   avatarUrl,
   hasUploadedAvatar,
-  openCardOnLoad,
+  googleLinked,
+  googleEmail,
+  joinedAt,
 }: {
   email: string
   firstName: string | null
@@ -38,7 +39,6 @@ export function AccountView({
   province: string | null
   nationality: string | null
   role: string
-  memberNo: string | null
   signOutAction: () => Promise<void>
   lineLinked: boolean
   lineLinkResult: LinkLineResult
@@ -46,9 +46,13 @@ export function AccountView({
   userId: string
   avatarUrl: string | null
   hasUploadedAvatar: boolean
-  openCardOnLoad: boolean
+  googleLinked: boolean
+  googleEmail: string | null
+  joinedAt: string | null
 }) {
-  const { tr } = useLanguage()
+  const { tr, lang } = useLanguage()
+  const joined = formatMemberDate(joinedAt, lang, true)
+  const joinedSince = formatMemberDate(joinedAt, lang, false)
   const fullName = [firstName, lastName].filter(Boolean).join(' ')
 
   // Members can edit only their phone number themselves — name and
@@ -67,30 +71,28 @@ export function AccountView({
 
   return (
     <div className="mx-auto max-w-lg px-4 py-16">
-      <h1 className="font-display text-3xl font-extrabold text-foreground md:text-4xl">
-        {tr(authCopy.accountHeading)}
+      <a
+        href="/account"
+        className="inline-flex min-h-11 items-center gap-1 text-sm font-semibold text-primary underline-offset-2 hover:underline"
+      >
+        <ChevronLeft className="h-4 w-4" aria-hidden="true" />
+        {tr(authCopy.backToAccount)}
+      </a>
+      <h1 className="mt-2 font-display text-2xl font-extrabold text-foreground md:text-3xl">
+        {tr(authCopy.settingsHeading)}
       </h1>
 
       <div className="mt-8">
-        <MemberCard
-          name={fullName || email || '—'}
-          memberNo={memberNo}
-          avatarUrl={avatarUrl}
-          autoOpen={openCardOnLoad}
-        />
-      </div>
-
-      <section className="mt-8 rounded-2xl border border-border bg-card p-5">
-        <h2 className="mb-4 text-base font-semibold text-card-foreground">{tr(authCopy.profilePhotoHeading)}</h2>
         <AvatarEditor
           userId={userId}
           src={avatarUrl}
           name={fullName || email || '?'}
           hasUploaded={hasUploadedAvatar}
+          subtitle={joinedSince ? `${tr(authCopy.memberSince)} ${joinedSince}` : null}
         />
-      </section>
+      </div>
 
-      <section className="mt-4 rounded-2xl border border-border bg-card px-5 pt-5 pb-2">
+      <section className="mt-8 rounded-2xl border border-border bg-card px-5 pt-5 pb-2">
         <h2 className="mb-1 text-base font-semibold text-card-foreground">{tr(authCopy.personalInfoHeading)}</h2>
         {fullName && <InfoRow label={tr(authCopy.nameFieldLabel)}>{fullName}</InfoRow>}
         {/* LINE accounts often have no email at all. */}
@@ -155,13 +157,20 @@ export function AccountView({
         )}
         {province && <InfoRow label={tr(authCopy.provinceFieldLabel)}>{province}</InfoRow>}
         {nationality && <InfoRow label={tr(authCopy.nationalityFieldLabel)}>{nationality}</InfoRow>}
+        {joined && <InfoRow label={tr(authCopy.joinedFieldLabel)}>{joined}</InfoRow>}
         <InfoRow label={tr(authCopy.roleFieldLabel)} last>
           {role === 'admin' ? tr(authCopy.roleAdmin) : tr(authCopy.roleCustomer)}
         </InfoRow>
       </section>
 
-      <section className="mt-4 rounded-2xl border border-border bg-card p-5">
-        <LinkLine linked={lineLinked} result={lineLinkResult} />
+      <section className="mt-4 rounded-2xl border border-border bg-card px-5 pt-5 pb-2">
+        <LoginMethods
+          hasPassword={hasPassword}
+          googleLinked={googleLinked}
+          googleEmail={googleEmail}
+          lineLinked={lineLinked}
+          lineLinkResult={lineLinkResult}
+        />
       </section>
 
       {(hasPassword || role === 'admin') && (
@@ -196,7 +205,7 @@ function InfoRow({ label, children, last }: { label: string; children: React.Rea
 }
 
 // A tappable row that goes somewhere (change password, admin).
-function LinkRow({ href, children }: { href: string; children: React.ReactNode }) {
+export function LinkRow({ href, children }: { href: string; children: React.ReactNode }) {
   return (
     <a
       href={href}

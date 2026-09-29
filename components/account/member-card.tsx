@@ -8,6 +8,7 @@ import { authCopy } from '@/lib/auth/copy'
 import { AvatarCircle } from '@/components/account/avatar'
 import { Spinner } from '@/components/ui/spinner'
 import { cn } from '@/lib/utils'
+import { formatMemberDate } from '@/lib/format-date'
 
 // 0000000042 → "0000 0000 42": easier to read out loud to staff.
 function formatMemberNo(no: string | null): string {
@@ -35,10 +36,12 @@ function QrSvg({ text }: { text: string }) {
   )
 }
 
-type Person = { name: string; memberNo: string | null; avatarUrl: string | null }
+type Person = { name: string; memberNo: string | null; avatarUrl: string | null; joinedAt: string | null }
 
 // The red RAVENTA card itself (also the left half of the sideways view).
-function CardFace({ name, memberNo, avatarUrl, showQrHint }: Person & { showQrHint: boolean }) {
+function CardFace({ name, memberNo, avatarUrl, joinedAt, showQrHint }: Person & { showQrHint: boolean }) {
+  const { tr, lang } = useLanguage()
+  const since = formatMemberDate(joinedAt, lang, false)
   return (
     <>
       <span className="flex w-full items-center justify-between">
@@ -51,7 +54,14 @@ function CardFace({ name, memberNo, avatarUrl, showQrHint }: Person & { showQrHi
           name={name}
           className="h-12 w-12 bg-primary-foreground text-xl text-primary"
         />
-        <span className="min-w-0 truncate text-lg font-semibold">{name}</span>
+        <span className="flex min-w-0 flex-col">
+          <span className="truncate text-lg font-semibold">{name}</span>
+          {since && (
+            <span className="text-xs text-secondary">
+              {tr(authCopy.memberSince)} {since}
+            </span>
+          )}
+        </span>
       </span>
       <span className="flex w-full items-end justify-between">
         <span className="flex flex-col">
@@ -68,7 +78,7 @@ function CardFace({ name, memberNo, avatarUrl, showQrHint }: Person & { showQrHi
   )
 }
 
-export function MemberCard({ name, memberNo, avatarUrl, autoOpen }: Person & { autoOpen: boolean }) {
+export function MemberCard({ name, memberNo, avatarUrl, joinedAt, autoOpen }: Person & { autoOpen: boolean }) {
   const { tr } = useLanguage()
   const [open, setOpen] = useState(autoOpen)
   const cardRef = useRef<HTMLButtonElement>(null)
@@ -94,10 +104,10 @@ export function MemberCard({ name, memberNo, avatarUrl, autoOpen }: Person & { a
         aria-label={tr(authCopy.memberCardOpen)}
         className="flex aspect-[1.586] w-full max-w-sm flex-col justify-between rounded-2xl bg-primary px-5 py-5 text-left text-primary-foreground shadow-[0_10px_24px_rgba(139,30,45,0.28)] transition-transform focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 active:scale-[0.99]"
       >
-        <CardFace name={name} memberNo={memberNo} avatarUrl={avatarUrl} showQrHint />
+        <CardFace name={name} memberNo={memberNo} avatarUrl={avatarUrl} joinedAt={joinedAt} showQrHint />
       </button>
       <p className="text-sm text-muted-foreground">{tr(authCopy.memberCardTapHint)}</p>
-      {open && <QrOverlay name={name} memberNo={memberNo} avatarUrl={avatarUrl} onClose={close} />}
+      {open && <QrOverlay name={name} memberNo={memberNo} avatarUrl={avatarUrl} joinedAt={joinedAt} onClose={close} />}
     </div>
   )
 }
@@ -107,7 +117,7 @@ type TokenState =
   | { status: 'ready'; token: string; nextAt: number; periodMs: number }
   | { status: 'error' }
 
-function QrOverlay({ name, memberNo, avatarUrl, onClose }: Person & { onClose: () => void }) {
+function QrOverlay({ name, memberNo, avatarUrl, joinedAt, onClose }: Person & { onClose: () => void }) {
   const { tr } = useLanguage()
   const [state, setState] = useState<TokenState>({ status: 'loading' })
   const [now, setNow] = useState(() => Date.now())
@@ -226,7 +236,7 @@ function QrOverlay({ name, memberNo, avatarUrl, onClose }: Person & { onClose: (
           </div>
         </div>
         <div className="hidden aspect-[1.586] h-[min(70vh,270px)] shrink-0 flex-col justify-between rounded-2xl bg-primary p-6 text-primary-foreground phone-landscape:flex">
-          <CardFace name={name} memberNo={memberNo} avatarUrl={avatarUrl} showQrHint={false} />
+          <CardFace name={name} memberNo={memberNo} avatarUrl={avatarUrl} joinedAt={joinedAt} showQrHint={false} />
         </div>
 
         <div className="flex flex-col items-center gap-3">

@@ -46,6 +46,6 @@ export async function updateOwnPhone(_prevState: UpdatePhoneState, formData: For
   }
   if (error) return { error: error.message, fieldErrors: { phone: error.message } }
 
-  revalidatePath('/account')
+  revalidatePath('/account', 'layout')
   return { success: true }
 }

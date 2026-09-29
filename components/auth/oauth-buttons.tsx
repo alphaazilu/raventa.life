@@ -6,7 +6,7 @@ import { authCopy } from '@/lib/auth/copy'
 import { createClient } from '@/lib/supabase/client'
 import { Spinner } from '@/components/ui/spinner'
 
-function GoogleIcon(props: React.SVGProps<SVGSVGElement>) {
+export function GoogleIcon(props: React.SVGProps<SVGSVGElement>) {
   return (
     <svg viewBox="0 0 20 20" {...props}>
       <path

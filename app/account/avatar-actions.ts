@@ -29,7 +29,7 @@ export async function setAvatar(path: string): Promise<AvatarActionResult> {
     await supabase.storage.from(AVATAR_BUCKET).remove([before.avatar_path])
   }
 
-  revalidatePath('/account')
+  revalidatePath('/account', 'layout')
   return { ok: true }
 }
 
@@ -53,6 +53,6 @@ export async function removeAvatar(): Promise<AvatarActionResult> {
     await supabase.storage.from(AVATAR_BUCKET).remove([before.avatar_path])
   }
 
-  revalidatePath('/account')
+  revalidatePath('/account', 'layout')
   return { ok: true }
 }
