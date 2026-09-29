@@ -7,6 +7,7 @@ import { fieldClass } from '@/lib/form-field-class'
 import { updateOwnPhone, type UpdatePhoneState } from '@/app/account/actions'
 import { LinkLine, type LinkLineResult } from '@/components/account/link-line'
 import { AvatarEditor } from '@/components/account/avatar'
+import { MemberCard } from '@/components/account/member-card'
 import { Spinner } from '@/components/ui/spinner'
 
 const initialPhoneState: UpdatePhoneState = null
@@ -27,6 +28,7 @@ export function AccountView({
   userId,
   avatarUrl,
   hasUploadedAvatar,
+  openCardOnLoad,
 }: {
   email: string
   firstName: string | null
@@ -43,6 +45,7 @@ export function AccountView({
   userId: string
   avatarUrl: string | null
   hasUploadedAvatar: boolean
+  openCardOnLoad: boolean
 }) {
   const { tr } = useLanguage()
   const fullName = [firstName, lastName].filter(Boolean).join(' ')
@@ -66,6 +69,15 @@ export function AccountView({
       <h1 className="font-display text-3xl font-extrabold text-foreground md:text-4xl">
         {tr(authCopy.accountHeading)}
       </h1>
+
+      <div className="mt-8">
+        <MemberCard
+          name={fullName || email || '—'}
+          memberNo={memberNo}
+          avatarUrl={avatarUrl}
+          autoOpen={openCardOnLoad}
+        />
+      </div>
 
       <div className="mt-8 rounded-2xl border border-border bg-card p-6">
         <div className="mb-6 border-b border-border pb-6">

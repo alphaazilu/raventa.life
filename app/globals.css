@@ -3,6 +3,8 @@
 @import 'shadcn/tailwind.css';
 
 @custom-variant dark (&:is(.dark *));
+/* A phone held sideways (tablets and laptops in landscape don't count). */
+@custom-variant phone-landscape (@media (orientation: landscape) and (max-height: 520px));
 
 @theme inline {
   --font-sans: var(--font-noto), ui-sans-serif, system-ui, sans-serif;

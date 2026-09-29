@@ -25,6 +25,25 @@ export const authCopy: Record<string, Bilingual> = {
   line: { th: 'ดำเนินการต่อด้วย LINE', en: 'Continue with LINE' },
   lineConnecting: { th: 'กำลังเข้าสู่ระบบด้วย LINE…', en: 'Signing you in with LINE…' },
   otherSignInOptions: { th: 'เข้าสู่ระบบด้วยวิธีอื่น', en: 'Other ways to sign in' },
+  memberCardTapHint: { th: 'แตะบัตรเพื่อแสดง QR เช็คอิน', en: 'Tap your card to show your check-in QR' },
+  memberCardOpen: { th: 'แสดง QR เช็คอินแบบเต็มจอ', en: 'Show check-in QR full screen' },
+  memberCardDialog: { th: 'บัตรสมาชิก RAVENTA', en: 'RAVENTA member card' },
+  memberCardClose: { th: 'ปิด', en: 'Close' },
+  memberCardRefreshIn: { th: 'QR เปลี่ยนใหม่ใน', en: 'New QR in' },
+  memberCardSeconds: { th: 'วินาที', en: 's' },
+  memberCardBrightness: {
+    th: 'เพิ่มความสว่างหน้าจอ แล้วยื่นให้กล้องแท็บเล็ตที่เคาน์เตอร์',
+    en: 'Turn up your screen brightness and hold it up to the tablet at the counter',
+  },
+  memberCardFallback: {
+    th: 'สแกนไม่ได้? บอกเลขสมาชิกกับพนักงานได้เลย',
+    en: 'Can’t scan? Just tell staff your member number',
+  },
+  memberCardLoadFailed: {
+    th: 'โหลด QR ไม่ได้ ตรวจสอบอินเทอร์เน็ต หรือบอกเลขสมาชิกกับพนักงาน',
+    en: 'Couldn’t load your QR. Check your connection, or tell staff your member number.',
+  },
+  memberCardRetry: { th: 'ลองใหม่', en: 'Try again' },
   avatarChange: { th: 'เปลี่ยนรูปโปรไฟล์', en: 'Change photo' },
   avatarRemove: { th: 'ลบรูปที่อัปโหลด', en: 'Remove uploaded photo' },
   avatarBadFile: {

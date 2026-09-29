@@ -33,13 +33,17 @@ export async function updateSession(request: NextRequest) {
   } = await supabase.auth.getUser()
 
   const path = request.nextUrl.pathname
+  // Where to come back to after login / finishing the profile, query
+  // included (e.g. /account?card=1 from the LINE rich menu).
+  const back = path + request.nextUrl.search
   const isAdminRoute = path.startsWith('/admin')
   const isAccountRoute = path.startsWith('/account')
 
   if ((isAdminRoute || isAccountRoute) && !user) {
     const url = request.nextUrl.clone()
     url.pathname = '/login'
-    url.searchParams.set('next', path)
+    url.search = ''
+    url.searchParams.set('next', back)
     return NextResponse.redirect(url)
   }
 
@@ -56,7 +60,8 @@ export async function updateSession(request: NextRequest) {
     if (!isProfileComplete(profile)) {
       const url = request.nextUrl.clone()
       url.pathname = '/complete-profile'
-      url.searchParams.set('next', path)
+      url.search = ''
+      url.searchParams.set('next', back)
       return NextResponse.redirect(url)
     }
 

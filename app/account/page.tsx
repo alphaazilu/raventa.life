@@ -16,7 +16,7 @@ export const metadata: Metadata = {
 export default async function AccountPage({
   searchParams,
 }: {
-  searchParams: Promise<{ linked?: string; link_error?: string }>
+  searchParams: Promise<{ linked?: string; link_error?: string; card?: string }>
 }) {
   const params = await searchParams
   const supabase = await createClient()
@@ -24,7 +24,7 @@ export default async function AccountPage({
     data: { user },
   } = await supabase.auth.getUser()
 
-  if (!user) redirect('/login?next=/account')
+  if (!user) redirect(`/login?next=${encodeURIComponent(params.card === '1' ? '/account?card=1' : '/account')}`)
 
   const { data: profile } = await supabase
     .from('profiles')
@@ -70,6 +70,9 @@ export default async function AccountPage({
           avatarUrl={avatarUrl}
           hasUploadedAvatar={Boolean(profile?.avatar_path)}
           lineLinkResult={linkResult}
+          // /account?card=1 (the LINE rich menu's member card button) opens
+          // the check-in QR straight away.
+          openCardOnLoad={params.card === '1'}
         />
       </main>
       <SiteFooter />
