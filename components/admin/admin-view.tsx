@@ -4,6 +4,8 @@ import { useMemo, useState } from 'react'
 import { useLanguage } from '@/components/language-provider'
 import { authCopy } from '@/lib/auth/copy'
 import { AvatarCircle } from '@/components/account/avatar'
+import { ScanLine } from 'lucide-react'
+import { DESK_PATH } from '@/lib/auth/roles'
 
 export type AdminMember = {
   id: string
@@ -43,6 +45,14 @@ export function AdminView({ email, members }: { email: string; members: AdminMem
         {tr(authCopy.adminHeading)}
       </h1>
       <p className="mt-3 text-sm text-muted-foreground">{email}</p>
+
+      <a
+        href={DESK_PATH}
+        className="mt-6 inline-flex h-12 items-center gap-2 rounded-full bg-primary px-6 text-sm font-semibold text-primary-foreground transition-opacity hover:opacity-90"
+      >
+        <ScanLine className="h-4 w-4" aria-hidden="true" />
+        {tr(authCopy.deskLinkLabel)}
+      </a>
 
       <div className="mt-10 flex flex-wrap items-center justify-between gap-4">
         <h2 className="font-display text-xl font-bold text-foreground">{tr(authCopy.adminMembersHeading)}</h2>

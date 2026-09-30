@@ -519,3 +519,326 @@ create policy "Avatars: delete own or admin"
 
 -- 11. Promote an account to admin (run manually, once, per admin user):
 -- update public.profiles set role = 'admin' where email = 'owner@raventa.com';
+
+-- 12. Roles are only ever changed in the database itself. The "update own
+-- profile" policy above covers every column, so without this a member
+-- could promote themself to admin from the browser console with their own
+-- session. A request made through the app (auth.uid() is set) can neither
+-- change role nor create a profile with anything but 'customer'. Promote
+-- people in the SQL editor (see section 11), where auth.uid() is null.
+create or replace function public.protect_role()
+returns trigger
+language plpgsql
+as $$
+begin
+  if auth.uid() is null then
+    return new;
+  end if;
+  if tg_op = 'INSERT' then
+    new.role := 'customer';
+  elsif new.role is distinct from old.role then
+    raise exception 'role cannot be changed through the app — edit it directly in the database.';
+  end if;
+  return new;
+end;
+$$;
+
+drop trigger if exists protect_role on public.profiles;
+create trigger protect_role
+  before insert or update on public.profiles
+  for each row execute function public.protect_role();
+
+-- 13. Staff role + front-desk check-in (v0.11).
+--
+-- Three roles, each a member first (own card, own visits, own stamps):
+--   customer  member
+--   staff     + /admin/check-in: scan, check in/out, take counter payment,
+--             use a free reward
+--   admin     + everything else in /admin
+--
+-- Every write goes through the SECURITY DEFINER functions below, called
+-- with the staff member's own session, so the database itself knows who
+-- did it (auth.uid()), writes the audit log, and refuses anyone serving
+-- themself. Nothing here can be updated or deleted from the app; a mistake
+-- is "cancelled" (with who and why), never erased.
+alter table public.profiles drop constraint if exists profiles_role_check;
+alter table public.profiles add constraint profiles_role_check check (role in ('customer', 'staff', 'admin'));
+
+create or replace function public.is_staff()
+returns boolean
+language sql
+security definer
+set search_path = public
+stable
+as $$
+  select exists (
+    select 1 from public.profiles
+    where id = auth.uid() and role in ('staff', 'admin')
+  );
+$$;
+
+-- Staff look members up (scan / phone search), so they can read profiles.
+drop policy if exists "Users can view own profile" on public.profiles;
+create policy "Users can view own profile"
+  on public.profiles for select
+  using (auth.uid() = id or public.is_staff());
+
+-- Staff see photos at the desk to confirm the face matches the card.
+drop policy if exists "Avatars: read own or admin" on storage.objects;
+create policy "Avatars: read own or admin"
+  on storage.objects for select to authenticated
+  using (bucket_id = 'avatars' and ((storage.foldername(name))[1] = auth.uid()::text or public.is_staff()));
+
+-- Bangkok calendar day — a visit at 00:30 belongs to that day, not UTC's.
+create or replace function public.bkk_today()
+returns date
+language sql
+stable
+as $$
+  select (now() at time zone 'Asia/Bangkok')::date;
+$$;
+
+-- Day Pass price for a date: Mon–Fri 590, Sat–Sun 790 (THB). The one place
+-- the price lives; the check-in screen asks for it rather than hard-coding.
+-- Public holidays aren't handled yet (see R1 decisions).
+create or replace function public.day_pass_price(p_date date)
+returns int
+language sql
+immutable
+as $$
+  select case when extract(isodow from p_date) in (6, 7) then 790 else 590 end;
+$$;
+
+create table if not exists public.visits (
+  id uuid primary key default gen_random_uuid(),
+  -- set null (not cascade) so deleting a member never erases takings;
+  -- member_no is kept as a snapshot for the same reason.
+  member_id uuid references auth.users(id) on delete set null,
+  member_no text,
+  visit_date date not null default public.bkk_today(),
+  entry_type text not null check (entry_type in ('paid', 'reward')),
+  price int not null default 0,
+  payment_method text check (payment_method in ('cash', 'transfer', 'card')),
+  earns_stamp boolean not null default false,
+  wristband text,
+  checked_in_at timestamptz not null default now(),
+  checked_in_by uuid references auth.users(id) on delete set null,
+  checked_out_at timestamptz,
+  checked_out_by uuid references auth.users(id) on delete set null,
+  cancelled_at timestamptz,
+  cancelled_by uuid references auth.users(id) on delete set null,
+  cancel_reason text,
+  check ((entry_type = 'paid') = (payment_method is not null))
+);
+
+-- One (uncancelled) visit per member per day — which also caps stamps at
+-- one a day.
+create unique index if not exists visits_one_per_day
+  on public.visits (member_id, visit_date)
+  where cancelled_at is null;
+
+create index if not exists visits_date_idx on public.visits (visit_date);
+
+alter table public.visits enable row level security;
+revoke insert, update, delete on public.visits from anon, authenticated;
+
+drop policy if exists "Visits: own or staff" on public.visits;
+create policy "Visits: own or staff"
+  on public.visits for select to authenticated
+  using (member_id = auth.uid() or public.is_staff());
+
+-- Audit log: who did what, to whom, when. Append-only; admins read it.
+create table if not exists public.staff_actions (
+  id bigint generated always as identity primary key,
+  actor_id uuid references auth.users(id) on delete set null,
+  member_id uuid references auth.users(id) on delete set null,
+  visit_id uuid references public.visits(id) on delete set null,
+  action text not null,
+  detail jsonb not null default '{}'::jsonb,
+  created_at timestamptz not null default now()
+);
+
+create index if not exists staff_actions_created_idx on public.staff_actions (created_at desc);
+
+alter table public.staff_actions enable row level security;
+revoke insert, update, delete on public.staff_actions from anon, authenticated;
+
+drop policy if exists "Staff actions: admins read" on public.staff_actions;
+create policy "Staff actions: admins read"
+  on public.staff_actions for select to authenticated
+  using (public.is_admin());
+
+-- Stamp card: 1 stamp per paid visit, 10 stamps = 1 free weekday Day Pass.
+-- A reward visit earns no stamp. Readable by the member themself or staff.
+create or replace function public.member_stamp_status(p_member_id uuid)
+returns table (stamps int, rewards_used int, rewards_available int, progress int)
+language sql
+security definer
+set search_path = public
+stable
+as $$
+  with s as (
+    select
+      count(*) filter (where earns_stamp)::int as stamps,
+      count(*) filter (where entry_type = 'reward')::int as used
+    from public.visits
+    where member_id = p_member_id and cancelled_at is null
+  )
+  select
+    s.stamps,
+    s.used,
+    greatest(s.stamps / 10 - s.used, 0),
+    -- stamps toward the next reward; shows 10 while a reward is waiting
+    case when s.stamps / 10 - s.used > 0 then 10 else s.stamps % 10 end
+  from s
+  where p_member_id = auth.uid() or public.is_staff();
+$$;
+
+grant execute on function public.member_stamp_status(uuid) to authenticated;
+
+create or replace function public.staff_check_in(
+  p_member_id uuid,
+  p_entry_type text,
+  p_payment_method text default null,
+  p_wristband text default null
+)
+returns uuid
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_today date := public.bkk_today();
+  v_member_no text;
+  v_price int := 0;
+  v_available int;
+  v_id uuid;
+begin
+  if not public.is_staff() then
+    raise exception 'not_staff';
+  end if;
+  if p_member_id = auth.uid() then
+    raise exception 'self_service';
+  end if;
+  select member_no into v_member_no from public.profiles where id = p_member_id;
+  if not found then
+    raise exception 'member_not_found';
+  end if;
+  if exists (
+    select 1 from public.visits
+    where member_id = p_member_id and visit_date = v_today and cancelled_at is null
+  ) then
+    raise exception 'already_checked_in';
+  end if;
+
+  if p_entry_type = 'paid' then
+    if p_payment_method is null or p_payment_method not in ('cash', 'transfer', 'card') then
+      raise exception 'payment_method_required';
+    end if;
+    v_price := public.day_pass_price(v_today);
+  elsif p_entry_type = 'reward' then
+    -- the free pass is a weekday Day Pass
+    if extract(isodow from v_today) in (6, 7) then
+      raise exception 'reward_weekday_only';
+    end if;
+    select rewards_available into v_available
+    from public.member_stamp_status(p_member_id);
+    if coalesce(v_available, 0) < 1 then
+      raise exception 'no_reward';
+    end if;
+    p_payment_method := null;
+  else
+    raise exception 'bad_entry_type';
+  end if;
+
+  insert into public.visits (
+    member_id, member_no, visit_date, entry_type, price, payment_method,
+    earns_stamp, wristband, checked_in_by
+  ) values (
+    p_member_id, v_member_no, v_today, p_entry_type, v_price, p_payment_method,
+    p_entry_type = 'paid', nullif(trim(coalesce(p_wristband, '')), ''), auth.uid()
+  )
+  returning id into v_id;
+
+  insert into public.staff_actions (actor_id, member_id, visit_id, action, detail)
+  values (
+    auth.uid(), p_member_id, v_id, 'check_in',
+    jsonb_build_object('entry_type', p_entry_type, 'price', v_price, 'payment_method', p_payment_method, 'wristband', p_wristband)
+  );
+  return v_id;
+end;
+$$;
+
+create or replace function public.staff_check_out(p_visit_id uuid)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v public.visits;
+begin
+  if not public.is_staff() then
+    raise exception 'not_staff';
+  end if;
+  select * into v from public.visits where id = p_visit_id for update;
+  if not found or v.cancelled_at is not null then
+    raise exception 'visit_not_found';
+  end if;
+  if v.member_id = auth.uid() then
+    raise exception 'self_service';
+  end if;
+  if v.checked_out_at is not null then
+    raise exception 'already_checked_out';
+  end if;
+  update public.visits set checked_out_at = now(), checked_out_by = auth.uid() where id = p_visit_id;
+  insert into public.staff_actions (actor_id, member_id, visit_id, action)
+  values (auth.uid(), v.member_id, p_visit_id, 'check_out');
+end;
+$$;
+
+-- Undo a mistaken check-in: staff within 30 minutes, admins any time.
+-- Hands back the stamp (or the free reward) automatically, since both are
+-- counted from uncancelled visits.
+create or replace function public.staff_cancel_visit(p_visit_id uuid, p_reason text)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v public.visits;
+begin
+  if not public.is_staff() then
+    raise exception 'not_staff';
+  end if;
+  if trim(coalesce(p_reason, '')) = '' then
+    raise exception 'reason_required';
+  end if;
+  select * into v from public.visits where id = p_visit_id for update;
+  if not found or v.cancelled_at is not null then
+    raise exception 'visit_not_found';
+  end if;
+  if v.member_id = auth.uid() then
+    raise exception 'self_service';
+  end if;
+  if not public.is_admin() and v.checked_in_at < now() - interval '30 minutes' then
+    raise exception 'cancel_window_passed';
+  end if;
+  update public.visits
+  set cancelled_at = now(), cancelled_by = auth.uid(), cancel_reason = trim(p_reason)
+  where id = p_visit_id;
+  insert into public.staff_actions (actor_id, member_id, visit_id, action, detail)
+  values (auth.uid(), v.member_id, p_visit_id, 'cancel_visit', jsonb_build_object('reason', trim(p_reason)));
+end;
+$$;
+
+revoke execute on function public.staff_check_in(uuid, text, text, text) from public, anon;
+revoke execute on function public.staff_check_out(uuid) from public, anon;
+revoke execute on function public.staff_cancel_visit(uuid, text) from public, anon;
+grant execute on function public.staff_check_in(uuid, text, text, text) to authenticated;
+grant execute on function public.staff_check_out(uuid) to authenticated;
+grant execute on function public.staff_cancel_visit(uuid, text) to authenticated;
+
+-- Give someone the front-desk role (run manually, like section 11):
+-- update public.profiles set role = 'staff' where email = 'desk@example.com';

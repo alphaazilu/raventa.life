@@ -35,11 +35,18 @@ export default async function AccountPage({
 
   const { data: profile } = await supabase
     .from('profiles')
-    .select('email, first_name, last_name, member_no, avatar_path, provider_avatar_url, created_at')
+    .select('email, first_name, last_name, member_no, avatar_path, provider_avatar_url, created_at, role')
     .eq('id', user.id)
     .maybeSingle()
 
   const avatarUrl = await resolveAvatarUrl(supabase, profile)
+  // Stamp card (supabase/schema.sql §13). Hidden, not an error, until that
+  // part of the schema has been run.
+  const { data: stampRows } = await supabase.rpc('member_stamp_status', { p_member_id: user.id })
+  const stampRow = Array.isArray(stampRows) ? stampRows[0] : stampRows
+  const stamps = stampRow
+    ? { progress: Number(stampRow.progress), rewardsAvailable: Number(stampRow.rewards_available) }
+    : null
   const fullName = [profile?.first_name, profile?.last_name].filter(Boolean).join(' ')
 
   return (
@@ -51,6 +58,8 @@ export default async function AccountPage({
           memberNo={profile?.member_no ?? null}
           avatarUrl={avatarUrl}
           joinedAt={profile?.created_at ?? null}
+          stamps={stamps}
+          role={profile?.role ?? 'customer'}
           // /account?card=1 (the LINE rich menu's member card button) opens
           // the check-in QR straight away.
           openCardOnLoad={params.card === '1'}

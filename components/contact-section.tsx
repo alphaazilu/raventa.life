@@ -22,7 +22,7 @@ export function ContactSection() {
   ]
 
   return (
-    <section id="contact" className="bg-secondary/40 py-20 md:py-28">
+    <section id="contact" className="bg-background py-20 md:py-28">
       <div className="mx-auto max-w-6xl px-4 md:px-6">
         <div className="mx-auto max-w-2xl text-center">
           <p className="text-xs font-semibold tracking-brand uppercase text-primary">{tr(t.contact.eyebrow)}</p>

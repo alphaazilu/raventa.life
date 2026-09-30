@@ -148,6 +148,11 @@ export const authCopy: Record<string, Bilingual> = {
   // Admins are members too (own card, own visits) — the label says both.
   roleAdmin: { th: 'สมาชิก · แอดมิน', en: 'Member · Admin' },
   roleCustomer: { th: 'สมาชิก', en: 'Member' },
+  roleStaff: { th: 'สมาชิก · พนักงาน', en: 'Member · Staff' },
+  deskLinkLabel: { th: 'หน้าเช็คอินหน้าร้าน', en: 'Front desk check-in' },
+  stampCardHeading: { th: 'บัตรสะสม', en: 'Stamp card' },
+  stampCardHint: { th: 'มาครบ 10 ครั้ง รับ Day Pass วันธรรมดาฟรี 1 ครั้ง', en: 'Visit 10 times, get a free weekday Day Pass' },
+  stampCardReward: { th: 'คุณมีสิทธิ์ Day Pass ฟรี — แจ้งพนักงานตอนเช็คอิน', en: 'You have a free Day Pass — tell staff when you check in' },
   goToAdmin: { th: 'ไปที่หน้าแอดมิน →', en: 'Go to admin dashboard →' },
   signOutButton: { th: 'ออกจากระบบ', en: 'Sign Out' },
   adminHeading: { th: 'แดชบอร์ดแอดมิน', en: 'Admin Dashboard' },

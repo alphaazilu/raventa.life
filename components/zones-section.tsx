@@ -8,21 +8,21 @@ export function ZonesSection() {
   const { tr } = useLanguage()
 
   return (
-    <section id="zones" className="relative overflow-hidden bg-accent py-20 text-accent-foreground md:py-28">
-      <div className="brand-rings pointer-events-none absolute inset-0 opacity-25" aria-hidden="true" />
+    <section id="zones" className="relative overflow-hidden bg-secondary py-20 text-foreground md:py-28">
+      <div className="brand-rings pointer-events-none absolute inset-0 opacity-15" aria-hidden="true" />
 
       <div className="relative mx-auto max-w-6xl px-4 md:px-6">
         <div className="mx-auto max-w-2xl text-center">
-          <p className="text-xs font-semibold tracking-brand uppercase text-sand">{tr(t.zones.eyebrow)}</p>
+          <p className="text-xs font-semibold tracking-brand uppercase text-primary">{tr(t.zones.eyebrow)}</p>
           <h2 className="mt-4 text-balance font-display text-3xl font-extrabold leading-tight md:text-4xl lg:text-5xl">
             {tr(t.zones.heading)}
           </h2>
-          <p className="mx-auto mt-5 max-w-xl text-pretty leading-relaxed text-accent-foreground/75">
+          <p className="mx-auto mt-5 max-w-xl text-pretty leading-relaxed text-muted-foreground">
             {tr(t.zones.intro)}
           </p>
           <a
             href="/quiz"
-            className="mt-6 inline-flex items-center gap-2 rounded-full border border-sand/40 px-6 py-2.5 text-sm font-semibold text-sand transition-colors hover:bg-white/10"
+            className="mt-6 inline-flex items-center gap-2 rounded-full border border-border bg-background px-6 py-2.5 text-sm font-semibold text-primary transition-colors hover:border-primary/40"
           >
             {tr(t.nav.quiz)}
           </a>

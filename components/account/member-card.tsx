@@ -8,13 +8,8 @@ import { authCopy } from '@/lib/auth/copy'
 import { AvatarCircle } from '@/components/account/avatar'
 import { Spinner } from '@/components/ui/spinner'
 import { cn } from '@/lib/utils'
-import { formatMemberDate } from '@/lib/format-date'
+import { formatMemberDate, formatMemberNo } from '@/lib/format-date'
 
-// 0000000042 → "0000 0000 42": easier to read out loud to staff.
-function formatMemberNo(no: string | null): string {
-  if (!no) return '—'
-  return no.replace(/^(\d{4})(\d{4})(\d+)$/, '$1 $2 $3')
-}
 
 // The member's QR as one SVG path (no canvas, no image URL — the site's
 // security policy blocks blob: images, and a path scales crisply).

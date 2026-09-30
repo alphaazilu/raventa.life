@@ -50,6 +50,12 @@ const nextConfig = {
         source: '/:path*',
         headers: securityHeaders,
       },
+      // The front-desk tablet scans member QR codes with its camera. Listed
+      // after the rule above so this value wins for this one page.
+      {
+        source: '/admin/check-in',
+        headers: [{ key: 'Permissions-Policy', value: 'camera=(self), microphone=(), geolocation=()' }],
+      },
     ]
   },
 }

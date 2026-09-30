@@ -58,26 +58,28 @@
 :root {
   color-scheme: light;
   /* RAVENTA Brand CI */
-  --background: #f3eee4; /* OFF WHITE */
+  /* v0.11.1 "White & Sage": white page, white boxes with a soft sage
+     outline, sage for tiles / chips / one highlighted band. */
+  --background: #ffffff;
   --foreground: #2b2521;
-  --card: #fbf8f1;
+  --card: #ffffff;
   --card-foreground: #2b2521;
-  --popover: #fbf8f1;
+  --popover: #ffffff;
   --popover-foreground: #2b2521;
   --primary: #8b1e2d; /* RAVENTA RED */
   --primary-foreground: #f6f1e7;
-  --secondary: #e7dcc7; /* SAND */
-  --secondary-foreground: #4a3f36;
-  --muted: #e9e3d6;
-  --muted-foreground: #6f6559;
+  --secondary: #eef4ec; /* SAGE */
+  --secondary-foreground: #2e4636;
+  --muted: #eef4ec;
+  --muted-foreground: #5c635a;
   --accent: #2e4636; /* FOREST */
   --accent-foreground: #f3eee4;
   --destructive: oklch(0.577 0.245 27.325);
-  --border: #ddd3c2;
-  --input: #ddd3c2;
+  --border: #d7dfd6; /* sage outline */
+  --input: #d7dfd6;
   --ring: #8b1e2d;
 
-  --wood: #b98c5e; /* WOOD */
+  --wood: #8a6440; /* WOOD, darkened so small labels read on white */
   --forest: #2e4636; /* FOREST */
   --sand: #e7dcc7; /* SAND */
   --stone: #c7c4bc; /* STONE */
@@ -88,13 +90,13 @@
   --chart-4: #c7c4bc;
   --chart-5: #e7dcc7;
   --radius: 0.5rem;
-  --sidebar: #fbf8f1;
+  --sidebar: #ffffff;
   --sidebar-foreground: #2b2521;
   --sidebar-primary: #8b1e2d;
   --sidebar-primary-foreground: #f6f1e7;
-  --sidebar-accent: #e7dcc7;
-  --sidebar-accent-foreground: #4a3f36;
-  --sidebar-border: #ddd3c2;
+  --sidebar-accent: #eef4ec;
+  --sidebar-accent-foreground: #2e4636;
+  --sidebar-border: #d7dfd6;
   --sidebar-ring: #8b1e2d;
 }
 

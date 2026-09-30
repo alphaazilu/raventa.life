@@ -22,3 +22,9 @@ export function formatMemberDate(iso: string | null, lang: 'th' | 'en', withDay:
   const get = (type: string) => parts.find((p) => p.type === type)?.value ?? ''
   return [withDay ? get('day') : '', get('month'), get('year')].filter(Boolean).join(' ')
 }
+
+// 0000000042 → "0000 0000 42": easier to read out loud to staff.
+export function formatMemberNo(no: string | null): string {
+  if (!no) return '—'
+  return no.replace(/^(\d{4})(\d{4})(\d+)$/, '$1 $2 $3')
+}

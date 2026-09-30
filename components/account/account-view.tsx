@@ -10,6 +10,7 @@ import { LoginMethods, type LinkLineResult } from '@/components/account/link-lin
 import { AvatarEditor } from '@/components/account/avatar'
 import { Spinner } from '@/components/ui/spinner'
 import { formatMemberDate } from '@/lib/format-date'
+import { canUseDesk, DESK_PATH, isAdmin } from '@/lib/auth/roles'
 
 const initialPhoneState: UpdatePhoneState = null
 
@@ -159,7 +160,7 @@ export function AccountSettingsView({
         {nationality && <InfoRow label={tr(authCopy.nationalityFieldLabel)}>{nationality}</InfoRow>}
         {joined && <InfoRow label={tr(authCopy.joinedFieldLabel)}>{joined}</InfoRow>}
         <InfoRow label={tr(authCopy.roleFieldLabel)} last>
-          {role === 'admin' ? tr(authCopy.roleAdmin) : tr(authCopy.roleCustomer)}
+          {tr(role === 'admin' ? authCopy.roleAdmin : role === 'staff' ? authCopy.roleStaff : authCopy.roleCustomer)}
         </InfoRow>
       </section>
 
@@ -173,10 +174,11 @@ export function AccountSettingsView({
         />
       </section>
 
-      {(hasPassword || role === 'admin') && (
+      {(hasPassword || canUseDesk(role)) && (
         <nav className="mt-4 overflow-hidden rounded-2xl border border-border bg-card">
           {hasPassword && <LinkRow href="/reset-password">{tr(authCopy.changePasswordLink)}</LinkRow>}
-          {role === 'admin' && <LinkRow href="/admin">{tr(authCopy.adminLinkLabel)}</LinkRow>}
+          {canUseDesk(role) && <LinkRow href={DESK_PATH}>{tr(authCopy.deskLinkLabel)}</LinkRow>}
+          {isAdmin(role) && <LinkRow href="/admin">{tr(authCopy.adminLinkLabel)}</LinkRow>}
         </nav>
       )}
 
@@ -209,7 +211,7 @@ export function LinkRow({ href, children }: { href: string; children: React.Reac
   return (
     <a
       href={href}
-      className="flex min-h-[52px] items-center justify-between border-b border-border px-5 text-sm font-medium text-card-foreground transition-colors last:border-b-0 hover:bg-background"
+      className="flex min-h-[52px] items-center justify-between border-b border-border px-5 text-sm font-medium text-card-foreground transition-colors last:border-b-0 hover:bg-secondary"
     >
       <span>{children}</span>
       <ChevronRight className="h-4 w-4 text-muted-foreground" aria-hidden="true" />

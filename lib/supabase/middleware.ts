@@ -1,6 +1,7 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 import { isProfileComplete, PROFILE_COMPLETENESS_COLUMNS } from '@/lib/supabase/profile'
+import { canUseDesk, DESK_PATH, isAdmin } from '@/lib/auth/roles'
 
 /**
  * Refreshes the Supabase auth session on every request and gates the
@@ -65,9 +66,13 @@ export async function updateSession(request: NextRequest) {
       return NextResponse.redirect(url)
     }
 
-    if (isAdminRoute && profile?.role !== 'admin') {
+    // Staff get the front desk only; the rest of /admin is admins'.
+    const isDeskRoute = path === DESK_PATH || path.startsWith(`${DESK_PATH}/`)
+    const allowed = isDeskRoute ? canUseDesk(profile?.role) : isAdmin(profile?.role)
+    if (isAdminRoute && !allowed) {
       const url = request.nextUrl.clone()
       url.pathname = '/account'
+      url.search = ''
       return NextResponse.redirect(url)
     }
   }
