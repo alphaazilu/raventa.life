@@ -15,7 +15,7 @@ export type UpdatePhoneState = {
 const PHONE_RE = /^[0-9]{9,10}$/
 
 // A member can only ever edit their own phone number here — first/last
-// name and province stay admin-managed (see app/admin/actions.ts), and
+// name and province stay admin-managed (see app/console/members/actions.ts), and
 // member_no is never editable through the app at all (see
 // protect_member_no() in supabase/schema.sql).
 export async function updateOwnPhone(_prevState: UpdatePhoneState, formData: FormData): Promise<UpdatePhoneState> {

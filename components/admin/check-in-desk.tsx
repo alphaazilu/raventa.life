@@ -1,8 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useRef, useState, useTransition } from 'react'
-import Link from 'next/link'
-import { ChevronLeft, Gift, LogOut, RotateCcw, Search, Undo2, UserRound } from 'lucide-react'
+import { Gift, Lock, LogOut, RotateCcw, Search, Undo2, UserRound } from 'lucide-react'
 import { useLanguage } from '@/components/language-provider'
 import { AvatarCircle } from '@/components/account/avatar'
 import { QrScanner } from '@/components/admin/qr-scanner'
@@ -25,7 +24,7 @@ import {
   type FloorVisit,
   type MemberHit,
   type PaymentMethod,
-} from '@/app/admin/check-in/actions'
+} from '@/app/console/desk/actions'
 
 type Panel =
   | { kind: 'empty' }
@@ -36,13 +35,14 @@ const FLOOR_REFRESH_MS = 30_000
 
 export function CheckInDesk({
   staffName,
-  isAdmin,
+  showTakings,
   initialFloor,
   initialError,
   initialMember = null,
 }: {
   staffName: string
-  isAdmin: boolean
+  // Day totals are for admins only; staff see each visit's method, not sums.
+  showTakings: boolean
   initialFloor: Floor | null
   initialError: string | null
   initialMember?: DeskMember | null
@@ -133,16 +133,7 @@ export function CheckInDesk({
   return (
     <div className="mx-auto max-w-6xl px-4 py-4 md:py-6">
       <header className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-3">
-          <Link
-            href={isAdmin ? '/admin' : '/account'}
-            className="inline-flex items-center gap-1 rounded-full px-2 py-1 text-sm text-muted-foreground hover:text-foreground"
-          >
-            <ChevronLeft className="h-4 w-4" aria-hidden="true" />
-            {tr(isAdmin ? deskCopy.backToAdmin : deskCopy.backToAccount)}
-          </Link>
-          <h1 className="font-display text-2xl font-extrabold text-foreground md:text-3xl">{tr(deskCopy.title)}</h1>
-        </div>
+        <h1 className="font-display text-2xl font-extrabold text-foreground md:text-3xl">{tr(deskCopy.title)}</h1>
         <p className="text-sm text-muted-foreground">
           <UserRound className="mr-1 inline h-4 w-4 align-[-3px]" aria-hidden="true" />
           {staffName}
@@ -249,6 +240,7 @@ export function CheckInDesk({
 
       <FloorPanel
         floor={floor}
+        showTakings={showTakings}
         busy={busy}
         onRefresh={() => startBusy(refreshFloor)}
         onOpen={(id) => run(() => getMember(id), showMember)}
@@ -549,12 +541,14 @@ function StampRow({ progress, rewardReady }: { progress: number; rewardReady: bo
 
 function FloorPanel({
   floor,
+  showTakings,
   busy,
   onRefresh,
   onOpen,
   onCheckOut,
 }: {
   floor: Floor | null
+  showTakings: boolean
   busy: boolean
   onRefresh: () => void
   onOpen: (memberId: string) => void
@@ -600,15 +594,22 @@ function FloorPanel({
         />
       </div>
 
-      <p className="mt-3 text-sm text-muted-foreground">
-        {tr(deskCopy.takings)}{' '}
-        <span className="font-semibold text-foreground">
-          {total.toLocaleString()} {tr(deskCopy.baht)}
-        </span>
-        {' · '}
-        {tr(deskCopy.cash)} {takings.cash.toLocaleString()} · {tr(deskCopy.transfer)} {takings.transfer.toLocaleString()} ·{' '}
-        {tr(deskCopy.card)} {takings.card.toLocaleString()} · {tr(deskCopy.freeCount)} {free}
-      </p>
+      {showTakings ? (
+        <p className="mt-3 text-sm text-muted-foreground">
+          {tr(deskCopy.takings)}{' '}
+          <span className="font-semibold text-foreground">
+            {total.toLocaleString()} {tr(deskCopy.baht)}
+          </span>
+          {' · '}
+          {tr(deskCopy.cash)} {takings.cash.toLocaleString()} · {tr(deskCopy.transfer)} {takings.transfer.toLocaleString()} ·{' '}
+          {tr(deskCopy.card)} {takings.card.toLocaleString()} · {tr(deskCopy.freeCount)} {free}
+        </p>
+      ) : (
+        <p className="mt-3 flex items-center gap-1.5 text-xs text-muted-foreground">
+          <Lock className="h-3.5 w-3.5" aria-hidden="true" />
+          {tr(deskCopy.takingsAdminOnly)} · {tr(deskCopy.freeCount)} {free}
+        </p>
+      )}
 
       {visits.length === 0 ? (
         <p className="py-6 text-center text-sm text-muted-foreground">{tr(deskCopy.nobodyYet)}</p>

@@ -1,12 +1,11 @@
 import type { Metadata } from 'next'
 import { notFound, redirect } from 'next/navigation'
-import { SiteHeader } from '@/components/site-header'
-import { SiteFooter } from '@/components/site-footer'
 import { MemberEditForm } from '@/components/admin/member-edit-form'
 import { createClient } from '@/lib/supabase/server'
+import { MEMBERS_PATH } from '@/lib/auth/roles'
 
 export const metadata: Metadata = {
-  title: 'Edit Member | RAVENTA Wellness Retreat',
+  title: 'แก้ไขข้อมูลสมาชิก | RAVENTA Back Office',
 }
 
 export default async function EditMemberPage({ params }: { params: Promise<{ id: string }> }) {
@@ -16,7 +15,7 @@ export default async function EditMemberPage({ params }: { params: Promise<{ id:
     data: { user },
   } = await supabase.auth.getUser()
 
-  if (!user) redirect('/login?next=/admin')
+  if (!user) redirect(`/login?next=${MEMBERS_PATH}/${id}`)
 
   const { data: adminProfile } = await supabase.from('profiles').select('role').eq('id', user.id).single()
   if (adminProfile?.role !== 'admin') redirect('/account')
@@ -30,12 +29,8 @@ export default async function EditMemberPage({ params }: { params: Promise<{ id:
   if (!member) notFound()
 
   return (
-    <>
-      <SiteHeader />
-      <main className="min-h-screen bg-background pt-24 md:pt-28">
-        <MemberEditForm member={member} />
-      </main>
-      <SiteFooter />
-    </>
+    <main>
+      <MemberEditForm member={member} />
+    </main>
   )
 }

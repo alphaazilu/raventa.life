@@ -4,8 +4,8 @@ import { useMemo, useState } from 'react'
 import { useLanguage } from '@/components/language-provider'
 import { authCopy } from '@/lib/auth/copy'
 import { AvatarCircle } from '@/components/account/avatar'
-import { ScanLine } from 'lucide-react'
-import { DESK_PATH } from '@/lib/auth/roles'
+import { MEMBERS_PATH } from '@/lib/auth/roles'
+import { consoleCopy } from '@/lib/console/copy'
 
 export type AdminMember = {
   id: string
@@ -20,7 +20,7 @@ export type AdminMember = {
   avatar_url: string | null
 }
 
-export function AdminView({ email, members }: { email: string; members: AdminMember[] }) {
+export function AdminView({ members }: { members: AdminMember[] }) {
   const { tr } = useLanguage()
   const [query, setQuery] = useState('')
 
@@ -39,28 +39,17 @@ export function AdminView({ email, members }: { email: string; members: AdminMem
   }, [members, query])
 
   return (
-    <div className="mx-auto max-w-5xl px-4 py-16">
-      <p className="text-xs font-semibold tracking-brand uppercase text-primary">{tr(authCopy.adminWelcome)}</p>
-      <h1 className="mt-2 font-display text-3xl font-extrabold text-foreground md:text-4xl">
-        {tr(authCopy.adminHeading)}
-      </h1>
-      <p className="mt-3 text-sm text-muted-foreground">{email}</p>
-
-      <a
-        href={DESK_PATH}
-        className="mt-6 inline-flex h-12 items-center gap-2 rounded-full bg-primary px-6 text-sm font-semibold text-primary-foreground transition-opacity hover:opacity-90"
-      >
-        <ScanLine className="h-4 w-4" aria-hidden="true" />
-        {tr(authCopy.deskLinkLabel)}
-      </a>
-
-      <div className="mt-10 flex flex-wrap items-center justify-between gap-4">
-        <h2 className="font-display text-xl font-bold text-foreground">{tr(authCopy.adminMembersHeading)}</h2>
+    <div className="mx-auto max-w-7xl px-4 py-6 md:px-6 md:py-8">
+      <div className="flex flex-wrap items-center justify-between gap-4">
+        <h1 className="font-display text-2xl font-extrabold text-foreground md:text-3xl">
+          {tr(consoleCopy.membersHeading)} <span className="text-base font-semibold text-muted-foreground">({members.length.toLocaleString()})</span>
+        </h1>
         <input
           type="text"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder={tr(authCopy.adminSearchPlaceholder)}
+          aria-label={tr(authCopy.adminSearchPlaceholder)}
           className="w-full max-w-xs rounded-full border border-border bg-background px-4 py-2 text-sm text-foreground outline-none focus:border-primary"
         />
       </div>
@@ -98,7 +87,7 @@ export function AdminView({ email, members }: { email: string; members: AdminMem
                 <td className="px-4 py-3">{m.nationality ?? '—'}</td>
                 <td className="whitespace-nowrap px-4 py-3 text-right">
                   <a
-                    href={`/admin/members/${m.id}`}
+                    href={`${MEMBERS_PATH}/${m.id}`}
                     className="text-xs font-semibold text-primary underline-offset-2 hover:underline"
                   >
                     {tr(authCopy.editButton)}
@@ -116,13 +105,6 @@ export function AdminView({ email, members }: { email: string; members: AdminMem
           </tbody>
         </table>
       </div>
-
-      <a
-        href="/"
-        className="mt-8 inline-block text-sm font-semibold text-muted-foreground transition-colors hover:text-foreground"
-      >
-        {tr(authCopy.backHome)}
-      </a>
     </div>
   )
 }

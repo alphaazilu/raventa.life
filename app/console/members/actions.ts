@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { isPhoneTaken, isUniqueViolation } from '@/lib/supabase/phone'
+import { MEMBERS_PATH } from '@/lib/auth/roles'
 
 export type UpdateMemberState = { error?: string; fieldErrors?: Record<string, string> } | null
 
@@ -37,7 +38,7 @@ export async function updateMemberProfile(
   const {
     data: { user },
   } = await supabase.auth.getUser()
-  if (!user) redirect('/login?next=/admin')
+  if (!user) redirect(`/login?next=${MEMBERS_PATH}`)
 
   // Belt-and-suspenders: the "Admins can update any profile" RLS policy
   // (see supabase/schema.sql) is what actually enforces this, but checking
@@ -70,7 +71,7 @@ export async function updateMemberProfile(
   }
   if (error) return { error: error.message }
 
-  revalidatePath('/admin')
-  revalidatePath(`/admin/members/${memberId}`)
-  redirect('/admin')
+  revalidatePath(MEMBERS_PATH)
+  revalidatePath(`${MEMBERS_PATH}/${memberId}`)
+  redirect(MEMBERS_PATH)
 }

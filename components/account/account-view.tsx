@@ -10,7 +10,6 @@ import { LoginMethods, type LinkResult } from '@/components/account/link-line'
 import { AvatarEditor } from '@/components/account/avatar'
 import { Spinner } from '@/components/ui/spinner'
 import { formatMemberDate } from '@/lib/format-date'
-import { canUseDesk, DESK_PATH, isAdmin } from '@/lib/auth/roles'
 
 const initialPhoneState: UpdatePhoneState = null
 
@@ -63,7 +62,7 @@ export function AccountSettingsView({
   const fullName = [firstName, lastName].filter(Boolean).join(' ')
 
   // Members can edit only their phone number themselves — name and
-  // province are admin-managed (see /admin), and the membership number
+  // province are admin-managed (see /console/members), and the membership number
   // is never editable through the app at all.
   const [editingPhone, setEditingPhone] = useState(false)
   const [phoneValue, setPhoneValue] = useState(phone ?? '')
@@ -202,11 +201,9 @@ export function AccountSettingsView({
         />
       </section>
 
-      {(hasPassword || canUseDesk(role)) && (
+      {hasPassword && (
         <nav className="mt-4 overflow-hidden rounded-2xl border border-border bg-card">
-          {hasPassword && <LinkRow href="/reset-password">{tr(authCopy.changePasswordLink)}</LinkRow>}
-          {canUseDesk(role) && <LinkRow href={DESK_PATH}>{tr(authCopy.deskLinkLabel)}</LinkRow>}
-          {isAdmin(role) && <LinkRow href="/admin">{tr(authCopy.adminLinkLabel)}</LinkRow>}
+          <LinkRow href="/reset-password">{tr(authCopy.changePasswordLink)}</LinkRow>
         </nav>
       )}
 

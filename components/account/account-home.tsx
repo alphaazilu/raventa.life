@@ -4,7 +4,7 @@ import { useLanguage } from '@/components/language-provider'
 import { authCopy } from '@/lib/auth/copy'
 import { MemberCard } from '@/components/account/member-card'
 import { LinkRow } from '@/components/account/account-view'
-import { canUseDesk, DESK_PATH } from '@/lib/auth/roles'
+import { DESK_PATH } from '@/lib/auth/roles'
 import { cn } from '@/lib/utils'
 import { Gift } from 'lucide-react'
 
@@ -42,7 +42,9 @@ export function AccountHome({
       {stamps && <StampCard progress={stamps.progress} rewardsAvailable={stamps.rewardsAvailable} />}
 
       <nav className="mt-8 overflow-hidden rounded-2xl border border-border bg-card">
-        {canUseDesk(role) && <LinkRow href={DESK_PATH}>{tr(authCopy.deskLinkLabel)}</LinkRow>}
+        {/* Staff only; admins use Back Office in the header. Goes away once
+            staff move onto the counter tablet (Vault R2, phase 2). */}
+        {role === 'staff' && <LinkRow href={DESK_PATH}>{tr(authCopy.deskLinkLabel)}</LinkRow>}
         <LinkRow href="/account/settings">{tr(authCopy.settingsLink)}</LinkRow>
       </nav>
     </div>

@@ -1,11 +1,11 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 import { isProfileComplete, PROFILE_COMPLETENESS_COLUMNS } from '@/lib/supabase/profile'
-import { canUseDesk, DESK_PATH, isAdmin } from '@/lib/auth/roles'
+import { canUseDesk, CONSOLE_PATH, DESK_PATH, isAdmin } from '@/lib/auth/roles'
 
 /**
  * Refreshes the Supabase auth session on every request and gates the
- * /account and /admin route groups. Called from the root middleware.ts.
+ * /account and /console route groups. Called from the root proxy.ts.
  */
 export async function updateSession(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request })
@@ -37,10 +37,10 @@ export async function updateSession(request: NextRequest) {
   // Where to come back to after login / finishing the profile, query
   // included (e.g. /account?card=1 from the LINE rich menu).
   const back = path + request.nextUrl.search
-  const isAdminRoute = path.startsWith('/admin')
+  const isConsoleRoute = path === CONSOLE_PATH || path.startsWith(`${CONSOLE_PATH}/`)
   const isAccountRoute = path.startsWith('/account')
 
-  if ((isAdminRoute || isAccountRoute) && !user) {
+  if ((isConsoleRoute || isAccountRoute) && !user) {
     const url = request.nextUrl.clone()
     url.pathname = '/login'
     url.search = ''
@@ -48,7 +48,7 @@ export async function updateSession(request: NextRequest) {
     return NextResponse.redirect(url)
   }
 
-  if ((isAdminRoute || isAccountRoute) && user) {
+  if ((isConsoleRoute || isAccountRoute) && user) {
     const { data: profile } = await supabase
       .from('profiles')
       .select(`role, ${PROFILE_COMPLETENESS_COLUMNS}`)
@@ -57,7 +57,7 @@ export async function updateSession(request: NextRequest) {
 
     // Google signups never collect phone/province — catch that
     // here too, not just right after OAuth, in case someone navigates
-    // straight to /account or /admin later without finishing that step.
+    // straight to /account or /console later without finishing that step.
     if (!isProfileComplete(profile)) {
       const url = request.nextUrl.clone()
       url.pathname = '/complete-profile'
@@ -66,14 +66,16 @@ export async function updateSession(request: NextRequest) {
       return NextResponse.redirect(url)
     }
 
-    // Staff get the front desk only; the rest of /admin is admins'.
-    const isDeskRoute = path === DESK_PATH || path.startsWith(`${DESK_PATH}/`)
-    const allowed = isDeskRoute ? canUseDesk(profile?.role) : isAdmin(profile?.role)
-    if (isAdminRoute && !allowed) {
-      const url = request.nextUrl.clone()
-      url.pathname = '/account'
-      url.search = ''
-      return NextResponse.redirect(url)
+    // Back Office: admins get everything; staff get the front desk only
+    // (for now — phase 2 moves staff onto the registered tablet, see R2).
+    if (isConsoleRoute && !isAdmin(profile?.role)) {
+      const isDeskRoute = path === DESK_PATH || path.startsWith(`${DESK_PATH}/`)
+      if (!isDeskRoute || !canUseDesk(profile?.role)) {
+        const url = request.nextUrl.clone()
+        url.pathname = canUseDesk(profile?.role) ? DESK_PATH : '/account'
+        url.search = ''
+        return NextResponse.redirect(url)
+      }
     }
   }
 

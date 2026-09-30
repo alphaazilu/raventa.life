@@ -3,11 +3,14 @@
 import { useEffect, useState } from 'react'
 import Image from 'next/image'
 import { usePathname } from 'next/navigation'
-import { Menu, X, Globe } from 'lucide-react'
+import { Menu, X, Globe, LayoutGrid } from 'lucide-react'
 import { useLanguage } from '@/components/language-provider'
 import { t } from '@/lib/i18n'
 import { cn } from '@/lib/utils'
 import { useSupabaseUser } from '@/lib/supabase/use-user'
+import { createClient } from '@/lib/supabase/client'
+import { CONSOLE_PATH, isAdmin } from '@/lib/auth/roles'
+import { consoleCopy } from '@/lib/console/copy'
 
 const links = [
   { href: '#about', key: 'about' as const },
@@ -25,6 +28,28 @@ export function SiteHeader() {
   const { user } = useSupabaseUser()
   const authHref = user ? '/account' : '/login'
   const authLabel = user ? tr(t.nav.account) : tr(t.nav.login)
+
+  // Back Office button: admins only (staff reach the desk from their
+  // account page until the counter tablet takes over — Vault R2).
+  const [admin, setAdmin] = useState(false)
+  useEffect(() => {
+    if (!user) {
+      setAdmin(false)
+      return
+    }
+    let cancelled = false
+    createClient()
+      .from('profiles')
+      .select('role')
+      .eq('id', user.id)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (!cancelled) setAdmin(isAdmin(data?.role))
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [user])
 
   // Always the solid white bar (v0.12.1): the logo is RAVENTA red, which
   // doesn't read over the dark hero photo, and its colours stay as given.
@@ -116,6 +141,16 @@ export function SiteHeader() {
             {authLabel}
           </a>
 
+          {admin && (
+            <a
+              href={CONSOLE_PATH}
+              className="hidden items-center gap-1.5 rounded-full border-[1.5px] border-accent px-3.5 py-1.5 text-sm font-bold text-accent transition-colors hover:bg-secondary md:inline-flex"
+            >
+              <LayoutGrid className="h-4 w-4" aria-hidden="true" />
+              {tr(consoleCopy.backOffice)}
+            </a>
+          )}
+
           <button
             type="button"
             onClick={toggle}
@@ -172,6 +207,16 @@ export function SiteHeader() {
             >
               {authLabel}
             </a>
+            {admin && (
+              <a
+                href={CONSOLE_PATH}
+                onClick={() => setOpen(false)}
+                className="flex items-center gap-2 border-b border-border/60 py-3 text-sm font-bold text-accent"
+              >
+                <LayoutGrid className="h-4 w-4" aria-hidden="true" />
+                {tr(consoleCopy.backOffice)}
+              </a>
+            )}
             <a
               href={resolveHref('#contact')}
               onClick={() => setOpen(false)}

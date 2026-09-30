@@ -1,10 +1,8 @@
 type Bilingual = { th: string; en: string }
 
-// Front-desk screen (/admin/check-in). Staff-facing, so short and direct.
+// Front-desk screen (/console/desk). Staff-facing, so short and direct.
 export const deskCopy = {
   title: { th: 'เช็คอินหน้าร้าน', en: 'Front Desk Check-in' },
-  backToAdmin: { th: 'หน้าแอดมิน', en: 'Admin' },
-  backToAccount: { th: 'บัญชีของฉัน', en: 'My account' },
 
   scanHeading: { th: 'สแกน QR บัตรสมาชิก', en: 'Scan member QR' },
   startCamera: { th: 'เปิดกล้อง', en: 'Start camera' },
@@ -68,6 +66,7 @@ export const deskCopy = {
   nobodyYet: { th: 'ยังไม่มีคนเช็คอินวันนี้', en: 'No check-ins yet today' },
   leftToday: { th: 'ออกแล้ว', en: 'Left' },
   takings: { th: 'รับเงินวันนี้', en: 'Taken today' },
+  takingsAdminOnly: { th: 'ยอดขายรวมเห็นเฉพาะแอดมิน', en: 'Totals are admin-only' },
   freeCount: { th: 'สิทธิ์ฟรี', en: 'Free passes' },
   people: { th: 'คน', en: 'people' },
   refresh: { th: 'รีเฟรช', en: 'Refresh' },

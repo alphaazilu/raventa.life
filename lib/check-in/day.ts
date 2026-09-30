@@ -21,3 +21,10 @@ export function bangkokTime(iso: string): string {
     new Date(iso),
   )
 }
+
+// 0–23 in Bangkok time.
+export function bangkokHour(iso: string): number {
+  return Number(
+    new Intl.DateTimeFormat('en-GB', { timeZone: SPA_TIMEZONE, hour: '2-digit', hourCycle: 'h23' }).format(new Date(iso)),
+  )
+}

@@ -6,7 +6,8 @@ import { authCopy } from '@/lib/auth/copy'
 import { THAILAND_PROVINCES } from '@/lib/thailand-provinces'
 import { COUNTRIES } from '@/lib/countries'
 import { fieldClass } from '@/lib/form-field-class'
-import { updateMemberProfile, type UpdateMemberState } from '@/app/admin/actions'
+import { MEMBERS_PATH } from '@/lib/auth/roles'
+import { updateMemberProfile, type UpdateMemberState } from '@/app/console/members/actions'
 import { Spinner } from '@/components/ui/spinner'
 
 const initialState: UpdateMemberState = null
@@ -39,9 +40,9 @@ export function MemberEditForm({ member }: { member: Member }) {
   const invalid = (field: string) => Boolean(state?.fieldErrors?.[field])
 
   return (
-    <div className="mx-auto flex w-full max-w-md flex-col justify-center px-4 py-16 md:py-24">
+    <div className="mx-auto flex w-full max-w-md flex-col justify-center px-4 py-8 md:py-12">
       <a
-        href="/admin"
+        href={MEMBERS_PATH}
         className="mb-4 inline-block text-xs font-semibold text-muted-foreground transition-colors hover:text-foreground"
       >
         {tr(authCopy.adminBackToMembers)}

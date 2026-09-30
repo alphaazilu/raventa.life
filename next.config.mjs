@@ -44,6 +44,16 @@ const nextConfig = {
   images: {
     unoptimized: true,
   },
+  // v0.13: the Back Office moved from /admin to /console. Old links and
+  // bookmarks (the counter tablet's included) keep working.
+  async redirects() {
+    return [
+      { source: '/admin', destination: '/console', permanent: false },
+      { source: '/admin/check-in', destination: '/console/desk', permanent: false },
+      { source: '/admin/members/:id', destination: '/console/members/:id', permanent: false },
+      { source: '/admin/:path*', destination: '/console', permanent: false },
+    ]
+  },
   async headers() {
     return [
       {
@@ -53,7 +63,7 @@ const nextConfig = {
       // The front-desk tablet scans member QR codes with its camera. Listed
       // after the rule above so this value wins for this one page.
       {
-        source: '/admin/check-in',
+        source: '/console/desk',
         headers: [{ key: 'Permissions-Policy', value: 'camera=(self), microphone=(), geolocation=()' }],
       },
     ]
