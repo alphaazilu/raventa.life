@@ -13,7 +13,7 @@ export const metadata: Metadata = {
 export default async function AccountPage({
   searchParams,
 }: {
-  searchParams: Promise<{ linked?: string; link_error?: string; card?: string }>
+  searchParams: Promise<{ linked?: string; link_error?: string; link?: string; card?: string }>
 }) {
   const params = await searchParams
 
@@ -23,6 +23,7 @@ export default async function AccountPage({
     const qs = new URLSearchParams()
     if (params.linked) qs.set('linked', params.linked)
     if (params.link_error) qs.set('link_error', params.link_error)
+    if (params.link) qs.set('link', params.link)
     redirect(`/account/settings?${qs.toString()}`)
   }
 

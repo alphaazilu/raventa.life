@@ -109,3 +109,24 @@ export function mergeCodeEmail(code: string): { subject: string; html: string } 
   `)
   return { subject: `${code} คือรหัสยืนยันการเชื่อมบัญชี LINE กับ RAVENTA`, html }
 }
+
+// Sent when a member confirms an email address for their account (a LINE
+// sign-up on /complete-profile, or "set up email login" in settings — see
+// lib/email-verification.ts). Entering the code proves the address is
+// theirs; it then becomes the account's login email.
+export function emailVerificationCodeEmail(code: string): { subject: string; html: string } {
+  const html = wrapper(`
+    <h1 style="margin:0 0 16px;font-size:20px;color:${COLORS.text};">ยืนยันอีเมลของคุณ</h1>
+    <p style="margin:0 0 12px;font-size:15px;line-height:1.7;color:${COLORS.text};">
+      กรอกรหัสด้านล่างในหน้าเว็บ RAVENTA เพื่อยืนยันว่าอีเมลนี้เป็นของคุณ
+    </p>
+    <p style="margin:20px 0;padding:16px;background-color:${COLORS.sand};border-radius:10px;text-align:center;">
+      <span style="display:block;font-size:30px;font-weight:700;letter-spacing:0.3em;color:${COLORS.primary};">${code}</span>
+      <span style="display:block;margin-top:6px;font-size:12px;color:${COLORS.muted};">รหัสนี้ใช้ได้ 10 นาที</span>
+    </p>
+    <p style="margin:0;font-size:13px;line-height:1.6;color:${COLORS.muted};">
+      หากคุณไม่ได้สมัครหรือขอยืนยันอีเมลกับ RAVENTA ไม่ต้องทำอะไร อีเมลนี้จะไม่ถูกผูกกับบัญชีใด
+    </p>
+  `)
+  return { subject: `${code} คือรหัสยืนยันอีเมลของคุณที่ RAVENTA`, html }
+}

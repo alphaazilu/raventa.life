@@ -9,6 +9,7 @@ import { fieldClass } from '@/lib/form-field-class'
 import { completeProfile, type CompleteProfileState } from '@/app/complete-profile/actions'
 import { Spinner } from '@/components/ui/spinner'
 import { MergePanel } from '@/components/complete-profile/merge-panel'
+import { VerifyEmailPanel } from '@/components/complete-profile/verify-email-panel'
 
 const initialState: CompleteProfileState = null
 
@@ -63,6 +64,12 @@ export function CompleteProfileForm({
   const mergeKey = mergeOffer ? ('email' in mergeOffer ? `email:${mergeOffer.email}` : `phone:${mergeOffer.phone}`) : null
   const showMerge = mergeKey !== null && dismissedMergeFor !== mergeKey
 
+  // LINE sign-up saved → the code step. "Change email" returns to the form
+  // for that attempt; submitting again brings the step back.
+  const [dismissedVerify, setDismissedVerify] = useState<CompleteProfileState>(null)
+  const verify = state?.verifyEmail
+  const showVerify = Boolean(verify) && dismissedVerify !== state
+
   return (
     <div className="mx-auto flex w-full max-w-md flex-col justify-center px-4 py-16 md:py-24">
       <div className="rounded-2xl border border-border bg-card p-8 shadow-sm">
@@ -82,7 +89,16 @@ export function CompleteProfileForm({
           />
         )}
 
-        <form action={formAction} className={showMerge ? 'hidden' : 'mt-6 space-y-4'}>
+        {showVerify && verify && (
+          <VerifyEmailPanel
+            email={verify.email}
+            maskedEmail={verify.maskedEmail}
+            next={next}
+            onChangeEmail={() => setDismissedVerify(state)}
+          />
+        )}
+
+        <form action={formAction} className={showMerge || showVerify ? 'hidden' : 'mt-6 space-y-4'}>
           <input type="hidden" name="next" value={next} />
 
           <div className="grid grid-cols-2 gap-3">

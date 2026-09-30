@@ -6,7 +6,7 @@ import { useLanguage } from '@/components/language-provider'
 import { authCopy } from '@/lib/auth/copy'
 import { fieldClass } from '@/lib/form-field-class'
 import { updateOwnPhone, type UpdatePhoneState } from '@/app/account/actions'
-import { LoginMethods, type LinkLineResult } from '@/components/account/link-line'
+import { LoginMethods, type LinkResult } from '@/components/account/link-line'
 import { AvatarEditor } from '@/components/account/avatar'
 import { Spinner } from '@/components/ui/spinner'
 import { formatMemberDate } from '@/lib/format-date'
@@ -24,7 +24,7 @@ export function AccountSettingsView({
   role,
   signOutAction,
   lineLinked,
-  lineLinkResult,
+  linkResult,
   hasPassword,
   userId,
   avatarUrl,
@@ -32,6 +32,9 @@ export function AccountSettingsView({
   googleLinked,
   googleEmail,
   joinedAt,
+  authEmail,
+  inLineApp,
+  openEmailSetup,
 }: {
   email: string
   firstName: string | null
@@ -42,7 +45,10 @@ export function AccountSettingsView({
   role: string
   signOutAction: () => Promise<void>
   lineLinked: boolean
-  lineLinkResult: LinkLineResult
+  linkResult: LinkResult
+  authEmail: string | null
+  inLineApp: boolean
+  openEmailSetup: boolean
   hasPassword: boolean
   userId: string
   avatarUrl: string | null
@@ -97,7 +103,25 @@ export function AccountSettingsView({
         <h2 className="mb-1 text-base font-semibold text-card-foreground">{tr(authCopy.personalInfoHeading)}</h2>
         {fullName && <InfoRow label={tr(authCopy.nameFieldLabel)}>{fullName}</InfoRow>}
         {/* LINE accounts often have no email at all. */}
-        <InfoRow label={tr(authCopy.emailFieldLabel)}>{email || '—'}</InfoRow>
+        <InfoRow label={tr(authCopy.emailFieldLabel)}>
+          <span className="inline-flex flex-wrap items-center justify-end gap-x-2 gap-y-1">
+            <span className="break-all">{email || '—'}</span>
+            {/* A LINE member's typed email that was never confirmed. */}
+            {!authEmail && email && (
+              <>
+                <span className="rounded-full bg-amber-500/15 px-2 py-0.5 text-[11px] font-semibold text-amber-800">
+                  {tr(authCopy.emailUnverified)}
+                </span>
+                <a
+                  href="/account/settings?setup=email#login-methods"
+                  className="text-xs font-semibold text-primary underline-offset-2 hover:underline"
+                >
+                  {tr(authCopy.verifyEmailLink)}
+                </a>
+              </>
+            )}
+          </span>
+        </InfoRow>
         {phone && (
           <InfoRow label={tr(authCopy.phoneFieldLabel)}>
             {editingPhone ? (
@@ -170,7 +194,11 @@ export function AccountSettingsView({
           googleLinked={googleLinked}
           googleEmail={googleEmail}
           lineLinked={lineLinked}
-          lineLinkResult={lineLinkResult}
+          linkResult={linkResult}
+          authEmail={authEmail}
+          profileEmail={email || null}
+          inLineApp={inLineApp}
+          openEmailSetup={openEmailSetup}
         />
       </section>
 

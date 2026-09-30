@@ -21,24 +21,14 @@ export function SiteHeader() {
   const { tr, lang, toggle } = useLanguage()
   const pathname = usePathname()
   const isHome = pathname === '/'
-  const [scrolled, setScrolled] = useState(false)
   const [open, setOpen] = useState(false)
   const { user } = useSupabaseUser()
   const authHref = user ? '/account' : '/login'
   const authLabel = user ? tr(t.nav.account) : tr(t.nav.login)
 
-  useEffect(() => {
-    const onScroll = () => setScrolled(window.scrollY > 24)
-    onScroll()
-    window.addEventListener('scroll', onScroll, { passive: true })
-    return () => window.removeEventListener('scroll', onScroll)
-  }, [])
-
-  // On any page other than the homepage there is no dark hero behind the
-  // header, so force the solid/dark-text style regardless of scroll position.
-  // An open mobile menu also needs the solid header, or its white text
-  // would sit on the dimmed page.
-  const solid = scrolled || !isHome || open
+  // Always the solid white bar (v0.12.1): the logo is RAVENTA red, which
+  // doesn't read over the dark hero photo, and its colours stay as given.
+  const solid = true
 
   // While the mobile menu is open: dim the page (below), stop it scrolling
   // behind the menu, and let Escape close it.
@@ -83,21 +73,21 @@ export function SiteHeader() {
       <div className="mx-auto flex h-16 max-w-6xl items-center justify-between gap-4 px-4 md:h-20 md:px-6">
         <a href={homeHref} className="flex items-center gap-3">
           <Image
-            src="/images/logo-icon.png"
-            alt="RAVENTA Wellness Center"
-            width={44}
-            height={44}
-            className="h-10 w-10 rounded-md object-cover md:h-11 md:w-11"
+            src="/images/logo-emblem.png"
+            alt=""
+            width={405}
+            height={404}
+            className="h-10 w-10 md:h-11 md:w-11"
             priority
           />
-          <span
-            className={cn(
-              'font-display text-lg font-bold tracking-wide transition-colors md:text-xl',
-              solid ? 'text-primary' : 'text-white',
-            )}
-          >
-            RAVENTA
-          </span>
+          <Image
+            src="/images/logo-wordmark.png"
+            alt="RAVENTA Wellness Center"
+            width={1166}
+            height={157}
+            className="h-[17px] w-auto md:h-5"
+            priority
+          />
         </a>
 
         <nav className="hidden items-center gap-8 md:flex">

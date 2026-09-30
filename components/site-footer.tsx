@@ -27,17 +27,17 @@ export function SiteFooter() {
     <footer className="bg-accent text-accent-foreground">
       <div className="mx-auto max-w-6xl px-4 py-16 md:px-6">
         <div className="flex flex-col items-center gap-8 text-center">
-          <Image
-            src="/images/logo-icon.png"
-            alt="RAVENTA Wellness Center"
-            width={64}
-            height={64}
-            className="h-16 w-16 rounded-xl object-cover"
-          />
-          <div>
-            <p className="font-display text-2xl font-extrabold tracking-wide">RAVENTA</p>
-            <p className="mt-2 text-xs font-medium tracking-brand uppercase text-sand/80">{tr(t.footer.tagline)}</p>
+          {/* The logo keeps its own red, so it sits on a white tile here. */}
+          <div className="rounded-2xl bg-white px-7 py-5">
+            <Image
+              src="/images/logo-full.png"
+              alt="RAVENTA Wellness Center"
+              width={1166}
+              height={620}
+              className="h-auto w-40"
+            />
           </div>
+          <p className="text-xs font-medium tracking-brand uppercase text-sand/80">{tr(t.footer.tagline)}</p>
 
           <nav className="flex flex-wrap items-center justify-center gap-x-8 gap-y-3">
             {links.map((link) => (

@@ -35,14 +35,7 @@ export function LineAutoLogin({ next }: { next: string }) {
 
   return (
     <div className="mx-auto flex min-h-[60vh] max-w-sm flex-col items-center justify-center px-4 py-16 text-center">
-      <Image
-        src="/images/logo-icon.png"
-        alt="RAVENTA"
-        width={72}
-        height={72}
-        className="h-18 w-18 rounded-2xl object-cover"
-        priority
-      />
+      <Image src="/images/logo-full.png" alt="RAVENTA" width={1166} height={620} className="h-auto w-44" priority />
       {failed ? (
         <>
           <p className="mt-6 text-sm text-destructive">{tr(authCopy.oauthFailed)}</p>

@@ -7,80 +7,124 @@ import { authCopy } from '@/lib/auth/copy'
 import { createClient } from '@/lib/supabase/client'
 import { GoogleIcon, LineIcon } from '@/components/auth/oauth-buttons'
 import { Spinner } from '@/components/ui/spinner'
+import { EmailLoginSetup } from '@/components/account/email-login-setup'
 
-export type LinkLineResult = 'linked' | 'already_used' | 'failed' | null
+export type LinkProvider = 'line' | 'google'
+export type LinkResult = { provider: LinkProvider; result: 'linked' | 'already_used' | 'failed' } | null
 
-// Which ways this member can sign in, with a button to add LINE (the one
-// most Thai members use, and the one that lets us reach them on LINE OA).
-// Google is shown for information only — adding it is rarely wanted and
-// another button would just confuse. Linking needs "Allow manual linking"
-// on in Supabase → Authentication → Sign In / Providers.
+const LINK_MESSAGES = {
+  line: {
+    linked: authCopy.lineLinkedSuccess,
+    already_used: authCopy.lineLinkAlreadyUsed,
+    failed: authCopy.lineLinkFailed,
+  },
+  google: {
+    linked: authCopy.googleLinkedSuccess,
+    already_used: authCopy.googleLinkAlreadyUsed,
+    failed: authCopy.googleLinkFailed,
+  },
+} as const
+
+// Ways this member can sign in, each with a way to add it:
+// - Email & password: verify an email (LINE members), then set a password
+//   (components/account/email-login-setup).
+// - Google / LINE: linkIdentity, which needs "Allow manual linking" on in
+//   Supabase → Authentication → Sign In / Providers. Google refuses to sign
+//   in inside LINE's in-app browser, so there we explain instead.
 export function LoginMethods({
+  authEmail,
+  profileEmail,
   hasPassword,
   googleEmail,
   googleLinked,
   lineLinked,
-  lineLinkResult,
+  linkResult,
+  inLineApp,
+  openEmailSetup,
 }: {
+  authEmail: string | null
+  profileEmail: string | null
   hasPassword: boolean
   googleEmail: string | null
   googleLinked: boolean
   lineLinked: boolean
-  lineLinkResult: LinkLineResult
+  linkResult: LinkResult
+  inLineApp: boolean
+  openEmailSetup: boolean
 }) {
   const { tr } = useLanguage()
-  const [pending, setPending] = useState(false)
-  const [startError, setStartError] = useState(false)
+  const [pending, setPending] = useState<LinkProvider | null>(null)
+  const [startError, setStartError] = useState<LinkProvider | null>(null)
+  const [emailSetupOpen, setEmailSetupOpen] = useState(openEmailSetup && !hasPassword)
 
-  const handleLink = async () => {
-    setPending(true)
-    setStartError(false)
+  const handleLink = async (provider: LinkProvider) => {
+    setPending(provider)
+    setStartError(null)
     const supabase = createClient()
-    // Same callback as a normal sign-in; `link=line` tells it to send any
+    // Same callback as a normal sign-in; `link=` tells it to send any
     // failure back here rather than to the login page.
-    const next = encodeURIComponent('/account/settings?linked=line')
-    const redirectTo = `${window.location.origin}/auth/callback?link=line&next=${next}`
-    const { error } = await supabase.auth.linkIdentity({
-      provider: 'custom:line',
-      options: { redirectTo, scopes: 'openid profile' },
-    })
+    const next = encodeURIComponent(`/account/settings?linked=${provider}`)
+    const redirectTo = `${window.location.origin}/auth/callback?link=${provider}&next=${next}`
+    const { error } = await supabase.auth.linkIdentity(
+      provider === 'line'
+        ? { provider: 'custom:line', options: { redirectTo, scopes: 'openid profile' } }
+        : { provider: 'google', options: { redirectTo } },
+    )
     // Only reached when linking can't even start (e.g. manual linking is
-    // switched off in Supabase) — otherwise the browser is already on LINE.
+    // switched off in Supabase) — otherwise the browser is already away.
     if (error) {
-      console.error('linkIdentity failed to start', error.message)
-      setPending(false)
-      setStartError(true)
+      console.error('linkIdentity failed to start', provider, error.message)
+      setPending(null)
+      setStartError(provider)
     }
   }
 
-  const message =
-    lineLinkResult === 'linked'
-      ? { text: tr(authCopy.lineLinkedSuccess), tone: 'text-accent' }
-      : lineLinkResult === 'already_used'
-        ? { text: tr(authCopy.lineLinkAlreadyUsed), tone: 'text-destructive' }
-        : lineLinkResult === 'failed' || startError
-          ? { text: tr(authCopy.lineLinkFailed), tone: 'text-destructive' }
-          : null
+  const message = startError
+    ? { text: tr(LINK_MESSAGES[startError].failed), tone: 'text-destructive' }
+    : linkResult
+      ? {
+          text: tr(LINK_MESSAGES[linkResult.provider][linkResult.result]),
+          tone: linkResult.result === 'linked' ? 'text-accent' : 'text-destructive',
+        }
+      : null
 
   const on = 'text-accent font-semibold'
-  const off = 'text-muted-foreground'
+  const smallBtn =
+    'inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-xs font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-50'
 
   return (
-    <div>
+    <div id="login-methods" className="scroll-mt-24">
       <h2 className="mb-1 text-base font-semibold text-card-foreground">{tr(authCopy.loginMethodsHeading)}</h2>
 
       <MethodRow
         icon={
-          <span className="flex h-8 w-8 items-center justify-center rounded-full bg-background">
+          <span className="flex h-8 w-8 items-center justify-center rounded-full bg-secondary">
             <Mail className="h-4 w-4 text-foreground" />
           </span>
         }
         label={tr(authCopy.loginMethodEmail)}
+        sub={authEmail}
+        last={false}
       >
-        <span className={hasPassword ? on : off}>
-          {hasPassword ? tr(authCopy.statusInUse) : tr(authCopy.statusNotSet)}
-        </span>
+        {hasPassword ? (
+          <span className={on}>{tr(authCopy.statusInUse)}</span>
+        ) : emailSetupOpen ? null : (
+          <button
+            type="button"
+            onClick={() => setEmailSetupOpen(true)}
+            className={`${smallBtn} bg-primary text-primary-foreground hover:opacity-90`}
+          >
+            {tr(authEmail ? authCopy.passwordSetupButton : authCopy.emailSetupButton)}
+          </button>
+        )}
       </MethodRow>
+      {emailSetupOpen && !hasPassword && (
+        <EmailLoginSetup
+          authEmail={authEmail}
+          suggestedEmail={profileEmail ?? ''}
+          onClose={() => setEmailSetupOpen(false)}
+        />
+      )}
 
       <MethodRow
         icon={
@@ -91,10 +135,26 @@ export function LoginMethods({
         label={tr(authCopy.loginMethodGoogle)}
         sub={googleLinked ? googleEmail : null}
       >
-        <span className={googleLinked ? on : off}>
-          {googleLinked ? tr(authCopy.statusLinked) : tr(authCopy.statusNotLinked)}
-        </span>
+        {googleLinked ? (
+          <span className={on}>{tr(authCopy.statusLinked)}</span>
+        ) : inLineApp ? (
+          <span className="text-muted-foreground">{tr(authCopy.statusNotLinked)}</span>
+        ) : (
+          <button
+            type="button"
+            onClick={() => handleLink('google')}
+            disabled={pending !== null}
+            className={`${smallBtn} border border-border bg-white text-foreground hover:border-primary/40`}
+          >
+            {pending === 'google' && <Spinner className="h-3.5 w-3.5" />}
+            {tr(authCopy.googleLinkShort)}
+          </button>
+        )}
       </MethodRow>
+
+      {!googleLinked && inLineApp && (
+        <p className="-mt-1 pb-3 text-xs leading-relaxed text-muted-foreground">{tr(authCopy.googleOpenInBrowser)}</p>
+      )}
 
       <MethodRow
         icon={
@@ -110,11 +170,11 @@ export function LoginMethods({
         ) : (
           <button
             type="button"
-            onClick={handleLink}
-            disabled={pending}
-            className="inline-flex items-center gap-1.5 rounded-full bg-[#06C755] px-4 py-2 text-xs font-semibold text-white transition-colors hover:bg-[#05B34C] disabled:cursor-not-allowed disabled:opacity-50"
+            onClick={() => handleLink('line')}
+            disabled={pending !== null}
+            className={`${smallBtn} bg-[#06C755] text-white hover:bg-[#05B34C]`}
           >
-            {pending && <Spinner className="h-3.5 w-3.5" />}
+            {pending === 'line' && <Spinner className="h-3.5 w-3.5" />}
             {tr(authCopy.lineLinkShort)}
           </button>
         )}

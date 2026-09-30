@@ -7,7 +7,8 @@ import { createClient } from '@/lib/supabase/server'
 import { signOut } from '@/app/login/actions'
 import { lineUserIdOf } from '@/lib/supabase/line'
 import { resolveAvatarUrl } from '@/lib/supabase/avatar'
-import type { LinkLineResult } from '@/components/account/link-line'
+import type { LinkProvider, LinkResult } from '@/components/account/link-line'
+import { headers } from 'next/headers'
 
 export const metadata: Metadata = {
   title: 'Settings | RAVENTA Wellness Center',
@@ -16,7 +17,7 @@ export const metadata: Metadata = {
 export default async function AccountSettingsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ linked?: string; link_error?: string }>
+  searchParams: Promise<{ linked?: string; link_error?: string; link?: string; setup?: string }>
 }) {
   const params = await searchParams
   const supabase = await createClient()
@@ -28,7 +29,7 @@ export default async function AccountSettingsPage({
 
   const { data: profile } = await supabase
     .from('profiles')
-    .select('role, email, first_name, last_name, phone, province, nationality, avatar_path, provider_avatar_url, created_at')
+    .select('role, email, first_name, last_name, phone, province, nationality, avatar_path, provider_avatar_url, created_at, has_password')
     .eq('id', user.id)
     .maybeSingle()
 
@@ -36,19 +37,22 @@ export default async function AccountSettingsPage({
   const lineLinked = lineUserIdOf(user) !== null
   // Only email/password sign-ups have a password to change; LINE- or
   // Google-only accounts would just be sent to a form that can't help.
-  const hasPassword = user.identities?.some((i) => i.provider === 'email') ?? false
+  const hasPassword =
+    (user.identities?.some((i) => i.provider === 'email') ?? false) || Boolean(profile?.has_password)
   const google = user.identities?.find((i) => i.provider === 'google')
   const googleEmail = typeof google?.identity_data?.email === 'string' ? google.identity_data.email : null
   // Outcome of the "link LINE" round trip (see components/account/link-line
   // and app/auth/callback). identity_already_exists = that LINE account
   // already belongs to a separate membership.
-  const linkResult: LinkLineResult = params.link_error
-    ? params.link_error === 'identity_already_exists'
-      ? 'already_used'
-      : 'failed'
-    : params.linked === 'line' && lineLinked
-      ? 'linked'
+  const provider: LinkProvider = (params.link ?? params.linked) === 'google' ? 'google' : 'line'
+  const linkedNow = provider === 'google' ? Boolean(google) : lineLinked
+  const linkResult: LinkResult = params.link_error
+    ? { provider, result: params.link_error === 'identity_already_exists' ? 'already_used' : 'failed' }
+    : params.linked && linkedNow
+      ? { provider, result: 'linked' }
       : null
+  // Google won't sign in inside LINE's in-app browser (see app/login/page).
+  const inLineApp = /\bLine\/\d/i.test((await headers()).get('user-agent') ?? '')
 
   return (
     <>
@@ -70,7 +74,10 @@ export default async function AccountSettingsPage({
           userId={user.id}
           avatarUrl={avatarUrl}
           hasUploadedAvatar={Boolean(profile?.avatar_path)}
-          lineLinkResult={linkResult}
+          linkResult={linkResult}
+          authEmail={user.email || null}
+          inLineApp={inLineApp}
+          openEmailSetup={params.setup === 'email'}
           googleLinked={Boolean(google)}
           googleEmail={googleEmail}
           joinedAt={profile?.created_at ?? null}

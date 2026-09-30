@@ -842,3 +842,46 @@ grant execute on function public.staff_cancel_visit(uuid, text) to authenticated
 
 -- Give someone the front-desk role (run manually, like section 11):
 -- update public.profiles set role = 'staff' where email = 'desk@example.com';
+
+-- 14. Verified emails for LINE members + email/password on any account
+-- (v0.12). LINE gives no email, so a LINE member types one. The site now
+-- emails a 6-digit code to it and, once the code is entered, makes it the
+-- account's real login email (auth.users, marked confirmed) — so it's
+-- proven to be theirs, and they can add a password and sign in with it.
+--
+-- Same shape as the merge codes in section 9: server (service-role) only,
+-- no policies, nothing the browser can read.
+create table if not exists public.email_verification_codes (
+  user_id uuid primary key references auth.users(id) on delete cascade,
+  email text not null,
+  code_hash text not null,
+  expires_at timestamptz not null,
+  attempts int not null default 0,
+  created_at timestamptz not null default now()
+);
+
+alter table public.email_verification_codes enable row level security;
+revoke all on public.email_verification_codes from anon, authenticated;
+
+-- Every code sent and every wrong guess, for the daily limits (per member
+-- and per email address — so nobody can flood someone else's inbox).
+create table if not exists public.email_verification_events (
+  id bigint generated always as identity primary key,
+  user_id uuid references auth.users(id) on delete cascade,
+  email text not null,
+  kind text not null check (kind in ('code_sent', 'wrong_code')),
+  created_at timestamptz not null default now()
+);
+
+create index if not exists email_verification_events_user_idx
+  on public.email_verification_events (user_id, created_at);
+create index if not exists email_verification_events_email_idx
+  on public.email_verification_events (email, created_at);
+
+alter table public.email_verification_events enable row level security;
+revoke all on public.email_verification_events from anon, authenticated;
+
+-- Whether the member has set a password (Supabase never exposes that). Set
+-- by the app after a password is saved; email/password signups count too
+-- (the settings page also checks their email identity).
+alter table public.profiles add column if not exists has_password boolean not null default false;

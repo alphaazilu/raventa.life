@@ -8,6 +8,7 @@ import { getResendClient } from '@/lib/resend'
 import { welcomeEmail, teamNotificationEmail } from '@/lib/email-templates'
 import { saveLineUserId } from '@/lib/supabase/line'
 import { saveProviderAvatar } from '@/lib/supabase/avatar'
+import { applyVerifiedEmail, checkEmailCode, maskEmail, sendEmailCode } from '@/lib/email-verification'
 
 export type CompleteProfileState = {
   error?: string
@@ -16,6 +17,9 @@ export type CompleteProfileState = {
   // "link to that existing account" or "use another email" instead of just
   // an error. See merge-actions.ts.
   mergeOffer?: { email: string } | { phone: string }
+  // LINE sign-up: everything else is saved and a 6-digit code has gone to
+  // the typed email; the form now asks for it (finishEmailVerification).
+  verifyEmail?: { email: string; maskedEmail: string; notice?: 'too_soon' }
 } | null
 
 function safeNext(value: FormDataEntryValue | null): string {
@@ -114,6 +118,35 @@ export async function completeProfile(
     return { error: PHONE_TAKEN_MESSAGE_TH, fieldErrors: { phone: PHONE_TAKEN_MESSAGE_TH } }
   }
 
+  // LINE sign-up: save everything except the email, then prove the email
+  // is theirs with a code before it's used (see finishEmailVerification).
+  // Until then profiles.email stays empty, so the completeness gate keeps
+  // them on this page.
+  if (needsEmail) {
+    const { error: saveErr } = await supabase
+      .from('profiles')
+      .upsert(
+        { id: user.id, first_name: firstName, last_name: lastName, phone, province, nationality },
+        { onConflict: 'id' },
+      )
+    if (isUniqueViolation(saveErr)) {
+      return { error: PHONE_TAKEN_MESSAGE_TH, fieldErrors: { phone: PHONE_TAKEN_MESSAGE_TH } }
+    }
+    if (saveErr) return { error: saveErr.message }
+
+    const sent = await sendEmailCode(user.id, email)
+    if (sent.ok) return { verifyEmail: { email, maskedEmail: sent.maskedEmail } }
+    // A code went out less than a minute ago (double tap, back button):
+    // it's still valid, so just ask for it.
+    if (sent.reason === 'too_soon') return { verifyEmail: { email, maskedEmail: maskEmail(email), notice: 'too_soon' } }
+    return {
+      error:
+        sent.reason === 'limit'
+          ? 'ขอรหัสยืนยันครบจำนวนต่อวันแล้ว กรุณาลองใหม่พรุ่งนี้ หรือติดต่อทีมงาน'
+          : 'ส่งรหัสยืนยันไม่สำเร็จ กรุณาตรวจอีเมลแล้วลองอีกครั้ง',
+    }
+  }
+
   // Read before the save, so the welcome email below only goes out the
   // first time an email lands on this profile — not on a later visit here.
   const { data: before } = await supabase.from('profiles').select('email, phone').eq('id', user.id).maybeSingle()
@@ -156,6 +189,66 @@ export async function completeProfile(
   // without details (Google/LINE) — this is where they're finally complete.
   if (isNewSignup) {
     await sendTeamNotification({ email, firstName, lastName, phone, province, nationality })
+  }
+
+  revalidatePath('/', 'layout')
+  redirect(next)
+}
+
+export type VerifyEmailState = { error?: string } | null
+
+const VERIFY_ERRORS: Record<string, string> = {
+  no_code: 'ไม่พบรหัสที่ส่งไป กรุณากดส่งรหัสใหม่',
+  wrong_code: 'รหัสไม่ถูกต้อง ลองอีกครั้ง',
+  expired: 'รหัสหมดอายุแล้ว กรุณากดส่งรหัสใหม่',
+  too_many_attempts: 'กรอกผิดหลายครั้งเกินไป กรุณากดส่งรหัสใหม่',
+  limit: 'ลองหลายครั้งเกินไปสำหรับวันนี้ กรุณาลองใหม่พรุ่งนี้',
+  taken: EMAIL_TAKEN_MESSAGE_TH,
+  failed: 'ยืนยันไม่สำเร็จ กรุณาลองอีกครั้ง',
+}
+
+// Step 2 of a LINE sign-up: the code from the email. On success the email
+// becomes the account's confirmed login email and the profile is complete.
+export async function finishEmailVerification(
+  _prev: VerifyEmailState,
+  formData: FormData,
+): Promise<VerifyEmailState> {
+  const code = String(formData.get('code') ?? '')
+  const next = safeNext(formData.get('next'))
+
+  const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) redirect('/login')
+
+  const { data: before } = await supabase
+    .from('profiles')
+    .select('email, first_name, last_name, phone, province, nationality')
+    .eq('id', user.id)
+    .maybeSingle()
+
+  const checked = await checkEmailCode(user.id, code)
+  if (!checked.ok) return { error: VERIFY_ERRORS[checked.reason] ?? VERIFY_ERRORS.failed }
+  const applied = await applyVerifiedEmail(user.id, checked.email)
+  if (!applied.ok) return { error: VERIFY_ERRORS[applied.reason] ?? VERIFY_ERRORS.failed }
+
+  await saveLineUserId(supabase, user)
+  await saveProviderAvatar(supabase, user)
+
+  // First email on this membership → welcome it, and tell the team a new
+  // member is fully signed up.
+  if (!before?.email) {
+    const { data: saved } = await supabase.from('profiles').select('member_no').eq('id', user.id).maybeSingle()
+    await sendWelcomeEmail(checked.email, before?.first_name ?? '', saved?.member_no ?? null)
+    await sendTeamNotification({
+      email: checked.email,
+      firstName: before?.first_name ?? '',
+      lastName: before?.last_name ?? '',
+      phone: before?.phone ?? '',
+      province: before?.province ?? '',
+      nationality: before?.nationality ?? '',
+    })
   }
 
   revalidatePath('/', 'layout')
