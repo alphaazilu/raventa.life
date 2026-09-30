@@ -64,6 +64,8 @@ export function EmailLoginSetup({
   const { tr } = useLanguage()
   const router = useRouter()
   const [step, setStep] = useState<Step>(authEmail ? 'password' : 'email')
+  // The address they'll sign in with: the account's, or the one just verified.
+  const [loginEmail, setLoginEmail] = useState(authEmail ?? '')
   const [email, setEmail] = useState(suggestedEmail)
   const [masked, setMasked] = useState('')
   const [code, setCode] = useState('')
@@ -97,6 +99,7 @@ export function EmailLoginSetup({
     run(async () => {
       const res = await confirmEmailCode(code)
       if (!res.ok) return setError(res.error)
+      setLoginEmail(res.data.email)
       setNotice(tr(authCopy.emailVerifiedDone))
       setStep('password')
       router.refresh()
@@ -196,7 +199,10 @@ export function EmailLoginSetup({
           className="space-y-3"
         >
           {notice && <p className="text-sm font-semibold text-accent">{notice}</p>}
-          <p className="text-sm leading-relaxed text-secondary-foreground">{tr(authCopy.passwordSetupIntro)}</p>
+          <p className="text-sm leading-relaxed text-secondary-foreground">
+            {tr(authCopy.passwordSetupIntroBefore)} <span className="font-semibold break-all">{loginEmail}</span>{' '}
+            {tr(authCopy.passwordSetupIntroAfter)}
+          </p>
           <label className="block">
             <span className={labelClass}>{tr(authCopy.passwordLabel)}</span>
             <input

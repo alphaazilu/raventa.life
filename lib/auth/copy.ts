@@ -155,10 +155,8 @@ export const authCopy: Record<string, Bilingual> = {
     th: 'ยืนยันอีเมลของคุณ แล้วตั้งรหัสผ่าน เพื่อเข้าสู่ระบบด้วยอีเมลได้อีกทาง บัตรสมาชิกและแต้มยังเป็นบัญชีเดิม',
     en: 'Verify your email and set a password to also sign in with email. Your card and stamps stay on this account.',
   },
-  passwordSetupIntro: {
-    th: 'ตั้งรหัสผ่านเพื่อเข้าสู่ระบบด้วยอีเมลนี้ได้อีกทาง',
-    en: 'Set a password to also sign in with this email.',
-  },
+  passwordSetupIntroBefore: { th: 'ตั้งรหัสผ่าน แล้วครั้งต่อไปเข้าสู่ระบบด้วย', en: 'Set a password, then next time sign in with' },
+  passwordSetupIntroAfter: { th: 'และรหัสผ่านนี้ได้เลย', en: 'and this password.' },
   sendCodeButton: { th: 'ส่งรหัสยืนยัน', en: 'Send code' },
   emailCodeSentTo: { th: 'ส่งรหัส 6 หลักไปที่', en: 'We sent a 6-digit code to' },
   emailCodeCheckSpam: { th: 'ไม่เห็นอีเมล? ลองดูในโฟลเดอร์สแปมหรือโปรโมชัน', en: 'Can’t see it? Check your spam or promotions folder.' },
