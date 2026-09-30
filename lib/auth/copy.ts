@@ -145,7 +145,8 @@ export const authCopy: Record<string, Bilingual> = {
   nationalityFieldLabel: { th: 'สัญชาติ', en: 'Nationality' },
   emailFieldLabel: { th: 'อีเมล', en: 'Email' },
   roleFieldLabel: { th: 'สถานะบัญชี', en: 'Account Type' },
-  roleAdmin: { th: 'แอดมิน', en: 'Admin' },
+  // Admins are members too (own card, own visits) — the label says both.
+  roleAdmin: { th: 'สมาชิก · แอดมิน', en: 'Member · Admin' },
   roleCustomer: { th: 'สมาชิก', en: 'Member' },
   goToAdmin: { th: 'ไปที่หน้าแอดมิน →', en: 'Go to admin dashboard →' },
   signOutButton: { th: 'ออกจากระบบ', en: 'Sign Out' },
