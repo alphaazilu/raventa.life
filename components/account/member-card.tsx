@@ -1,5 +1,6 @@
 'use client'
 
+import Image from 'next/image'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import QRCode from 'qrcode'
 import { QrCode, Sun, X } from 'lucide-react'
@@ -33,38 +34,46 @@ function QrSvg({ text }: { text: string }) {
 
 type Person = { name: string; memberNo: string | null; avatarUrl: string | null; joinedAt: string | null }
 
-// The red RAVENTA card itself (also the left half of the sideways view).
+// The RAVENTA card itself (also the left half of the sideways view):
+// white, a faint emblem watermark, the wordmark, member number and QR
+// button in RAVENTA red. Its container supplies the white box.
 function CardFace({ name, memberNo, avatarUrl, joinedAt, showQrHint }: Person & { showQrHint: boolean }) {
   const { tr, lang } = useLanguage()
   const since = formatMemberDate(joinedAt, lang, false)
   return (
     <>
-      <span className="flex w-full items-center justify-between">
-        <span className="font-display text-lg font-bold tracking-[0.2em]">RAVENTA</span>
-        <span className="font-display text-[10px] font-semibold tracking-[0.22em] text-secondary">MEMBER</span>
+      <Image
+        src="/images/logo-emblem.png"
+        alt=""
+        aria-hidden="true"
+        width={405}
+        height={404}
+        className="pointer-events-none absolute -top-[14%] -right-[12%] h-[125%] w-auto opacity-[0.07] select-none"
+      />
+      <span className="relative flex w-full items-center justify-between">
+        <Image src="/images/logo-wordmark.png" alt="RAVENTA" width={1166} height={157} className="h-4 w-auto" />
+        <span className="font-display text-[10px] font-semibold tracking-[0.22em] text-wood">MEMBER</span>
       </span>
-      <span className="flex items-center gap-3">
-        <AvatarCircle
-          src={avatarUrl}
-          name={name}
-          className="h-12 w-12 bg-primary-foreground text-xl text-primary"
-        />
+      <span className="relative flex items-center gap-3">
+        <AvatarCircle src={avatarUrl} name={name} className="h-12 w-12 text-xl" />
         <span className="flex min-w-0 flex-col">
           <span className="truncate text-lg font-semibold">{name}</span>
           {since && (
-            <span className="text-xs text-secondary">
+            <span className="text-xs text-muted-foreground">
               {tr(authCopy.memberSince)} {since}
             </span>
           )}
         </span>
       </span>
-      <span className="flex w-full items-end justify-between">
+      <span className="relative flex w-full items-end justify-between">
         <span className="flex flex-col">
-          <span className="font-display text-[9px] font-semibold tracking-[0.2em] text-secondary">MEMBER NO.</span>
-          <span className="font-display text-base font-semibold tracking-[0.12em]">{formatMemberNo(memberNo)}</span>
+          <span className="font-display text-[9px] font-semibold tracking-[0.2em] text-muted-foreground">MEMBER NO.</span>
+          <span className="font-display text-base font-semibold tracking-[0.12em] text-primary">
+            {formatMemberNo(memberNo)}
+          </span>
         </span>
         {showQrHint && (
-          <span className="flex h-12 w-12 items-center justify-center rounded-lg bg-white text-foreground">
+          <span className="flex h-12 w-12 items-center justify-center rounded-lg bg-primary text-primary-foreground">
             <QrCode className="h-8 w-8" strokeWidth={1.75} />
           </span>
         )}
@@ -97,7 +106,7 @@ export function MemberCard({ name, memberNo, avatarUrl, joinedAt, autoOpen }: Pe
         type="button"
         onClick={() => setOpen(true)}
         aria-label={tr(authCopy.memberCardOpen)}
-        className="flex aspect-[1.586] w-full max-w-sm flex-col justify-between rounded-2xl bg-primary px-5 py-5 text-left text-primary-foreground shadow-[0_10px_24px_rgba(139,30,45,0.28)] transition-transform focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 active:scale-[0.99]"
+        className="relative flex aspect-[1.586] w-full max-w-sm flex-col justify-between overflow-hidden rounded-2xl border border-border bg-white px-5 py-5 text-left text-foreground shadow-[0_10px_24px_rgba(46,70,54,0.14)] transition-transform focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 active:scale-[0.99]"
       >
         <CardFace name={name} memberNo={memberNo} avatarUrl={avatarUrl} joinedAt={joinedAt} showQrHint />
       </button>
@@ -213,14 +222,15 @@ function QrOverlay({ name, memberNo, avatarUrl, joinedAt, onClose }: Person & { 
         >
           <X className="h-5 w-5" />
         </button>
-        <span className="font-display text-[15px] font-bold tracking-[0.2em] text-primary phone-landscape:hidden">
-          RAVENTA
+        <span className="flex items-center gap-2 phone-landscape:hidden">
+          <Image src="/images/logo-emblem.png" alt="" width={405} height={404} className="h-8 w-8" />
+          <Image src="/images/logo-wordmark.png" alt="RAVENTA" width={1166} height={157} className="h-[14px] w-auto" />
         </span>
         <span className="w-11 phone-landscape:hidden" />
       </div>
 
       <div className="mx-auto flex w-full max-w-md flex-1 flex-col items-center gap-5 px-6 pb-8 phone-landscape:max-w-none phone-landscape:flex-row phone-landscape:justify-center phone-landscape:gap-8 phone-landscape:py-4 phone-landscape:pr-16 phone-landscape:pb-4">
-        {/* Upright: a compact name row. Sideways: the full red card. */}
+        {/* Upright: a compact name row. Sideways: the full card. */}
         <div className="flex w-full items-center gap-3 phone-landscape:hidden">
           <AvatarCircle src={avatarUrl} name={name} className="h-12 w-12 text-xl" />
           <div className="flex min-w-0 flex-col">
@@ -230,7 +240,7 @@ function QrOverlay({ name, memberNo, avatarUrl, joinedAt, onClose }: Person & { 
             </span>
           </div>
         </div>
-        <div className="hidden aspect-[1.586] h-[min(70vh,270px)] shrink-0 flex-col justify-between rounded-2xl bg-primary p-6 text-primary-foreground phone-landscape:flex">
+        <div className="relative hidden aspect-[1.586] h-[min(70vh,270px)] shrink-0 flex-col justify-between overflow-hidden rounded-2xl border border-border bg-white p-6 text-foreground shadow-[0_10px_24px_rgba(46,70,54,0.12)] phone-landscape:flex">
           <CardFace name={name} memberNo={memberNo} avatarUrl={avatarUrl} joinedAt={joinedAt} showQrHint={false} />
         </div>
 
