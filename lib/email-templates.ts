@@ -7,22 +7,28 @@ const COLORS = {
   primaryForeground: '#f6f1e7',
   accent: '#2e4636', // FOREST
   sand: '#e7dcc7',
+  sage: '#eef4ec', // light green boxes (site theme v0.11.1)
+  line: '#d7dfd6', // sage outline
   wood: '#b98c5e',
   text: '#2b2620',
   muted: '#6b6255',
 }
 
+// White throughout, like the site: the full RAVENTA logo on top (served
+// from the live site — email clients need an absolute URL), a thin sage
+// outline around the card, sage boxes for codes and numbers.
 function wrapper(bodyHtml: string): string {
+  const siteUrl = process.env.SITE_URL ?? 'https://www.raventawellness.com'
   return `
-  <div style="background-color:${COLORS.sand};padding:32px 16px;font-family:Georgia,'Noto Serif Thai',serif;">
-    <div style="max-width:480px;margin:0 auto;background-color:#ffffff;border-radius:16px;overflow:hidden;border:1px solid #e5ddcc;">
-      <div style="background-color:${COLORS.primary};padding:24px 32px;">
-        <span style="color:${COLORS.primaryForeground};font-size:20px;font-weight:700;letter-spacing:0.08em;">RAVENTA</span>
+  <div style="background-color:#ffffff;padding:32px 16px;font-family:'Noto Sans Thai','Helvetica Neue',Arial,sans-serif;">
+    <div style="max-width:480px;margin:0 auto;background-color:#ffffff;border-radius:16px;overflow:hidden;border:1px solid ${COLORS.line};">
+      <div style="padding:28px 32px 20px;text-align:center;border-bottom:1px solid ${COLORS.line};">
+        <img src="${siteUrl}/images/logo-full.png" width="132" height="70" alt="RAVENTA" style="display:inline-block;width:132px;height:auto;border:0;">
       </div>
       <div style="padding:32px;">
         ${bodyHtml}
       </div>
-      <div style="padding:20px 32px;background-color:${COLORS.sand};text-align:center;">
+      <div style="padding:18px 32px;border-top:1px solid ${COLORS.line};text-align:center;">
         <p style="margin:0;font-size:12px;color:${COLORS.muted};">RAVENTA Wellness Center</p>
       </div>
     </div>
@@ -37,7 +43,7 @@ export function welcomeEmail(
   const greeting = firstName ? `สวัสดีคุณ${firstName}` : 'สวัสดีครับ/ค่ะ'
   const memberNoBlock = memberNo
     ? `
-    <p style="margin:0 0 20px;padding:14px 18px;background-color:${COLORS.sand};border-radius:10px;text-align:center;">
+    <p style="margin:0 0 20px;padding:14px 18px;background-color:${COLORS.sage};border:1px solid ${COLORS.line};border-radius:10px;text-align:center;">
       <span style="display:block;font-size:11px;letter-spacing:0.08em;text-transform:uppercase;color:${COLORS.muted};">หมายเลขสมาชิก</span>
       <span style="display:block;margin-top:4px;font-size:20px;font-weight:700;letter-spacing:0.06em;color:${COLORS.primary};">${memberNo}</span>
     </p>`
@@ -99,7 +105,7 @@ export function mergeCodeEmail(code: string): { subject: string; html: string } 
     <p style="margin:0 0 12px;font-size:15px;line-height:1.7;color:${COLORS.text};">
       มีคำขอเชื่อมบัญชี LINE เข้ากับบัญชีสมาชิก RAVENTA ของอีเมลนี้ กรอกรหัสด้านล่างในหน้าเว็บเพื่อยืนยัน
     </p>
-    <p style="margin:20px 0;padding:16px;background-color:${COLORS.sand};border-radius:10px;text-align:center;">
+    <p style="margin:20px 0;padding:16px;background-color:${COLORS.sage};border:1px solid ${COLORS.line};border-radius:10px;text-align:center;">
       <span style="display:block;font-size:30px;font-weight:700;letter-spacing:0.3em;color:${COLORS.primary};">${code}</span>
       <span style="display:block;margin-top:6px;font-size:12px;color:${COLORS.muted};">รหัสนี้ใช้ได้ 10 นาที</span>
     </p>
@@ -120,7 +126,7 @@ export function emailVerificationCodeEmail(code: string): { subject: string; htm
     <p style="margin:0 0 12px;font-size:15px;line-height:1.7;color:${COLORS.text};">
       กรอกรหัสด้านล่างในหน้าเว็บ RAVENTA เพื่อยืนยันว่าอีเมลนี้เป็นของคุณ
     </p>
-    <p style="margin:20px 0;padding:16px;background-color:${COLORS.sand};border-radius:10px;text-align:center;">
+    <p style="margin:20px 0;padding:16px;background-color:${COLORS.sage};border:1px solid ${COLORS.line};border-radius:10px;text-align:center;">
       <span style="display:block;font-size:30px;font-weight:700;letter-spacing:0.3em;color:${COLORS.primary};">${code}</span>
       <span style="display:block;margin-top:6px;font-size:12px;color:${COLORS.muted};">รหัสนี้ใช้ได้ 10 นาที</span>
     </p>
