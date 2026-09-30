@@ -6,7 +6,7 @@ import { canUseDesk, isAdmin } from '@/lib/auth/roles'
 import { getFloor } from './actions'
 
 export const metadata: Metadata = {
-  title: 'Check-in | RAVENTA Wellness Center',
+  title: 'Check-in | RAVENTA Wellness Retreat',
 }
 
 // Full-screen tool for the counter tablet — no site header/footer.

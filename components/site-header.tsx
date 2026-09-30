@@ -82,7 +82,7 @@ export function SiteHeader() {
           />
           <Image
             src="/images/logo-wordmark.png"
-            alt="RAVENTA Wellness Center"
+            alt="RAVENTA Wellness Retreat"
             width={1166}
             height={157}
             className="h-[17px] w-auto md:h-5"

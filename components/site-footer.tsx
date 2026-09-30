@@ -31,7 +31,7 @@ export function SiteFooter() {
           <div className="rounded-2xl bg-white px-7 py-5">
             <Image
               src="/images/logo-full.png"
-              alt="RAVENTA Wellness Center"
+              alt="RAVENTA Wellness Retreat"
               width={1166}
               height={620}
               className="h-auto w-40"
@@ -64,7 +64,7 @@ export function SiteFooter() {
             </a>
           </nav>
           <p>
-            &copy; {new Date().getFullYear()} RAVENTA Wellness Center, Rayong. {tr(t.footer.rights)}
+            &copy; {new Date().getFullYear()} RAVENTA Wellness Retreat, Rayong. {tr(t.footer.rights)}
           </p>
           {/* Set in next.config.mjs from package.json + the Vercel commit. */}
           <p className="font-mono text-[10px] text-accent-foreground/40">

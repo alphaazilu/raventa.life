@@ -6,7 +6,7 @@ import { ResetPasswordForm } from '@/components/auth/reset-password-form'
 import { createClient } from '@/lib/supabase/server'
 
 export const metadata: Metadata = {
-  title: 'Set New Password | RAVENTA Wellness Center',
+  title: 'Set New Password | RAVENTA Wellness Retreat',
 }
 
 export default async function ResetPasswordPage() {

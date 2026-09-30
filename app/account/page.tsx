@@ -7,7 +7,7 @@ import { createClient } from '@/lib/supabase/server'
 import { resolveAvatarUrl } from '@/lib/supabase/avatar'
 
 export const metadata: Metadata = {
-  title: 'My Account | RAVENTA Wellness Center',
+  title: 'My Account | RAVENTA Wellness Retreat',
 }
 
 export default async function AccountPage({

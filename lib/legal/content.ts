@@ -11,8 +11,8 @@ export const privacyPolicySections: Section[] = [
     heading: { th: '1. บทนำ', en: '1. Introduction' },
     paragraphs: [
       {
-        th: 'RAVENTA Wellness Center ("เรา") ให้ความสำคัญกับความเป็นส่วนตัวของผู้ใช้บริการเว็บไซต์ raventawellness.com ("เว็บไซต์") นโยบายฉบับนี้อธิบายว่าเราเก็บรวบรวม ใช้ เปิดเผย และคุ้มครองข้อมูลส่วนบุคคลของท่านอย่างไร ตามพระราชบัญญัติคุ้มครองข้อมูลส่วนบุคคล พ.ศ. 2562 (PDPA)',
-        en: 'RAVENTA Wellness Center ("we," "us," or "our") respects the privacy of everyone who uses raventawellness.com (the "Website"). This policy explains how we collect, use, disclose, and protect your personal data, in line with Thailand’s Personal Data Protection Act B.E. 2562 (PDPA).',
+        th: 'RAVENTA Wellness Retreat ("เรา") ให้ความสำคัญกับความเป็นส่วนตัวของผู้ใช้บริการเว็บไซต์ raventawellness.com ("เว็บไซต์") นโยบายฉบับนี้อธิบายว่าเราเก็บรวบรวม ใช้ เปิดเผย และคุ้มครองข้อมูลส่วนบุคคลของท่านอย่างไร ตามพระราชบัญญัติคุ้มครองข้อมูลส่วนบุคคล พ.ศ. 2562 (PDPA)',
+        en: 'RAVENTA Wellness Retreat ("we," "us," or "our") respects the privacy of everyone who uses raventawellness.com (the "Website"). This policy explains how we collect, use, disclose, and protect your personal data, in line with Thailand’s Personal Data Protection Act B.E. 2562 (PDPA).',
       },
       {
         th: 'การใช้งานเว็บไซต์ของท่านถือว่าท่านรับทราบและยอมรับแนวปฏิบัติที่ระบุไว้ในนโยบายฉบับนี้',
@@ -151,8 +151,8 @@ export const termsSections: Section[] = [
     heading: { th: '1. การยอมรับข้อกำหนด', en: '1. Acceptance of Terms' },
     paragraphs: [
       {
-        th: 'ข้อกำหนดและเงื่อนไขฉบับนี้ ("ข้อกำหนด") ใช้บังคับกับการเข้าใช้งานเว็บไซต์ raventawellness.com ("เว็บไซต์") ของ RAVENTA Wellness Center ("เรา") การเข้าใช้งานหรือสมัครสมาชิกบนเว็บไซต์ถือว่าท่านตกลงยอมรับข้อกำหนดฉบับนี้ หากท่านไม่เห็นด้วยกับข้อกำหนดใด กรุณางดใช้งานเว็บไซต์',
-        en: 'These Terms of Service ("Terms") govern your access to and use of raventawellness.com (the "Website") operated by RAVENTA Wellness Center ("we," "us," or "our"). By accessing the Website or creating an account, you agree to be bound by these Terms. If you do not agree, please do not use the Website.',
+        th: 'ข้อกำหนดและเงื่อนไขฉบับนี้ ("ข้อกำหนด") ใช้บังคับกับการเข้าใช้งานเว็บไซต์ raventawellness.com ("เว็บไซต์") ของ RAVENTA Wellness Retreat ("เรา") การเข้าใช้งานหรือสมัครสมาชิกบนเว็บไซต์ถือว่าท่านตกลงยอมรับข้อกำหนดฉบับนี้ หากท่านไม่เห็นด้วยกับข้อกำหนดใด กรุณางดใช้งานเว็บไซต์',
+        en: 'These Terms of Service ("Terms") govern your access to and use of raventawellness.com (the "Website") operated by RAVENTA Wellness Retreat ("we," "us," or "our"). By accessing the Website or creating an account, you agree to be bound by these Terms. If you do not agree, please do not use the Website.',
       },
     ],
   },
@@ -160,8 +160,8 @@ export const termsSections: Section[] = [
     heading: { th: '2. คำอธิบายบริการ', en: '2. Description of Service' },
     paragraphs: [
       {
-        th: 'เว็บไซต์นี้ให้ข้อมูลเกี่ยวกับ RAVENTA Wellness Center รวมถึงระบบสมาชิกสำหรับลูกค้าเพื่อจัดการข้อมูลส่วนตัวและรับข่าวสารจากเรา เราอาจเพิ่ม ปรับปรุง หรือหยุดให้บริการฟีเจอร์บางส่วนของเว็บไซต์ได้โดยไม่ต้องแจ้งล่วงหน้า',
-        en: 'The Website provides information about RAVENTA Wellness Center, along with a member account system that lets customers manage their personal information and receive updates from us. We may add, modify, or discontinue features of the Website at any time without prior notice.',
+        th: 'เว็บไซต์นี้ให้ข้อมูลเกี่ยวกับ RAVENTA Wellness Retreat รวมถึงระบบสมาชิกสำหรับลูกค้าเพื่อจัดการข้อมูลส่วนตัวและรับข่าวสารจากเรา เราอาจเพิ่ม ปรับปรุง หรือหยุดให้บริการฟีเจอร์บางส่วนของเว็บไซต์ได้โดยไม่ต้องแจ้งล่วงหน้า',
+        en: 'The Website provides information about RAVENTA Wellness Retreat, along with a member account system that lets customers manage their personal information and receive updates from us. We may add, modify, or discontinue features of the Website at any time without prior notice.',
       },
     ],
   },
@@ -187,8 +187,8 @@ export const termsSections: Section[] = [
     heading: { th: '5. ทรัพย์สินทางปัญญา', en: '5. Intellectual Property' },
     paragraphs: [
       {
-        th: 'เนื้อหาทั้งหมดบนเว็บไซต์ รวมถึงโลโก้ ข้อความ ภาพถ่าย และงานออกแบบ เป็นทรัพย์สินของ RAVENTA Wellness Center หรือผู้อนุญาตให้ใช้สิทธิ ห้ามคัดลอก ทำซ้ำ หรือเผยแพร่โดยไม่ได้รับอนุญาตเป็นลายลักษณ์อักษร',
-        en: 'All content on the Website, including logos, text, photographs, and design, is the property of RAVENTA Wellness Center or its licensors. You may not copy, reproduce, or distribute it without our prior written permission.',
+        th: 'เนื้อหาทั้งหมดบนเว็บไซต์ รวมถึงโลโก้ ข้อความ ภาพถ่าย และงานออกแบบ เป็นทรัพย์สินของ RAVENTA Wellness Retreat หรือผู้อนุญาตให้ใช้สิทธิ ห้ามคัดลอก ทำซ้ำ หรือเผยแพร่โดยไม่ได้รับอนุญาตเป็นลายลักษณ์อักษร',
+        en: 'All content on the Website, including logos, text, photographs, and design, is the property of RAVENTA Wellness Retreat or its licensors. You may not copy, reproduce, or distribute it without our prior written permission.',
       },
     ],
   },

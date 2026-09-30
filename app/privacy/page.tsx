@@ -5,8 +5,8 @@ import { LegalPage } from '@/components/legal/legal-page'
 import { privacyPolicyUpdated, privacyPolicySections } from '@/lib/legal/content'
 
 export const metadata: Metadata = {
-  title: 'นโยบายความเป็นส่วนตัว | RAVENTA Wellness Center',
-  description: 'นโยบายความเป็นส่วนตัวของ RAVENTA Wellness Center — Privacy Policy for RAVENTA Wellness Center.',
+  title: 'นโยบายความเป็นส่วนตัว | RAVENTA Wellness Retreat',
+  description: 'นโยบายความเป็นส่วนตัวของ RAVENTA Wellness Retreat — Privacy Policy for RAVENTA Wellness Retreat.',
 }
 
 export default function PrivacyPolicyPage() {

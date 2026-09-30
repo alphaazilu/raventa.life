@@ -5,8 +5,8 @@ import { LegalPage } from '@/components/legal/legal-page'
 import { termsUpdated, termsSections } from '@/lib/legal/content'
 
 export const metadata: Metadata = {
-  title: 'ข้อกำหนดการใช้งาน | RAVENTA Wellness Center',
-  description: 'ข้อกำหนดการใช้งานของ RAVENTA Wellness Center — Terms of Service for RAVENTA Wellness Center.',
+  title: 'ข้อกำหนดการใช้งาน | RAVENTA Wellness Retreat',
+  description: 'ข้อกำหนดการใช้งานของ RAVENTA Wellness Retreat — Terms of Service for RAVENTA Wellness Retreat.',
 }
 
 export default function TermsOfServicePage() {

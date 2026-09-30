@@ -139,12 +139,13 @@ export async function completeProfile(
     // A code went out less than a minute ago (double tap, back button):
     // it's still valid, so just ask for it.
     if (sent.reason === 'too_soon') return { verifyEmail: { email, maskedEmail: maskEmail(email), notice: 'too_soon' } }
-    return {
-      error:
-        sent.reason === 'limit'
-          ? 'ขอรหัสยืนยันครบจำนวนต่อวันแล้ว กรุณาลองใหม่พรุ่งนี้ หรือติดต่อทีมงาน'
-          : 'ส่งรหัสยืนยันไม่สำเร็จ กรุณาตรวจอีเมลแล้วลองอีกครั้ง',
+    const sendErrors: Record<string, string> = {
+      limit: 'ขอรหัสยืนยันครบจำนวนต่อวันแล้ว กรุณาลองใหม่พรุ่งนี้ หรือติดต่อทีมงาน',
+      not_set_up: 'ระบบยืนยันอีเมลยังไม่พร้อม (ยังไม่ได้อัปเดตฐานข้อมูล) กรุณาติดต่อทีมงาน',
+      no_sender: 'ระบบส่งอีเมลยังไม่ได้ตั้งค่า กรุณาติดต่อทีมงาน',
+      send_failed: 'ส่งอีเมลไม่สำเร็จ กรุณาตรวจว่าพิมพ์อีเมลถูกต้องแล้วลองอีกครั้ง',
     }
+    return { error: sendErrors[sent.reason] ?? 'ส่งรหัสยืนยันไม่สำเร็จ กรุณาลองอีกครั้ง หรือติดต่อทีมงาน' }
   }
 
   // Read before the save, so the welcome email below only goes out the

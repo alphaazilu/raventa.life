@@ -1,4 +1,4 @@
-# RAVENTA Wellness Center — website
+# RAVENTA Wellness Retreat — website
 
 https://www.raventawellness.com
 

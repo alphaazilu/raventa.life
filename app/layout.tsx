@@ -22,9 +22,9 @@ const notoSansThai = localFont({
 })
 
 export const metadata: Metadata = {
-  title: 'RAVENTA Wellness Center | Contrast Therapy · Sauna · Rayong',
+  title: 'RAVENTA Wellness Retreat | Contrast Therapy · Sauna · Rayong',
   description:
-    'RAVENTA Wellness Center, Rayong — Contrast therapy, hot pools, cold plunge, sauna, steam room and sun bath. Recover, Rebalance, Revive. Return to your best self.',
+    'RAVENTA Wellness Retreat, Rayong — Contrast therapy, hot pools, cold plunge, sauna, steam room and sun bath. Recover, Rebalance, Revive. Return to your best self.',
   generator: 'v0.app',
 }
 

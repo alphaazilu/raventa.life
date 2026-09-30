@@ -7,7 +7,7 @@ import { createClient } from '@/lib/supabase/server'
 import { isProfileComplete, PROFILE_COMPLETENESS_COLUMNS } from '@/lib/supabase/profile'
 
 export const metadata: Metadata = {
-  title: 'Complete Your Profile | RAVENTA Wellness Center',
+  title: 'Complete Your Profile | RAVENTA Wellness Retreat',
 }
 
 export default async function CompleteProfilePage({

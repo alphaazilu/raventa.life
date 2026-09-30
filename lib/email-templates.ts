@@ -29,7 +29,7 @@ function wrapper(bodyHtml: string): string {
         ${bodyHtml}
       </div>
       <div style="padding:18px 32px;border-top:1px solid ${COLORS.line};text-align:center;">
-        <p style="margin:0;font-size:12px;color:${COLORS.muted};">RAVENTA Wellness Center</p>
+        <p style="margin:0;font-size:12px;color:${COLORS.muted};">RAVENTA Wellness Retreat</p>
       </div>
     </div>
   </div>`
@@ -52,7 +52,7 @@ export function welcomeEmail(
     <h1 style="margin:0 0 16px;font-size:22px;color:${COLORS.text};">ยินดีต้อนรับสู่ RAVENTA</h1>
     <p style="margin:0 0 12px;font-size:15px;line-height:1.7;color:${COLORS.text};">${greeting},</p>
     <p style="margin:0 0 12px;font-size:15px;line-height:1.7;color:${COLORS.text};">
-      ขอบคุณที่สมัครสมาชิกกับ RAVENTA Wellness Center บัญชีของคุณพร้อมใช้งานแล้ว
+      ขอบคุณที่สมัครสมาชิกกับ RAVENTA Wellness Retreat บัญชีของคุณพร้อมใช้งานแล้ว
       ตอนนี้คุณสามารถเข้าสู่ระบบเพื่อจัดการข้อมูลส่วนตัวและติดตามข่าวสารจากเราได้เลย
     </p>
     ${memberNoBlock}

@@ -174,7 +174,7 @@ export const t = {
     account: { th: 'บัญชีของฉัน', en: 'My Account' },
   },
   hero: {
-    eyebrow: { th: 'ราเวนต้า เวลเนส เซ็นเตอร์ · ระยอง', en: 'Raventa Wellness Center · Rayong' },
+    eyebrow: { th: 'ราเวนต้า เวลเนส รีทรีต · ระยอง', en: 'Raventa Wellness Retreat · Rayong' },
     title: { th: 'ฟื้นฟู · ปรับสมดุล · คืนชีวิต', en: 'Recover · Rebalance · Revive' },
     subtitle: {
       th: 'การเดินทางกลับสู่ตัวคุณในเวอร์ชันที่ดีที่สุด ผ่านศาสตร์แห่งความร้อนและความเย็น',

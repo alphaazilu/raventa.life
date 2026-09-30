@@ -4,7 +4,7 @@ import { SiteFooter } from '@/components/site-footer'
 import { ForgotPasswordForm } from '@/components/auth/forgot-password-form'
 
 export const metadata: Metadata = {
-  title: 'Reset Password | RAVENTA Wellness Center',
+  title: 'Reset Password | RAVENTA Wellness Retreat',
 }
 
 export default function ForgotPasswordPage() {

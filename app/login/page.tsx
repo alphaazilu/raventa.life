@@ -8,7 +8,7 @@ import { LoginForm } from './login-form'
 import { LineAutoLogin } from '@/components/auth/line-auto-login'
 
 export const metadata: Metadata = {
-  title: 'Log In | RAVENTA Wellness Center',
+  title: 'Log In | RAVENTA Wellness Retreat',
   description: 'Log in or create a RAVENTA account.',
 }
 

@@ -6,7 +6,7 @@ import { MemberEditForm } from '@/components/admin/member-edit-form'
 import { createClient } from '@/lib/supabase/server'
 
 export const metadata: Metadata = {
-  title: 'Edit Member | RAVENTA Wellness Center',
+  title: 'Edit Member | RAVENTA Wellness Retreat',
 }
 
 export default async function EditMemberPage({ params }: { params: Promise<{ id: string }> }) {

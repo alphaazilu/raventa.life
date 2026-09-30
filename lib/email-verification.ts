@@ -27,7 +27,7 @@ export const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
 export type SendCodeResult =
   | { ok: true; maskedEmail: string }
-  | { ok: false; reason: 'too_soon' | 'limit' | 'failed' }
+  | { ok: false; reason: 'too_soon' | 'limit' | 'not_set_up' | 'no_sender' | 'send_failed' | 'failed' }
 
 export type CheckCodeResult =
   | { ok: true; email: string }
@@ -100,17 +100,22 @@ export async function sendEmailCode(userId: string, rawEmail: string): Promise<S
       { onConflict: 'user_id' },
     )
     if (error) {
-      console.error('email-verification: could not store code', error.message)
-      return { ok: false, reason: 'failed' }
+      console.error('email-verification: could not store code', error.code, error.message)
+      // Table missing = section 14 of supabase/schema.sql hasn't been run.
+      const missing = error.code === 'PGRST205' || error.code === '42P01'
+      return { ok: false, reason: missing ? 'not_set_up' : 'failed' }
     }
 
     const from = process.env.EMAIL_FROM_ADDRESS
-    if (!from) return { ok: false, reason: 'failed' }
+    if (!from) {
+      console.error('email-verification: EMAIL_FROM_ADDRESS is not set')
+      return { ok: false, reason: 'no_sender' }
+    }
     const { subject, html } = emailVerificationCodeEmail(code)
     const sent = await getResendClient().emails.send({ from, to: email, subject, html })
     if (sent.error) {
       console.error('email-verification: send failed', sent.error)
-      return { ok: false, reason: 'failed' }
+      return { ok: false, reason: 'send_failed' }
     }
     await logEvent(userId, email, 'code_sent')
     return { ok: true, maskedEmail: maskEmail(email) }

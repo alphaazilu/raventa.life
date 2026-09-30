@@ -4,7 +4,7 @@ import { SiteFooter } from '@/components/site-footer'
 import { WellnessQuiz } from '@/components/wellness-quiz/wellness-quiz'
 
 export const metadata: Metadata = {
-  title: 'Find My Journey | RAVENTA Wellness Center',
+  title: 'Find My Journey | RAVENTA Wellness Retreat',
   description: 'Answer a few questions and get a personalized contrast-therapy journey through the RAVENTA zones.',
 }
 

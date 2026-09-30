@@ -11,7 +11,7 @@ import type { LinkProvider, LinkResult } from '@/components/account/link-line'
 import { headers } from 'next/headers'
 
 export const metadata: Metadata = {
-  title: 'Settings | RAVENTA Wellness Center',
+  title: 'Settings | RAVENTA Wellness Retreat',
 }
 
 export default async function AccountSettingsPage({

@@ -32,6 +32,9 @@ const ERRORS: Record<string, Bilingual> = {
     th: 'เพื่อความปลอดภัย กรุณาออกจากระบบแล้วเข้าใหม่ก่อนตั้งรหัสผ่าน',
     en: 'For your security, please sign out and back in before setting a password.',
   },
+  not_set_up: { th: 'ระบบยืนยันอีเมลยังไม่พร้อม กรุณาติดต่อทีมงาน', en: 'Email verification isn’t set up yet. Please contact us.' },
+  no_sender: { th: 'ระบบส่งอีเมลยังไม่ได้ตั้งค่า กรุณาติดต่อทีมงาน', en: 'Email sending isn’t set up yet. Please contact us.' },
+  send_failed: { th: 'ส่งอีเมลไม่สำเร็จ ตรวจว่าพิมพ์อีเมลถูกต้องแล้วลองอีกครั้ง', en: 'Couldn’t send the email. Check the address and try again.' },
   failed: { th: 'ทำรายการไม่สำเร็จ กรุณาลองอีกครั้ง', en: 'Something went wrong. Please try again.' },
 }
 

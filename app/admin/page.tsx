@@ -7,7 +7,7 @@ import { createClient } from '@/lib/supabase/server'
 import { resolveAvatarUrls } from '@/lib/supabase/avatar'
 
 export const metadata: Metadata = {
-  title: 'Admin | RAVENTA Wellness Center',
+  title: 'Admin | RAVENTA Wellness Retreat',
 }
 
 export default async function AdminPage() {
