@@ -52,7 +52,7 @@ function CardFace({ name, memberNo, avatarUrl, joinedAt, showQrHint }: Person & 
       />
       <span className="relative flex w-full items-center justify-between">
         <Image src="/images/logo-wordmark.png" alt="RAVENTA" width={1166} height={157} className="h-4 w-auto" />
-        <span className="font-display text-[10px] font-semibold tracking-[0.22em] text-wood">MEMBER</span>
+        <span className="font-display text-[10px] font-semibold tracking-[0.22em] text-accent">MEMBER</span>
       </span>
       <span className="relative flex items-center gap-3">
         <AvatarCircle src={avatarUrl} name={name} className="h-12 w-12 text-xl" />
