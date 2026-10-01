@@ -586,7 +586,7 @@ function FloorPanel({
       </div>
       <div className="mt-3 h-2 overflow-hidden rounded-full bg-secondary">
         <div
-          className={cn('h-full rounded-full', pct >= 90 ? 'bg-destructive' : pct >= 70 ? 'bg-amber-500' : 'bg-accent')}
+          className={cn('h-full rounded-full', pct >= 90 ? 'bg-destructive' : pct >= 70 ? 'bg-amber-500' : 'bg-loading')}
           style={{ width: `${pct}%` }}
         />
       </div>

@@ -1,7 +1,7 @@
 import type { Metadata } from 'next'
 import { notFound, redirect } from 'next/navigation'
 import { MemberEditForm } from '@/components/admin/member-edit-form'
-import { createClient } from '@/lib/supabase/server'
+import { getConsoleSession } from '@/lib/console/session'
 import { DESK_PATH, MEMBERS_PATH } from '@/lib/auth/roles'
 
 export const metadata: Metadata = {
@@ -10,15 +10,11 @@ export const metadata: Metadata = {
 
 export default async function EditMemberPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
-  const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+  const { supabase, user, role } = await getConsoleSession()
 
   if (!user) redirect(`/login?next=${MEMBERS_PATH}/${id}`)
 
-  const { data: adminProfile } = await supabase.from('profiles').select('role').eq('id', user.id).single()
-  if (adminProfile?.role !== 'admin') redirect(DESK_PATH)
+  if (role !== 'admin') redirect(DESK_PATH)
 
   const { data: member } = await supabase
     .from('profiles')

@@ -4,7 +4,8 @@ import { redirect } from 'next/navigation'
 import { ConsoleBar } from '@/components/console/console-bar'
 import { TabletLock } from '@/components/console/tablet-lock'
 import { IdleLock } from '@/components/console/idle-lock'
-import { createClient } from '@/lib/supabase/server'
+import { BusyOverlay } from '@/components/console/busy-overlay'
+import { getConsoleSession } from '@/lib/console/session'
 import { canUseDesk, CONSOLE_PATH, isAdmin } from '@/lib/auth/roles'
 import { DEVICE_COOKIE, getCurrentDevice } from '@/lib/console/device'
 import { signOut } from '@/app/login/actions'
@@ -31,17 +32,12 @@ export const viewport: Viewport = {
 // On a registered counter tablet (Vault R2) nobody signed in means the lock
 // screen, never the login redirect loop.
 export default async function ConsoleLayout({ children }: { children: React.ReactNode }) {
-  const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+  const { user, role, firstName } = await getConsoleSession()
 
   const hasDeviceCookie = Boolean((await cookies()).get(DEVICE_COOKIE)?.value)
   const device = hasDeviceCookie ? await getCurrentDevice().catch(() => null) : null
 
-  const { data: me } = user
-    ? await supabase.from('profiles').select('role, first_name').eq('id', user.id).maybeSingle()
-    : { data: null }
+  const me = { role, first_name: firstName }
 
   if (!user || !canUseDesk(me?.role)) {
     // A revoked or unknown key: back to pairing (never /account, which tablet
@@ -52,7 +48,7 @@ export default async function ConsoleLayout({ children }: { children: React.Reac
   }
 
   return (
-    <div className="min-h-dvh bg-background">
+    <div className="min-h-dvh overflow-x-clip bg-background">
       <ConsoleBar
         name={me?.first_name || user.email || ''}
         admin={isAdmin(me?.role)}
@@ -61,6 +57,7 @@ export default async function ConsoleLayout({ children }: { children: React.Reac
       />
       {children}
       {device && <IdleLock minutes={isAdmin(me?.role) ? 5 : 10} />}
+      <BusyOverlay />
     </div>
   )
 }

@@ -1,7 +1,7 @@
 import type { Metadata } from 'next'
 import { redirect } from 'next/navigation'
 import { AdminView } from '@/components/admin/admin-view'
-import { createClient } from '@/lib/supabase/server'
+import { getConsoleSession } from '@/lib/console/session'
 import { resolveAvatarUrls } from '@/lib/supabase/avatar'
 import { DESK_PATH, MEMBERS_PATH } from '@/lib/auth/roles'
 
@@ -10,15 +10,11 @@ export const metadata: Metadata = {
 }
 
 export default async function MembersPage() {
-  const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+  const { supabase, user, role } = await getConsoleSession()
 
   if (!user) redirect(`/login?next=${MEMBERS_PATH}`)
 
-  const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).maybeSingle()
-  if (profile?.role !== 'admin') redirect(DESK_PATH)
+  if (role !== 'admin') redirect(DESK_PATH)
 
   const { data: members } = await supabase
     .from('profiles')

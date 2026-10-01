@@ -19,7 +19,7 @@ export default function Loading() {
         className="h-auto w-56 motion-safe:animate-[rv-breathe_2.4s_ease-in-out_infinite] md:w-72"
       />
       <div className="mt-10 h-[3px] w-36 overflow-hidden rounded-full bg-secondary md:mt-12 md:w-44">
-        <div className="h-full w-2/5 rounded-full bg-primary motion-safe:animate-[rv-slide_1.4s_ease-in-out_infinite]" />
+        <div className="h-full w-2/5 rounded-full bg-loading motion-safe:animate-[rv-slide_1.4s_ease-in-out_infinite]" />
       </div>
       <p className="mt-4 text-xs font-medium tracking-brand text-muted-foreground uppercase">
         Nature meets modern wellness

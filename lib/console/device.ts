@@ -1,4 +1,5 @@
 import { createHash, randomBytes, randomInt } from 'node:crypto'
+import { cache } from 'react'
 import { cookies } from 'next/headers'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { DEVICE_COOKIE, PAIR_COOKIE } from './device-cookie'
@@ -33,7 +34,7 @@ const cookieBase = {
 
 // The registered device behind this request, or null (no cookie, unknown
 // or revoked key).
-export async function getCurrentDevice(): Promise<Device | null> {
+export const getCurrentDevice = cache(async (): Promise<Device | null> => {
   const token = (await cookies()).get(DEVICE_COOKIE)?.value
   if (!token) return null
   const admin = createAdminClient()
@@ -49,7 +50,7 @@ export async function getCurrentDevice(): Promise<Device | null> {
     await admin.from('devices').update({ last_seen_at: new Date().toISOString() }).eq('id', data.id)
   }
   return { id: data.id, name: data.name, createdAt: data.created_at, lastSeenAt: data.last_seen_at }
-}
+})
 
 export type PairStart =
   | { ok: true; code: string; expiresAt: string }

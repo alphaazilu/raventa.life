@@ -1,7 +1,7 @@
 'use server'
 
 import { createHash, randomInt, timingSafeEqual } from 'crypto'
-import type { User } from '@supabase/supabase-js'
+import { createClient as createSupabaseClient, type User } from '@supabase/supabase-js'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { isProfileComplete, PROFILE_COMPLETENESS_COLUMNS } from '@/lib/supabase/profile'
@@ -98,6 +98,123 @@ async function countRecentEvents(targetId: string, kind: 'code_sent' | 'wrong_co
 async function logEvent(targetId: string, kind: 'code_sent' | 'wrong_code'): Promise<void> {
   const { error } = await createAdminClient().from('account_merge_events').insert({ target_user_id: targetId, kind })
   if (error) console.error('merge: could not log event', error.message)
+}
+
+// The hand-over shared by every way of proving an existing membership is
+// yours (email code, password): sign this browser into the EXISTING
+// account, then delete the empty LINE account. Session first, deletion
+// second — a failure part-way never leaves someone with no way back in.
+async function switchToExistingMember(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  user: User,
+  targetUserId: string,
+): Promise<{ ok: true; canLinkLine: boolean } | { ok: false; reason: 'failed' }> {
+  const admin = createAdminClient()
+  const { data: targetData } = await admin.auth.admin.getUserById(targetUserId)
+  const targetEmail = targetData?.user?.email
+  if (!targetEmail) return { ok: false, reason: 'failed' }
+
+  // 1) Switch this browser's session to the existing membership. A
+  //    magic-link token generated server-side (no email is sent) and
+  //    redeemed straight away sets the new session cookies.
+  const { data: link, error: linkError } = await admin.auth.admin.generateLink({
+    type: 'magiclink',
+    email: targetEmail,
+  })
+  if (linkError || !link?.properties?.hashed_token) throw linkError ?? new Error('no token')
+  const { error: otpError } = await supabase.auth.verifyOtp({
+    token_hash: link.properties.hashed_token,
+    type: 'magiclink',
+  })
+  if (otpError) throw otpError
+
+  // 2) Only now remove the empty LINE account. This also frees the LINE
+  //    identity so linkIdentity in the browser can attach it to the
+  //    existing membership. Its merge-code row goes with it (cascade).
+  const { error: deleteError } = await admin.auth.admin.deleteUser(user.id)
+  if (deleteError) {
+    console.error('merge: signed in, but could not delete the empty LINE account', deleteError.message)
+    return { ok: true, canLinkLine: false }
+  }
+  return { ok: true, canLinkLine: true }
+}
+
+export type FindMergeResult =
+  | { ok: true; target: MergeTarget; maskedEmail: string }
+  | { ok: false; reason: 'not_allowed' | 'not_found' | 'target_has_line' | 'failed' }
+
+// "I'm already a member" (asked first when LINE has no membership yet):
+// look the membership up by the email the person joined with. Email only:
+// LINE gives us no phone number, the code goes by email anyway, and a phone
+// lookup would let anyone probe which numbers are members.
+export async function findMergeTarget(raw: string): Promise<FindMergeResult> {
+  try {
+    const supabase = await createClient()
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
+    if (!user || !(await isDisposableLineAccount(user))) return { ok: false, reason: 'not_allowed' }
+
+    const email = raw.trim().toLowerCase()
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return { ok: false, reason: 'not_found' }
+    const target: MergeTarget = { email }
+
+    const admin = createAdminClient()
+    const { data: targetId } = await admin.rpc('find_user_id_by_email', { p_email: target.email })
+    if (!targetId || targetId === user.id) return { ok: false, reason: 'not_found' }
+    const { data } = await admin.auth.admin.getUserById(targetId)
+    const existing = data?.user
+    if (!existing?.email) return { ok: false, reason: 'not_found' }
+    if (existing.identities?.some((i) => i.provider === 'custom:line')) return { ok: false, reason: 'target_has_line' }
+    return { ok: true, target, maskedEmail: maskEmail(existing.email) }
+  } catch (err) {
+    console.error('findMergeTarget failed', err)
+    return { ok: false, reason: 'failed' }
+  }
+}
+
+export type PasswordMergeResult =
+  | { ok: true; canLinkLine: boolean }
+  | { ok: false; reason: 'not_allowed' | 'not_found' | 'target_has_line' | 'wrong_password' | 'too_many_attempts' | 'failed' }
+
+// The other proof: the existing membership's email + password. Checked with
+// a throwaway client (nothing stored), then the same hand-over as a code.
+export async function mergeWithPassword(rawEmail: string, password: string): Promise<PasswordMergeResult> {
+  try {
+    const supabase = await createClient()
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
+    if (!user || !(await isDisposableLineAccount(user))) return { ok: false, reason: 'not_allowed' }
+
+    const email = rawEmail.trim().toLowerCase()
+    const admin = createAdminClient()
+    const { data: targetId } = await admin.rpc('find_user_id_by_email', { p_email: email })
+    if (!targetId || targetId === user.id) return { ok: false, reason: 'not_found' }
+    const { data } = await admin.auth.admin.getUserById(targetId)
+    const existing = data?.user
+    if (!existing?.email) return { ok: false, reason: 'not_found' }
+    if (existing.identities?.some((i) => i.provider === 'custom:line')) return { ok: false, reason: 'target_has_line' }
+    if ((await countRecentEvents(targetId, 'wrong_code')) >= MAX_WRONG_PER_TARGET_PER_DAY) {
+      return { ok: false, reason: 'too_many_attempts' }
+    }
+
+    const probe = createSupabaseClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!, {
+      auth: { persistSession: false, autoRefreshToken: false },
+    })
+    const { error: pwError } = await probe.auth.signInWithPassword({ email: existing.email, password })
+    if (pwError) {
+      await logEvent(targetId, 'wrong_code')
+      return { ok: false, reason: 'wrong_password' }
+    }
+    // Don't leave that check's session lying around.
+    await probe.auth.signOut().catch(() => {})
+
+    return await switchToExistingMember(supabase, user, targetId)
+  } catch (err) {
+    console.error('mergeWithPassword failed', err)
+    return { ok: false, reason: 'failed' }
+  }
 }
 
 export async function startMerge(targetRef: MergeTarget): Promise<StartMergeResult> {
@@ -199,36 +316,7 @@ export async function verifyMerge(code: string): Promise<VerifyMergeResult> {
       return { ok: false, reason: row.attempts + 1 >= MAX_ATTEMPTS ? 'too_many_attempts' : 'wrong_code' }
     }
 
-    const { data: targetData } = await admin.auth.admin.getUserById(row.target_user_id)
-    const targetEmail = targetData?.user?.email
-    if (!targetEmail) return { ok: false, reason: 'failed' }
-
-    // 1) Switch this browser's session to the existing membership. A
-    //    magic-link token generated server-side (no email is sent) and
-    //    redeemed straight away sets the new session cookies.
-    const { data: link, error: linkError } = await admin.auth.admin.generateLink({
-      type: 'magiclink',
-      email: targetEmail,
-    })
-    if (linkError || !link?.properties?.hashed_token) throw linkError ?? new Error('no token')
-    const { error: otpError } = await supabase.auth.verifyOtp({
-      token_hash: link.properties.hashed_token,
-      type: 'magiclink',
-    })
-    if (otpError) throw otpError
-
-    // 2) Only now remove the empty LINE account. This also frees the LINE
-    //    identity so step 3 (linkIdentity in the browser) can attach it to
-    //    the existing membership. Its merge-code row goes with it (cascade).
-    const { error: deleteError } = await admin.auth.admin.deleteUser(user.id)
-    if (deleteError) {
-      // Signed into the right account already; LINE just can't be linked
-      // until an admin removes the leftover account. Say so, don't hide it.
-      console.error('verifyMerge: signed in, but could not delete the empty LINE account', deleteError.message)
-      return { ok: true, canLinkLine: false }
-    }
-
-    return { ok: true, canLinkLine: true }
+    return await switchToExistingMember(supabase, user, row.target_user_id)
   } catch (err) {
     console.error('verifyMerge failed', err)
     return { ok: false, reason: 'failed' }

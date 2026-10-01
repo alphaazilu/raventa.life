@@ -40,6 +40,7 @@
   --color-secondary: var(--secondary);
   --color-primary-foreground: var(--primary-foreground);
   --color-primary: var(--primary);
+  --color-loading: var(--loading);
   --color-popover-foreground: var(--popover-foreground);
   --color-popover: var(--popover);
   --color-card-foreground: var(--card-foreground);
@@ -68,6 +69,7 @@
   --popover-foreground: #2b2521;
   --primary: #8b1e2d; /* RAVENTA RED */
   --primary-foreground: #f6f1e7;
+  --loading: #06c755; /* every bar: loading lines, QR countdown, capacity */
   --secondary: #eef4ec; /* SAGE */
   --secondary-foreground: #2e4636;
   --muted: #eef4ec;

@@ -58,7 +58,7 @@ export function ConsoleDashboard({ firstName, data }: { firstName: string | null
         <Kpi label={tr(consoleCopy.inStoreNow)} value={<>{n(data.inside)} <small className="text-sm font-semibold text-muted-foreground">/ {FLOOR_CAPACITY}</small></>}
           sub={`${tr(consoleCopy.seatsLeft)} ${Math.max(0, FLOOR_CAPACITY - data.inside)} ${tr(consoleCopy.seatsUnit)}`}>
           <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-secondary">
-            <div className={cn('h-full rounded-full', pct >= 90 ? 'bg-destructive' : pct >= 70 ? 'bg-amber-500' : 'bg-accent')} style={{ width: `${pct}%` }} />
+            <div className={cn('h-full rounded-full', pct >= 90 ? 'bg-destructive' : pct >= 70 ? 'bg-amber-500' : 'bg-loading')} style={{ width: `${pct}%` }} />
           </div>
         </Kpi>
         <Kpi label={tr(consoleCopy.checkInsToday)} value={n(data.checkIns)}

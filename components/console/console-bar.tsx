@@ -97,9 +97,9 @@ export function ConsoleBar({
 
   return (
     <header className="sticky top-0 z-40 border-b border-border bg-background/95 backdrop-blur">
-      <div className="mx-auto flex h-14 max-w-7xl items-center justify-between gap-4 px-4 md:px-6 xl:h-16">
-        <Link href={admin ? CONSOLE_PATH : DESK_PATH} className="flex shrink-0 items-center gap-2.5">
-          <Image src="/images/logo-emblem.png" alt="" width={405} height={404} className="h-8 w-8" priority />
+      <div className="mx-auto flex h-14 max-w-7xl items-center justify-between gap-2 px-3 sm:gap-4 sm:px-4 md:px-6 xl:h-16">
+        <Link href={admin ? CONSOLE_PATH : DESK_PATH} className="flex min-w-0 items-center gap-2 sm:gap-2.5">
+          <Image src="/images/logo-emblem.png" alt="" width={405} height={404} className="h-8 w-8 shrink-0" priority />
           <Image
             src="/images/logo-wordmark.png"
             alt="RAVENTA"
@@ -108,14 +108,14 @@ export function ConsoleBar({
             className="hidden h-[15px] w-auto sm:block"
             priority
           />
-          <span className="whitespace-nowrap rounded-full border border-border bg-secondary px-2.5 py-0.5 font-display text-[10px] font-bold tracking-[0.14em] text-secondary-foreground uppercase">
+          <span className="truncate whitespace-nowrap rounded-full border border-border bg-secondary px-2 py-0.5 font-display text-[9px] font-bold tracking-[0.1em] text-secondary-foreground uppercase sm:px-2.5 sm:text-[10px] sm:tracking-[0.14em]">
             {tr(consoleCopy.backOffice)}
           </span>
         </Link>
 
         <div className="hidden min-w-0 flex-1 justify-center lg:flex">{nav}</div>
 
-        <div className="flex shrink-0 items-center gap-2">
+        <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
           <span className={cn('whitespace-nowrap text-sm text-foreground', admin ? 'hidden 2xl:inline' : 'hidden sm:inline')}>
             {name} · {tr(admin ? consoleCopy.roleAdmin : consoleCopy.roleStaff)}
             {deviceName && <span className="text-muted-foreground"> · {deviceName}</span>}
@@ -126,7 +126,7 @@ export function ConsoleBar({
               onClick={toggleFullscreen}
               aria-label={tr(isFullscreen ? consoleCopy.exitFullscreen : consoleCopy.fullscreen)}
               title={tr(isFullscreen ? consoleCopy.exitFullscreen : consoleCopy.fullscreen)}
-              className="flex h-9 w-9 items-center justify-center rounded-full border border-border text-foreground/80 hover:border-primary/40"
+              className="hidden h-9 w-9 items-center justify-center rounded-full border border-border text-foreground/80 hover:border-primary/40 sm:flex"
             >
               {isFullscreen ? <Shrink className="h-4 w-4" aria-hidden="true" /> : <Expand className="h-4 w-4" aria-hidden="true" />}
             </button>
@@ -135,18 +135,22 @@ export function ConsoleBar({
             type="button"
             onClick={toggle}
             aria-label="Switch language"
-            className="flex h-9 items-center gap-1 rounded-full border border-border px-2.5 text-xs font-semibold text-foreground/80 hover:border-primary/40"
+            className="flex h-9 items-center gap-1 rounded-full border border-border px-2 text-xs font-semibold text-foreground/80 hover:border-primary/40 sm:px-2.5"
           >
             <Globe className="h-3.5 w-3.5" aria-hidden="true" />
-            <span className={lang === 'th' ? 'text-primary' : ''}>TH</span>
-            <span className="opacity-40">/</span>
-            <span className={lang === 'en' ? 'text-primary' : ''}>EN</span>
+            {/* Phones: just the language you'd switch to. */}
+            <span className="sm:hidden">{lang === 'th' ? 'EN' : 'TH'}</span>
+            <span className="hidden sm:inline">
+              <span className={lang === 'th' ? 'text-primary' : ''}>TH</span>
+              <span className="opacity-40"> / </span>
+              <span className={lang === 'en' ? 'text-primary' : ''}>EN</span>
+            </span>
           </button>
           {deviceName && signOutAction ? (
             <form action={signOutAction}>
               <button
                 type="submit"
-                className="flex h-9 items-center gap-1.5 rounded-full border border-border px-3 text-xs font-semibold text-foreground hover:border-primary/40"
+                className="flex h-9 items-center gap-1.5 rounded-full border border-border px-2.5 text-xs font-semibold text-foreground hover:border-primary/40 sm:px-3"
               >
                 <Lock className="h-3.5 w-3.5" aria-hidden="true" />
                 <span className="hidden sm:inline">{tr(consoleCopy.lockButton)}</span>
@@ -155,7 +159,8 @@ export function ConsoleBar({
           ) : (
             <Link
               href="/"
-              className="flex h-9 items-center gap-1.5 rounded-full border border-border px-3 text-xs font-semibold text-foreground hover:border-primary/40"
+              aria-label={tr(consoleCopy.backToSite)}
+              className="flex h-9 items-center gap-1.5 rounded-full border border-border px-2.5 text-xs font-semibold text-foreground hover:border-primary/40 sm:px-3"
             >
               <LogOut className="h-3.5 w-3.5" aria-hidden="true" />
               <span className="hidden xl:inline">{tr(consoleCopy.backToSite)}</span>
@@ -164,7 +169,7 @@ export function ConsoleBar({
         </div>
       </div>
       {/* Phones and portrait tablets: tabs on their own scrollable row. */}
-      {tabs.length > 1 && <div className="overflow-x-auto border-t border-border/60 px-4 md:px-6 lg:hidden">{nav}</div>}
+      {tabs.length > 1 && <div className="overflow-x-auto border-t border-border/60 px-3 sm:px-4 md:px-6 lg:hidden">{nav}</div>}
     </header>
   )
 }

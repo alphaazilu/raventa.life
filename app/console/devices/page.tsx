@@ -1,7 +1,7 @@
 import type { Metadata } from 'next'
 import { redirect } from 'next/navigation'
 import { DevicesView } from '@/components/console/devices-view'
-import { createClient } from '@/lib/supabase/server'
+import { getConsoleSession } from '@/lib/console/session'
 import { DESK_PATH, isAdmin } from '@/lib/auth/roles'
 import { listDevices } from './actions'
 
@@ -12,13 +12,9 @@ export const metadata: Metadata = {
 // Back Office → Devices. Scanning a tablet's pairing QR with a phone camera
 // lands here with ?code=… already filled in.
 export default async function DevicesPage({ searchParams }: { searchParams: Promise<{ code?: string }> }) {
-  const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+  const { user, role } = await getConsoleSession()
   if (!user) redirect('/login?next=/console/devices')
-  const { data: me } = await supabase.from('profiles').select('role').eq('id', user.id).maybeSingle()
-  if (!isAdmin(me?.role)) redirect(DESK_PATH)
+  if (!isAdmin(role)) redirect(DESK_PATH)
 
   const { code } = await searchParams
   const devices = await listDevices()

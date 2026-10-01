@@ -269,7 +269,7 @@ function QrOverlay({ name, memberNo, avatarUrl, joinedAt, onClose }: Person & { 
           </div>
           <div className={cn('flex w-[min(82vw,340px)] flex-col items-center gap-1.5 phone-landscape:w-[min(66vh,280px)]', state.status !== 'ready' && 'invisible')}>
             <div className="h-1 w-full rounded-full bg-muted">
-              <div className="h-1 rounded-full bg-primary transition-[width] duration-1000 ease-linear" style={{ width: `${barPercent}%` }} />
+              <div className="h-1 rounded-full bg-loading transition-[width] duration-1000 ease-linear" style={{ width: `${barPercent}%` }} />
             </div>
             <p className="text-xs text-muted-foreground">
               {tr(authCopy.memberCardRefreshIn)} {secondsLeft} {tr(authCopy.memberCardSeconds)}

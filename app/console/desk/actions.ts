@@ -1,6 +1,7 @@
 'use server'
 
 import { createClient } from '@/lib/supabase/server'
+import { getConsoleSession } from '@/lib/console/session'
 import { resolveAvatarUrl } from '@/lib/supabase/avatar'
 import { verifyMemberQrToken } from '@/lib/member-card'
 import { canUseDesk } from '@/lib/auth/roles'
@@ -63,13 +64,9 @@ function errorCode(error: { code?: string; message?: string } | null): string {
 }
 
 async function requireDesk(): Promise<{ supabase: Supabase; userId: string } | { error: string }> {
-  const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+  const { supabase, user, role } = await getConsoleSession()
   if (!user) return { error: 'not_staff' }
-  const { data: me } = await supabase.from('profiles').select('role').eq('id', user.id).maybeSingle()
-  if (!canUseDesk(me?.role)) return { error: 'not_staff' }
+  if (!canUseDesk(role)) return { error: 'not_staff' }
   return { supabase, userId: user.id }
 }
 

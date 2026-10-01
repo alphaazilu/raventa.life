@@ -52,6 +52,36 @@ export const authCopy: Record<string, Bilingual> = {
   },
   avatarUploadFailed: { th: 'อัปโหลดรูปไม่สำเร็จ กรุณาลองใหม่อีกครั้ง', en: 'Upload failed. Please try again.' },
   mergeTitle: { th: 'อีเมลนี้เป็นสมาชิก RAVENTA อยู่แล้ว', en: 'This email is already a RAVENTA member' },
+  // "Already a member?" — asked first when LINE isn't linked to a membership
+  existingWelcome: { th: 'ยินดีต้อนรับสู่ RAVENTA', en: 'Welcome to RAVENTA' },
+  existingAskHeading: { th: 'เคยเป็นสมาชิก RAVENTA แล้วหรือยัง?', en: 'Already a RAVENTA member?' },
+  existingAskBody: {
+    th: 'ถ้าเคยสมัครด้วยอีเมลหรือ Google มาก่อน เชื่อม LINE นี้เข้ากับบัญชีเดิมได้ เลขสมาชิกและแต้มสะสมยังอยู่ครบ',
+    en: 'If you joined before with email or Google, link this LINE to that account — your member number and stamps stay.',
+  },
+  existingYes: { th: 'เคยแล้ว — เชื่อมกับบัญชีเดิม', en: 'Yes — link my existing account' },
+  existingNo: { th: 'ยังไม่เคย — สมัครสมาชิกใหม่', en: 'No — join as a new member' },
+  existingBack: { th: '← ย้อนกลับ', en: '← Back' },
+  existingFindHeading: { th: 'หาบัญชีเดิมของคุณ', en: 'Find your existing account' },
+  existingByCode: { th: 'รับรหัสทางอีเมล', en: 'Email me a code' },
+  existingByPassword: { th: 'ใช้รหัสผ่าน', en: 'Use my password' },
+  existingFindLabel: { th: 'อีเมลที่ใช้สมัคร', en: 'Email you joined with' },
+  existingFindButton: { th: 'ค้นหาบัญชี', en: 'Find my account' },
+  existingGoogleHint: {
+    th: 'เคยสมัครด้วย Google? ใส่อีเมล Gmail ของคุณ แล้วรับรหัสทางอีเมล',
+    en: 'Joined with Google? Enter your Gmail address and get a code by email.',
+  },
+  existingNotFound: {
+    th: 'ไม่พบบัญชีที่ใช้อีเมลนี้ ลองตรวจอีกครั้ง หรือสมัครสมาชิกใหม่',
+    en: 'No account uses that email. Check it, or join as a new member.',
+  },
+  existingPasswordLabel: { th: 'รหัสผ่าน', en: 'Password' },
+  existingPasswordButton: { th: 'เข้าสู่ระบบและเชื่อม LINE', en: 'Sign in and link LINE' },
+  existingWrongPassword: { th: 'อีเมลหรือรหัสผ่านไม่ถูกต้อง', en: 'Wrong email or password' },
+  existingForgot: {
+    th: 'ลืมรหัสผ่าน? ใช้ “รับรหัสทางอีเมล” แทนได้',
+    en: 'Forgot it? Use “Email me a code” instead.',
+  },
   mergeBody: {
     th: 'ต้องการเชื่อม LINE นี้เข้ากับบัญชีเดิมไหม เลขสมาชิกและข้อมูลเดิมจะยังอยู่ครบ',
     en: 'Link this LINE account to that membership? Your member number and details stay the same.',

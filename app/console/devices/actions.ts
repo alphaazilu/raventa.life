@@ -1,7 +1,7 @@
 'use server'
 
 import { revalidatePath } from 'next/cache'
-import { createClient } from '@/lib/supabase/server'
+import { getConsoleSession } from '@/lib/console/session'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { DEVICES_PATH, isAdmin } from '@/lib/auth/roles'
 
@@ -21,13 +21,9 @@ export type DeviceRow = {
 export type DeviceResult<T = null> = { ok: true; data: T } | { ok: false; error: string }
 
 async function requireAdmin(): Promise<{ userId: string } | { error: string }> {
-  const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+  const { user, role } = await getConsoleSession()
   if (!user) return { error: 'not_admin' }
-  const { data: me } = await supabase.from('profiles').select('role').eq('id', user.id).maybeSingle()
-  if (!isAdmin(me?.role)) return { error: 'not_admin' }
+  if (!isAdmin(role)) return { error: 'not_admin' }
   return { userId: user.id }
 }
 

@@ -10,6 +10,7 @@ import { completeProfile, type CompleteProfileState } from '@/app/complete-profi
 import { Spinner } from '@/components/ui/spinner'
 import { MergePanel } from '@/components/complete-profile/merge-panel'
 import { VerifyEmailPanel } from '@/components/complete-profile/verify-email-panel'
+import { ExistingMemberChooser } from '@/components/complete-profile/existing-member-chooser'
 
 const initialState: CompleteProfileState = null
 
@@ -19,6 +20,7 @@ const inputBaseClass =
 export function CompleteProfileForm({
   next,
   needsEmail,
+  askExisting = false,
   defaultEmail,
   defaultFirstName,
   defaultLastName,
@@ -30,6 +32,8 @@ export function CompleteProfileForm({
   // True when the account came in without an email (LINE) — only then is
   // the email field shown, and it's required.
   needsEmail: boolean
+  // A fresh LINE sign-in: ask "already a member?" before the form.
+  askExisting?: boolean
   defaultEmail: string
   defaultFirstName: string
   defaultLastName: string
@@ -39,6 +43,7 @@ export function CompleteProfileForm({
 }) {
   const { tr } = useLanguage()
   const [state, formAction, pending] = useActionState(completeProfile, initialState)
+  const [joiningNew, setJoiningNew] = useState(!askExisting)
 
   // Controlled so a failed submission (Server Actions reset uncontrolled
   // <form> fields once the action call resolves, success or not) never
@@ -74,9 +79,11 @@ export function CompleteProfileForm({
     <div className="mx-auto flex w-full max-w-md flex-col justify-center px-4 py-16 md:py-24">
       <div className="rounded-2xl border border-border bg-card p-8 shadow-sm">
         <h1 className="font-display text-2xl font-extrabold text-foreground">
-          {tr(authCopy.completeProfileHeading)}
+          {tr(joiningNew ? authCopy.completeProfileHeading : authCopy.existingWelcome)}
         </h1>
-        <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{tr(authCopy.completeProfileSub)}</p>
+        {joiningNew && <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{tr(authCopy.completeProfileSub)}</p>}
+
+        {!joiningNew && <ExistingMemberChooser onNew={() => setJoiningNew(true)} />}
 
         {showMerge && mergeOffer && (
           <MergePanel
@@ -98,7 +105,7 @@ export function CompleteProfileForm({
           />
         )}
 
-        <form action={formAction} className={showMerge || showVerify ? 'hidden' : 'mt-6 space-y-4'}>
+        <form action={formAction} className={!joiningNew || showMerge || showVerify ? 'hidden' : 'mt-6 space-y-4'}>
           <input type="hidden" name="next" value={next} />
 
           <div className="grid grid-cols-2 gap-3">

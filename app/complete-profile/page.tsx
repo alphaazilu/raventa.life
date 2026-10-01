@@ -39,6 +39,11 @@ export default async function CompleteProfilePage({
   // Already filled in (e.g. they came back here by mistake) — nothing to do.
   if (isProfileComplete(profile)) redirect(next)
 
+  // A LINE sign-in that isn't a membership yet (and hasn't started signing
+  // up): ask whether they're already a member before creating a new one.
+  const lineOnly = (user.identities ?? []).length > 0 && (user.identities ?? []).every((i) => i.provider === 'custom:line')
+  const askExisting = needsEmail && lineOnly && !profile?.phone
+
   return (
     <>
       <SiteHeader />
@@ -46,6 +51,7 @@ export default async function CompleteProfilePage({
         <CompleteProfileForm
           next={next}
           needsEmail={needsEmail}
+          askExisting={askExisting}
           defaultEmail={needsEmail ? (profile?.email ?? '') : ''}
           defaultFirstName={profile?.first_name ?? ''}
           defaultLastName={profile?.last_name ?? ''}

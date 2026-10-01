@@ -73,27 +73,9 @@ export function MergePanel({ target, onUseAnother }: { target: MergeTarget; onUs
       return
     }
     // Now signed in as the existing member (the server switched the session
-    // cookies). Attach LINE to it — inside LINE's browser this is an instant
-    // round trip — and land on the account page.
+    // cookies). Attach LINE to it and land on the account page.
     setStep('linking')
-    if (!result.canLinkLine) {
-      window.location.href = '/account'
-      return
-    }
-    const next = encodeURIComponent('/account?linked=line')
-    const { error } = await createClient().auth.linkIdentity({
-      provider: 'custom:line',
-      options: {
-        redirectTo: `${window.location.origin}/auth/callback?link=line&next=${next}`,
-        scopes: 'openid profile',
-      },
-    })
-    if (error) {
-      // Still signed into the right membership; LINE can be linked later
-      // from the account page, which will say so.
-      console.error('linkIdentity after merge failed', error.message)
-      window.location.href = '/account?link_error=link_failed'
-    }
+    await linkLineAfterMerge(result.canLinkLine)
   }
 
   return (
@@ -191,4 +173,28 @@ export function MergePanel({ target, onUseAnother }: { target: MergeTarget; onUs
       {errorKey && <p className="text-sm text-destructive">{tr(authCopy[errorKey])}</p>}
     </div>
   )
+}
+
+// After a merge the browser is signed into the existing membership; attach
+// LINE to it — inside LINE's browser this is an instant round trip — and
+// land on the account page.
+export async function linkLineAfterMerge(canLinkLine: boolean) {
+  if (!canLinkLine) {
+    window.location.href = '/account'
+    return
+  }
+  const next = encodeURIComponent('/account?linked=line')
+  const { error } = await createClient().auth.linkIdentity({
+    provider: 'custom:line',
+    options: {
+      redirectTo: `${window.location.origin}/auth/callback?link=line&next=${next}`,
+      scopes: 'openid profile',
+    },
+  })
+  if (error) {
+    // Still signed into the right membership; LINE can be linked later from
+    // the account page, which will say so.
+    console.error('linkIdentity after merge failed', error.message)
+    window.location.href = '/account?link_error=link_failed'
+  }
 }
