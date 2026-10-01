@@ -6,6 +6,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { verifyMemberQrToken } from '@/lib/member-card'
 import { getCurrentDevice } from '@/lib/console/device'
 import { canUseDesk, CONSOLE_PATH, DESK_PATH, isAdmin } from '@/lib/auth/roles'
+import { clockInIfNeeded } from '@/lib/console/time'
 
 // Counter tablet: start working by scanning your own member card (Vault R2).
 // Only on a registered tablet. The signed card QR (lib/member-card.ts, 90 s
@@ -49,6 +50,9 @@ export async function signInWithCard(rawToken: string): Promise<CardSignIn> {
     action: 'console_sign_in',
     detail: { device_id: device.id, device: device.name, method: 'card' },
   })
+  // Staff: the first scan of the day is the clock-in (§16). Locking and
+  // scanning back in mid-shift keeps the same entry. Admins aren't clocked.
+  if (profile?.role === 'staff') await clockInIfNeeded(check.userId, device.id, 'card')
   return { ok: true, to: isAdmin(profile?.role) ? CONSOLE_PATH : DESK_PATH }
 }
 

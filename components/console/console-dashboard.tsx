@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation'
 import { BarChart3, ChevronRight, Clock, Receipt, Users, type LucideIcon } from 'lucide-react'
 import { useLanguage } from '@/components/language-provider'
 import { consoleCopy } from '@/lib/console/copy'
-import { DESK_PATH, MEMBERS_PATH } from '@/lib/auth/roles'
+import { DESK_PATH, MEMBERS_PATH, TIME_PATH } from '@/lib/auth/roles'
 import { bangkokTime, FLOOR_CAPACITY } from '@/lib/check-in/day'
 import { formatMemberNo } from '@/lib/format-date'
 import type { DashboardData } from '@/app/console/dashboard-data'
@@ -74,7 +74,7 @@ export function ConsoleDashboard({ firstName, data }: { firstName: string | null
           meta={`${n(data.inside)} ${tr(consoleCopy.modDeskMeta)}`} />
         <Module href={MEMBERS_PATH} icon={Users} title={tr(consoleCopy.modMembersTitle)} desc={tr(consoleCopy.modMembersDesc)}
           meta={`${n(data.membersTotal)} ${tr(consoleCopy.modMembersMeta)}`} />
-        <Module icon={Clock} title={tr(consoleCopy.modTimeTitle)} desc={tr(consoleCopy.modTimeDesc)} soon={tr(consoleCopy.soon)} />
+        <Module href={TIME_PATH} icon={Clock} title={tr(consoleCopy.modTimeTitle)} desc={tr(consoleCopy.modTimeDesc)} />
         <Module icon={BarChart3} title={tr(consoleCopy.modReportsTitle)} desc={tr(consoleCopy.modReportsDesc)} soon={tr(consoleCopy.soon)} />
       </div>
 

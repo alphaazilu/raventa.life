@@ -927,3 +927,100 @@ create index if not exists device_pairing_codes_code_idx
 
 alter table public.device_pairing_codes enable row level security;
 revoke all on public.device_pairing_codes from anon, authenticated;
+
+-- 16. Time clock (v0.18). A staff member is clocked in the first time they
+-- open the console on a registered tablet (scanning their card, or the
+-- password fallback) and clocked out with "ออกงาน". Locking the tablet or
+-- switching person mid-shift does not touch the entry. Admins can correct
+-- an entry or add a missing one; every change keeps the old times and a
+-- reason in time_entry_edits.
+--
+-- Server (service-role) only, like sections 9, 14 and 15.
+create table if not exists public.time_entries (
+  id uuid primary key default gen_random_uuid(),
+  staff_id uuid not null references auth.users(id) on delete cascade,
+  clock_in timestamptz not null,
+  clock_out timestamptz,
+  device_id uuid references public.devices(id) on delete set null,
+  in_method text not null default 'card' check (in_method in ('card', 'password', 'admin')),
+  out_method text check (out_method in ('button', 'admin')),
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  constraint time_entries_out_after_in check (clock_out is null or clock_out > clock_in)
+);
+
+-- At most one open entry per person.
+create unique index if not exists time_entries_one_open_idx
+  on public.time_entries (staff_id) where clock_out is null;
+create index if not exists time_entries_in_idx on public.time_entries (clock_in desc);
+
+alter table public.time_entries enable row level security;
+revoke all on public.time_entries from anon, authenticated;
+
+create table if not exists public.time_entry_edits (
+  id uuid primary key default gen_random_uuid(),
+  entry_id uuid not null references public.time_entries(id) on delete cascade,
+  editor_id uuid references auth.users(id) on delete set null,
+  old_clock_in timestamptz,
+  old_clock_out timestamptz,
+  new_clock_in timestamptz not null,
+  new_clock_out timestamptz,
+  reason text not null check (char_length(btrim(reason)) between 3 and 300),
+  created_at timestamptz not null default now()
+);
+
+create index if not exists time_entry_edits_entry_idx on public.time_entry_edits (entry_id, created_at desc);
+
+alter table public.time_entry_edits enable row level security;
+revoke all on public.time_entry_edits from anon, authenticated;
+
+-- 17. Shifts (v0.19). Admins define shift templates (start, end, unpaid
+-- break), put people on them per day (the weekly roster), and set the
+-- late / overtime rules. Clock entries (§16) are matched to the person's
+-- shift for that day to work out late minutes, leaving early and OT.
+--
+-- Server (service-role) only, like §16.
+create table if not exists public.shift_templates (
+  id uuid primary key default gen_random_uuid(),
+  name text not null check (char_length(btrim(name)) between 1 and 40),
+  start_time time not null,
+  end_time time not null,               -- earlier than start = ends next day
+  break_minutes integer not null default 0 check (break_minutes between 0 and 240),
+  is_active boolean not null default true,
+  sort integer not null default 0,
+  created_at timestamptz not null default now(),
+  constraint shift_templates_not_zero check (start_time <> end_time)
+);
+
+alter table public.shift_templates enable row level security;
+revoke all on public.shift_templates from anon, authenticated;
+
+create table if not exists public.shift_assignments (
+  id uuid primary key default gen_random_uuid(),
+  staff_id uuid not null references auth.users(id) on delete cascade,
+  work_date date not null,
+  template_id uuid references public.shift_templates(id) on delete restrict,
+  day_off boolean not null default false,
+  updated_by uuid references auth.users(id) on delete set null,
+  updated_at timestamptz not null default now(),
+  constraint shift_assignments_one_per_day unique (staff_id, work_date),
+  constraint shift_assignments_shift_or_off check ((template_id is not null) <> day_off)
+);
+
+create index if not exists shift_assignments_date_idx on public.shift_assignments (work_date);
+
+alter table public.shift_assignments enable row level security;
+revoke all on public.shift_assignments from anon, authenticated;
+
+-- One row of rules.
+create table if not exists public.time_settings (
+  id integer primary key default 1 check (id = 1),
+  late_grace_minutes integer not null default 5 check (late_grace_minutes between 0 and 120),
+  ot_min_minutes integer not null default 30 check (ot_min_minutes between 0 and 240),
+  updated_by uuid references auth.users(id) on delete set null,
+  updated_at timestamptz not null default now()
+);
+insert into public.time_settings (id) values (1) on conflict (id) do nothing;
+
+alter table public.time_settings enable row level security;
+revoke all on public.time_settings from anon, authenticated;

@@ -10,6 +10,7 @@ import { canUseDesk, CONSOLE_PATH, isAdmin } from '@/lib/auth/roles'
 import { DEVICE_COOKIE, getCurrentDevice } from '@/lib/console/device'
 import { signOut } from '@/app/login/actions'
 import { lockConsole } from './lock-actions'
+import { clockInIfNeeded } from '@/lib/console/time'
 
 export const metadata: Metadata = {
   title: 'Back Office | RAVENTA Wellness Retreat',
@@ -46,6 +47,10 @@ export default async function ConsoleLayout({ children }: { children: React.Reac
     if (device) return <TabletLock deviceName={device.name} notStaff={Boolean(user)} signOutAction={signOut} />
     redirect(user ? '/account' : `/login?next=${CONSOLE_PATH}`)
   }
+
+  // Staff who got in with the password fallback are clocked in here (a card
+  // scan already did it). No-op when an entry is open.
+  if (device && role === 'staff') await clockInIfNeeded(user.id, device.id, 'password')
 
   return (
     <div className="min-h-dvh overflow-x-clip bg-background">
