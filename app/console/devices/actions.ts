@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache'
 import { getConsoleSession } from '@/lib/console/session'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { DEVICES_PATH, isAdmin } from '@/lib/auth/roles'
+import { getCurrentDevice } from '@/lib/console/device'
 
 // Back Office → Devices: approve a tablet's pairing code, rename or revoke
 // tablets. Admins only; the tables are service-role only (schema.sql §15),
@@ -24,6 +25,8 @@ async function requireAdmin(): Promise<{ userId: string } | { error: string }> {
   const { user, role } = await getConsoleSession()
   if (!user) return { error: 'not_admin' }
   if (!isAdmin(role)) return { error: 'not_admin' }
+  // Device management is never allowed from a counter tablet.
+  if (await getCurrentDevice().catch(() => null)) return { error: 'not_admin' }
   return { userId: user.id }
 }
 

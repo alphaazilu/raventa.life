@@ -4,22 +4,31 @@ import Image from 'next/image'
 import Link, { useLinkStatus } from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useEffect, useState } from 'react'
-import { Expand, Globe, Lock, LogOut, Shrink } from 'lucide-react'
+import { Expand, Globe, Lock, LogOut, ShieldAlert, Shrink } from 'lucide-react'
 import { useLanguage } from '@/components/language-provider'
 import { consoleCopy } from '@/lib/console/copy'
 import { CONSOLE_PATH, DESK_PATH, DEVICES_PATH, MEMBERS_PATH } from '@/lib/auth/roles'
 import { cn } from '@/lib/utils'
 
-type Tab = { key: string; label: { th: string; en: string }; href?: string; adminOnly?: boolean }
+type Tab = {
+  key: string
+  label: { th: string; en: string }
+  href?: string
+  adminOnly?: boolean
+  // Staff see it too, but only on a registered counter tablet.
+  staffOnTablet?: boolean
+  // Never on a counter tablet, even for an admin (manage from your own phone).
+  notOnTablet?: boolean
+}
 
 // "Soon" tabs have no href yet (phase 2–4, see Vault R2) and render greyed.
 const TABS: Tab[] = [
   { key: 'overview', label: consoleCopy.tabOverview, href: CONSOLE_PATH, adminOnly: true },
   { key: 'desk', label: consoleCopy.tabDesk, href: DESK_PATH },
-  { key: 'members', label: consoleCopy.tabMembers, href: MEMBERS_PATH, adminOnly: true },
+  { key: 'members', label: consoleCopy.tabMembers, href: MEMBERS_PATH, adminOnly: true, staffOnTablet: true },
   { key: 'time', label: consoleCopy.tabTime, adminOnly: true },
   { key: 'reports', label: consoleCopy.tabReports, adminOnly: true },
-  { key: 'devices', label: consoleCopy.tabDevices, href: DEVICES_PATH, adminOnly: true },
+  { key: 'devices', label: consoleCopy.tabDevices, href: DEVICES_PATH, adminOnly: true, notOnTablet: true },
 ]
 
 function isActive(pathname: string, href: string): boolean {
@@ -42,7 +51,10 @@ export function ConsoleBar({
 }) {
   const { tr, lang, toggle } = useLanguage()
   const pathname = usePathname()
-  const tabs = TABS.filter((t) => admin || !t.adminOnly)
+  const onTablet = Boolean(deviceName)
+  const tabs = TABS.filter(
+    (t) => (admin || !t.adminOnly || (t.staffOnTablet && onTablet)) && !(t.notOnTablet && onTablet),
+  )
 
   // Full-screen button where the browser allows it (Android Chrome, desktop).
   // iPad browsers don't — there, "Add to Home Screen" opens the console
@@ -146,6 +158,17 @@ export function ConsoleBar({
               <span className={lang === 'en' ? 'text-primary' : ''}>EN</span>
             </span>
           </button>
+          {admin && onTablet && (
+            <span
+              role="status"
+              className="flex h-9 items-center gap-1.5 whitespace-nowrap rounded-full bg-primary px-2.5 text-xs font-bold text-primary-foreground sm:px-3"
+              title={tr(consoleCopy.adminModeChip)}
+            >
+              <ShieldAlert className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+              <span className="hidden 2xl:inline">{tr(consoleCopy.adminModeChip)}</span>
+              <span className="2xl:hidden">{tr(consoleCopy.adminModeShort)}</span>
+            </span>
+          )}
           {deviceName && signOutAction ? (
             <form action={signOutAction}>
               <button

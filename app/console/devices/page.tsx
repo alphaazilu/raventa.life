@@ -2,7 +2,8 @@ import type { Metadata } from 'next'
 import { redirect } from 'next/navigation'
 import { DevicesView } from '@/components/console/devices-view'
 import { getConsoleSession } from '@/lib/console/session'
-import { DESK_PATH, isAdmin } from '@/lib/auth/roles'
+import { CONSOLE_PATH, DESK_PATH, isAdmin } from '@/lib/auth/roles'
+import { getCurrentDevice } from '@/lib/console/device'
 import { listDevices } from './actions'
 
 export const metadata: Metadata = {
@@ -15,6 +16,9 @@ export default async function DevicesPage({ searchParams }: { searchParams: Prom
   const { user, role } = await getConsoleSession()
   if (!user) redirect('/login?next=/console/devices')
   if (!isAdmin(role)) redirect(DESK_PATH)
+  // Never from a counter tablet, even signed in as an admin: someone who
+  // picks up an unlocked tablet mustn't be able to pair or revoke devices.
+  if (await getCurrentDevice().catch(() => null)) redirect(CONSOLE_PATH)
 
   const { code } = await searchParams
   const devices = await listDevices()

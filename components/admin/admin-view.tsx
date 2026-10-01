@@ -20,7 +20,7 @@ export type AdminMember = {
   avatar_url: string | null
 }
 
-export function AdminView({ members }: { members: AdminMember[] }) {
+export function AdminView({ members, readOnly = false }: { members: AdminMember[]; readOnly?: boolean }) {
   const { tr } = useLanguage()
   const [query, setQuery] = useState('')
 
@@ -44,6 +44,11 @@ export function AdminView({ members }: { members: AdminMember[] }) {
         <h1 className="font-display text-2xl font-extrabold text-foreground md:text-3xl">
           {tr(consoleCopy.membersHeading)} <span className="text-base font-semibold text-muted-foreground">({members.length.toLocaleString()})</span>
         </h1>
+        {readOnly && (
+          <span className="rounded-full border border-border bg-secondary px-3 py-1 text-xs font-semibold text-secondary-foreground">
+            {tr(consoleCopy.membersReadOnly)}
+          </span>
+        )}
         <input
           type="text"
           value={query}
@@ -86,12 +91,14 @@ export function AdminView({ members }: { members: AdminMember[] }) {
                 <td className="px-4 py-3">{m.province ?? '—'}</td>
                 <td className="px-4 py-3">{m.nationality ?? '—'}</td>
                 <td className="whitespace-nowrap px-4 py-3 text-right">
+                  {!readOnly && (
                   <a
                     href={`${MEMBERS_PATH}/${m.id}`}
                     className="text-xs font-semibold text-primary underline-offset-2 hover:underline"
                   >
                     {tr(authCopy.editButton)}
                   </a>
+                  )}
                 </td>
               </tr>
             ))}

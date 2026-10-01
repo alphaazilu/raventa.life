@@ -92,7 +92,6 @@ export function TabletLock({
               paused={busy || done}
               pausedText={tr(done ? consoleCopy.lockWelcome : consoleCopy.lockChecking)}
               hint={null}
-              autoStart
             />
           </div>
 

@@ -6,6 +6,7 @@ import { SiteFooter } from '@/components/site-footer'
 import { createClient } from '@/lib/supabase/server'
 import { LoginForm } from './login-form'
 import { LineAutoLogin } from '@/components/auth/line-auto-login'
+import { TabletSetupHint } from '@/components/console/tablet-setup-hint'
 
 export const metadata: Metadata = {
   title: 'Log In | RAVENTA Wellness Retreat',
@@ -61,6 +62,7 @@ export default async function LoginPage({
     <>
       <SiteHeader />
       <main className="min-h-screen bg-background pt-24 md:pt-28">
+        {next.startsWith('/console') && <TabletSetupHint />}
         <LoginForm next={next} authError={authError} hideGoogle={inLineApp} />
       </main>
       <SiteFooter />

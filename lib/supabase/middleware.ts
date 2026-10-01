@@ -1,7 +1,7 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 import { isProfileComplete, PROFILE_COMPLETENESS_COLUMNS } from '@/lib/supabase/profile'
-import { canUseDesk, CONSOLE_PATH, DESK_PATH, isAdmin } from '@/lib/auth/roles'
+import { canUseDesk, CONSOLE_PATH, DESK_PATH, isAdmin, MEMBERS_PATH } from '@/lib/auth/roles'
 import { DEVICE_COOKIE } from '@/lib/console/device-cookie'
 
 /**
@@ -89,7 +89,10 @@ export async function updateSession(request: NextRequest) {
     // (for now — phase 2 moves staff onto the registered tablet, see R2).
     if (isConsoleRoute && !isAdmin(profile?.role)) {
       const isDeskRoute = path === DESK_PATH || path.startsWith(`${DESK_PATH}/`)
-      if (!isDeskRoute || !canUseDesk(profile?.role)) {
+      // The member list (view only) on a counter tablet; the page itself
+      // checks the device key is valid. Editing (/members/[id]) stays admin.
+      const isStaffMembersRoute = path === MEMBERS_PATH && Boolean(request.cookies.get(DEVICE_COOKIE)?.value)
+      if (!(isDeskRoute || isStaffMembersRoute) || !canUseDesk(profile?.role)) {
         const url = request.nextUrl.clone()
         url.pathname = canUseDesk(profile?.role) ? DESK_PATH : '/account'
         url.search = ''

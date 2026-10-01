@@ -120,6 +120,7 @@ export function MergePanel({ target, onUseAnother }: { target: MergeTarget; onUs
         >
           <p className="text-sm leading-relaxed text-muted-foreground">
             {tr(authCopy.mergeCodeSent)} <span className="font-semibold text-foreground">{maskedEmail}</span>
+            <span className="mt-1 block text-xs text-muted-foreground">{tr(authCopy.emailCodeCheckSpam)}</span>
           </p>
           <div>
             <label className="text-xs font-semibold tracking-wide uppercase text-muted-foreground" htmlFor="mergeCode">

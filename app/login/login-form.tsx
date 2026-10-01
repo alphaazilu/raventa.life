@@ -102,6 +102,7 @@ export function LoginForm({
         {state?.success === 'checkEmail' ? (
           <p className="rounded-xl bg-accent/10 p-4 text-sm leading-relaxed text-accent">
             {tr(authCopy.signupSuccess)}
+            <span className="mt-2 block text-xs text-muted-foreground">{tr(authCopy.emailCodeCheckSpam)}</span>
           </p>
         ) : (
           <form action={mode === 'login' ? loginAction : signupAction} className="space-y-4">

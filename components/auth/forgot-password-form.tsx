@@ -26,6 +26,7 @@ export function ForgotPasswordForm() {
         {state?.sent ? (
           <p className="mt-6 rounded-xl bg-accent/10 p-4 text-sm leading-relaxed text-accent">
             {tr(authCopy.forgotPasswordSuccess)}
+            <span className="mt-2 block text-xs text-muted-foreground">{tr(authCopy.emailCodeCheckSpam)}</span>
           </p>
         ) : (
           <form action={formAction} className="mt-6 space-y-4">
