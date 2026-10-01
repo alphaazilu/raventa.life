@@ -17,7 +17,7 @@ export default async function DeskPage() {
   } = await supabase.auth.getUser()
   if (!user) redirect(`/login?next=${DESK_PATH}`)
 
-  const { data: me } = await supabase.from('profiles').select('role, first_name').eq('id', user.id).maybeSingle()
+  const { data: me } = await supabase.from('profiles').select('role').eq('id', user.id).maybeSingle()
   if (!canUseDesk(me?.role)) redirect('/account')
 
   const floor = await getFloor()
@@ -25,7 +25,6 @@ export default async function DeskPage() {
   return (
     <main>
       <CheckInDesk
-        staffName={me?.first_name || user.email || ''}
         showTakings={isAdmin(me?.role)}
         initialFloor={floor.ok ? floor.data : null}
         initialError={floor.ok ? null : floor.error}

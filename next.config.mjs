@@ -60,10 +60,15 @@ const nextConfig = {
         source: '/:path*',
         headers: securityHeaders,
       },
-      // The front-desk tablet scans member QR codes with its camera. Listed
-      // after the rule above so this value wins for this one page.
+      // The Back Office scans member QR codes with the camera (front desk,
+      // tablet lock screen, pairing a device). Listed after the rule above so
+      // this value wins for these pages.
       {
-        source: '/console/desk',
+        source: '/console',
+        headers: [{ key: 'Permissions-Policy', value: 'camera=(self), microphone=(), geolocation=()' }],
+      },
+      {
+        source: '/console/:path*',
         headers: [{ key: 'Permissions-Policy', value: 'camera=(self), microphone=(), geolocation=()' }],
       },
     ]

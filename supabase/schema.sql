@@ -885,3 +885,45 @@ revoke all on public.email_verification_events from anon, authenticated;
 -- by the app after a password is saved; email/password signups count too
 -- (the settings page also checks their email identity).
 alter table public.profiles add column if not exists has_password boolean not null default false;
+
+-- 15. Counter tablets (v0.14). A tablet is paired once by an admin: the
+-- tablet shows a 6-digit code (and a QR of it) at /tablet, the admin enters
+-- it under Back Office → Devices, and the tablet then receives its own long
+-- random key as an httpOnly cookie. Only a hash of that key is stored here.
+-- A device key alone can open nothing but the console's lock screen.
+--
+-- Server (service-role) only, like sections 9 and 14: no policies, nothing
+-- the browser can read or write directly.
+create table if not exists public.devices (
+  id uuid primary key default gen_random_uuid(),
+  name text not null check (char_length(name) between 1 and 60),
+  token_hash text unique,
+  created_by uuid references auth.users(id) on delete set null,
+  created_at timestamptz not null default now(),
+  last_seen_at timestamptz,
+  revoked_at timestamptz,
+  revoked_by uuid references auth.users(id) on delete set null
+);
+
+alter table public.devices enable row level security;
+revoke all on public.devices from anon, authenticated;
+
+create table if not exists public.device_pairing_codes (
+  id uuid primary key default gen_random_uuid(),
+  code text not null check (code ~ '^[0-9]{6}$'),
+  -- hash of the secret in the waiting tablet's own cookie, so only that
+  -- tablet can collect the key once an admin approves the code
+  poll_hash text not null unique,
+  expires_at timestamptz not null,
+  claimed_at timestamptz,
+  claimed_by uuid references auth.users(id) on delete set null,
+  device_id uuid references public.devices(id) on delete cascade,
+  delivered_at timestamptz,
+  created_at timestamptz not null default now()
+);
+
+create index if not exists device_pairing_codes_code_idx
+  on public.device_pairing_codes (code, expires_at);
+
+alter table public.device_pairing_codes enable row level security;
+revoke all on public.device_pairing_codes from anon, authenticated;

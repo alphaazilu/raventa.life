@@ -83,7 +83,7 @@ export function SiteHeader() {
       aria-hidden="true"
       onClick={() => setOpen(false)}
       className={cn(
-        'fixed inset-0 z-40 bg-black/50 transition-opacity duration-200 md:hidden',
+        'fixed inset-0 z-40 bg-black/50 transition-opacity duration-200 xl:hidden',
         open ? 'opacity-100' : 'pointer-events-none opacity-0',
       )}
     />
@@ -95,8 +95,8 @@ export function SiteHeader() {
           : 'bg-transparent',
       )}
     >
-      <div className="mx-auto flex h-16 max-w-6xl items-center justify-between gap-4 px-4 md:h-20 md:px-6">
-        <a href={homeHref} className="flex items-center gap-3">
+      <div className="mx-auto flex h-16 max-w-7xl items-center justify-between gap-4 px-4 md:h-20 md:px-6">
+        <a href={homeHref} className="flex shrink-0 items-center gap-3">
           <Image
             src="/images/logo-emblem.png"
             alt=""
@@ -115,13 +115,13 @@ export function SiteHeader() {
           />
         </a>
 
-        <nav className="hidden items-center gap-8 md:flex">
+        <nav className="hidden items-center gap-7 xl:flex">
           {links.map((link) => (
             <a
               key={link.key}
               href={resolveHref(link.href)}
               className={cn(
-                'text-sm font-medium transition-colors hover:text-primary',
+                'whitespace-nowrap text-sm font-medium transition-colors hover:text-primary',
                 solid ? 'text-foreground/80' : 'text-white/90',
               )}
             >
@@ -134,7 +134,7 @@ export function SiteHeader() {
           <a
             href={authHref}
             className={cn(
-              'hidden text-sm font-medium transition-colors hover:text-primary md:inline-block',
+              'hidden whitespace-nowrap text-sm font-medium transition-colors hover:text-primary xl:inline-block',
               solid ? 'text-foreground/80' : 'text-white/90',
             )}
           >
@@ -144,7 +144,7 @@ export function SiteHeader() {
           {admin && (
             <a
               href={CONSOLE_PATH}
-              className="hidden items-center gap-1.5 rounded-full border-[1.5px] border-accent px-3.5 py-1.5 text-sm font-bold text-accent transition-colors hover:bg-secondary md:inline-flex"
+              className="hidden items-center gap-1.5 whitespace-nowrap rounded-full border-[1.5px] border-accent px-3.5 py-1.5 text-sm font-bold text-accent transition-colors hover:bg-secondary md:inline-flex"
             >
               <LayoutGrid className="h-4 w-4" aria-hidden="true" />
               {tr(consoleCopy.backOffice)}
@@ -170,7 +170,7 @@ export function SiteHeader() {
 
           <a
             href={resolveHref('#contact')}
-            className="hidden rounded-full bg-primary px-5 py-2 text-sm font-semibold text-primary-foreground transition-opacity hover:opacity-90 md:inline-flex"
+            className="hidden whitespace-nowrap rounded-full bg-primary px-5 py-2 text-sm font-semibold text-primary-foreground transition-opacity hover:opacity-90 md:inline-flex"
           >
             {tr(t.nav.book)}
           </a>
@@ -180,7 +180,7 @@ export function SiteHeader() {
             onClick={() => setOpen((v) => !v)}
             aria-label="Toggle menu"
             aria-expanded={open}
-            className={cn('md:hidden', solid ? 'text-foreground' : 'text-white')}
+            className={cn('xl:hidden', solid ? 'text-foreground' : 'text-white')}
           >
             {open ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
           </button>
@@ -188,8 +188,8 @@ export function SiteHeader() {
       </div>
 
       {open && (
-        <div className="border-t border-border bg-background md:hidden">
-          <nav className="mx-auto flex max-w-6xl flex-col px-4 py-4">
+        <div className="border-t border-border bg-background xl:hidden">
+          <nav className="mx-auto flex max-w-7xl flex-col px-4 py-4 md:px-6">
             {links.map((link) => (
               <a
                 key={link.key}
@@ -211,7 +211,7 @@ export function SiteHeader() {
               <a
                 href={CONSOLE_PATH}
                 onClick={() => setOpen(false)}
-                className="flex items-center gap-2 border-b border-border/60 py-3 text-sm font-bold text-accent"
+                className="flex items-center gap-2 border-b border-border/60 py-3 text-sm font-bold text-accent md:hidden"
               >
                 <LayoutGrid className="h-4 w-4" aria-hidden="true" />
                 {tr(consoleCopy.backOffice)}
@@ -220,7 +220,7 @@ export function SiteHeader() {
             <a
               href={resolveHref('#contact')}
               onClick={() => setOpen(false)}
-              className="mt-4 rounded-full bg-primary px-5 py-3 text-center text-sm font-semibold text-primary-foreground"
+              className="mt-4 rounded-full bg-primary px-5 py-3 text-center text-sm font-semibold text-primary-foreground md:hidden"
             >
               {tr(t.nav.book)}
             </a>

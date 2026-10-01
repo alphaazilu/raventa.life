@@ -3,7 +3,7 @@ import { redirect } from 'next/navigation'
 import { AdminView } from '@/components/admin/admin-view'
 import { createClient } from '@/lib/supabase/server'
 import { resolveAvatarUrls } from '@/lib/supabase/avatar'
-import { MEMBERS_PATH } from '@/lib/auth/roles'
+import { DESK_PATH, MEMBERS_PATH } from '@/lib/auth/roles'
 
 export const metadata: Metadata = {
   title: 'ข้อมูลลูกค้า | RAVENTA Back Office',
@@ -18,7 +18,7 @@ export default async function MembersPage() {
   if (!user) redirect(`/login?next=${MEMBERS_PATH}`)
 
   const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).maybeSingle()
-  if (profile?.role !== 'admin') redirect('/account')
+  if (profile?.role !== 'admin') redirect(DESK_PATH)
 
   const { data: members } = await supabase
     .from('profiles')

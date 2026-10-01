@@ -2,11 +2,16 @@ import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 import { isProfileComplete, PROFILE_COMPLETENESS_COLUMNS } from '@/lib/supabase/profile'
 import { canUseDesk, CONSOLE_PATH, DESK_PATH, isAdmin } from '@/lib/auth/roles'
+import { DEVICE_COOKIE } from '@/lib/console/device-cookie'
 
 /**
  * Refreshes the Supabase auth session on every request and gates the
  * /account and /console route groups. Called from the root proxy.ts.
  */
+// Paths a registered tablet may still open (sign-in stays reachable until
+// staff start shifts by scanning their card instead).
+const TABLET_ALLOWED = [CONSOLE_PATH, '/tablet', '/login', '/auth', '/complete-profile', '/forgot-password', '/reset-password', '/api']
+
 export async function updateSession(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request })
 
@@ -39,6 +44,20 @@ export async function updateSession(request: NextRequest) {
   const back = path + request.nextUrl.search
   const isConsoleRoute = path === CONSOLE_PATH || path.startsWith(`${CONSOLE_PATH}/`)
   const isAccountRoute = path.startsWith('/account')
+
+  // Registered counter tablet ("tablet mode", Vault R2): the whole site is
+  // the console. Only the cookie's presence is checked here; the console
+  // itself verifies the key (and sends a revoked tablet back to /tablet).
+  const onTablet = Boolean(request.cookies.get(DEVICE_COOKIE)?.value)
+  if (onTablet && !TABLET_ALLOWED.some((p) => path === p || path.startsWith(`${p}/`) || path.startsWith(`${p}.`))) {
+    const url = request.nextUrl.clone()
+    url.pathname = CONSOLE_PATH
+    url.search = ''
+    return NextResponse.redirect(url)
+  }
+  // On the tablet the console layout shows its own lock screen instead of
+  // bouncing to /login or /account.
+  if (onTablet && isConsoleRoute) return supabaseResponse
 
   if ((isConsoleRoute || isAccountRoute) && !user) {
     const url = request.nextUrl.clone()

@@ -2,7 +2,7 @@ import type { Metadata } from 'next'
 import { notFound, redirect } from 'next/navigation'
 import { MemberEditForm } from '@/components/admin/member-edit-form'
 import { createClient } from '@/lib/supabase/server'
-import { MEMBERS_PATH } from '@/lib/auth/roles'
+import { DESK_PATH, MEMBERS_PATH } from '@/lib/auth/roles'
 
 export const metadata: Metadata = {
   title: 'แก้ไขข้อมูลสมาชิก | RAVENTA Back Office',
@@ -18,7 +18,7 @@ export default async function EditMemberPage({ params }: { params: Promise<{ id:
   if (!user) redirect(`/login?next=${MEMBERS_PATH}/${id}`)
 
   const { data: adminProfile } = await supabase.from('profiles').select('role').eq('id', user.id).single()
-  if (adminProfile?.role !== 'admin') redirect('/account')
+  if (adminProfile?.role !== 'admin') redirect(DESK_PATH)
 
   const { data: member } = await supabase
     .from('profiles')

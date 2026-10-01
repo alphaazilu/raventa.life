@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useRef, useState, useTransition } from 'react'
-import { Gift, Lock, LogOut, RotateCcw, Search, Undo2, UserRound } from 'lucide-react'
+import { Gift, Lock, LogOut, RotateCcw, Search, Undo2 } from 'lucide-react'
 import { useLanguage } from '@/components/language-provider'
 import { AvatarCircle } from '@/components/account/avatar'
 import { QrScanner } from '@/components/admin/qr-scanner'
@@ -34,13 +34,11 @@ type Panel =
 const FLOOR_REFRESH_MS = 30_000
 
 export function CheckInDesk({
-  staffName,
   showTakings,
   initialFloor,
   initialError,
   initialMember = null,
 }: {
-  staffName: string
   // Day totals are for admins only; staff see each visit's method, not sums.
   showTakings: boolean
   initialFloor: Floor | null
@@ -131,14 +129,9 @@ export function CheckInDesk({
   const member = panel.kind === 'member' ? panel.member : null
 
   return (
-    <div className="mx-auto max-w-6xl px-4 py-4 md:py-6">
-      <header className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="font-display text-2xl font-extrabold text-foreground md:text-3xl">{tr(deskCopy.title)}</h1>
-        <p className="text-sm text-muted-foreground">
-          <UserRound className="mr-1 inline h-4 w-4 align-[-3px]" aria-hidden="true" />
-          {staffName}
-        </p>
-      </header>
+    <div className="mx-auto max-w-6xl px-4 py-3 md:py-4">
+      {/* The console bar shows the tab name and who is working. */}
+      <h1 className="sr-only">{tr(deskCopy.title)}</h1>
 
       {notice && (
         <div role="status" className="mt-4 rounded-2xl bg-accent/15 px-4 py-3 text-sm font-semibold text-accent">
@@ -151,10 +144,14 @@ export function CheckInDesk({
         </div>
       )}
 
-      <div className="mt-4 grid gap-4 md:grid-cols-[minmax(0,5fr)_minmax(0,7fr)]">
+      <div className="grid gap-4 md:grid-cols-[minmax(0,5fr)_minmax(0,7fr)]">
         <section className="rounded-2xl border border-border bg-card p-4">
           <h2 className="mb-3 text-base font-semibold text-card-foreground">{tr(deskCopy.scanHeading)}</h2>
-          <QrScanner onCode={handleCode} paused={busy || member !== null} />
+          <QrScanner
+            onCode={handleCode}
+            paused={busy || member !== null}
+            pausedText={tr(member !== null ? deskCopy.scanPausedMember : deskCopy.scanChecking)}
+          />
 
           <form onSubmit={handleSearch} className="mt-4 flex gap-2">
             <input

@@ -1,6 +1,6 @@
 'use client'
 
-import Link from 'next/link'
+import Link, { useLinkStatus } from 'next/link'
 import { useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { BarChart3, ChevronRight, Clock, Receipt, Users, type LucideIcon } from 'lucide-react'
@@ -167,7 +167,7 @@ function Module({
       </div>
       <span className="mt-3 flex items-center justify-between gap-2 text-base font-bold">
         {title}
-        {!soon && <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />}
+        {!soon && (href ? <LinkChevron /> : <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />)}
       </span>
       <span className="mt-1 text-sm leading-snug text-muted-foreground">{desc}</span>
       {meta && <span className="mt-2 text-xs font-semibold text-secondary-foreground">{meta}</span>}
@@ -206,5 +206,14 @@ function HourlyChart({ hourly }: { hourly: { hour: number; count: number }[] }) 
         </div>
       ))}
     </div>
+  )
+}
+
+function LinkChevron() {
+  const { pending } = useLinkStatus()
+  return pending ? (
+    <span aria-hidden="true" className="h-4 w-4 shrink-0 rounded-full border-2 border-primary/30 border-t-primary motion-safe:animate-spin" />
+  ) : (
+    <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
   )
 }

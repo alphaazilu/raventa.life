@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import jsQR from 'jsqr'
-import { Camera, CameraOff, SwitchCamera } from 'lucide-react'
+import { Camera, CameraOff, Pause, SwitchCamera } from 'lucide-react'
 import { useLanguage } from '@/components/language-provider'
 import { deskCopy } from '@/lib/check-in/copy'
 
@@ -16,21 +16,53 @@ const MAX_SIDE = 640
 // The same code seen again within this window is ignored (the member is
 // still holding their phone up after the first read).
 const REPEAT_MS = 4000
+// No code read for this long → the camera switches itself off (battery and
+// heat on a tablet left at the counter all day). A tap turns it back on.
+const IDLE_OFF_MS = 5 * 60 * 1000
 
 type Facing = 'user' | 'environment'
-type CamState = 'off' | 'starting' | 'on' | 'denied' | 'unavailable'
+const FACING_KEY = 'rv-desk-camera'
+type CamState = 'off' | 'idle' | 'starting' | 'on' | 'denied' | 'unavailable'
 
-export function QrScanner({ onCode, paused }: { onCode: (text: string) => void; paused: boolean }) {
+export function QrScanner({
+  onCode,
+  paused,
+  pausedText,
+  hint,
+  autoStart = false,
+}: {
+  onCode: (text: string) => void
+  paused: boolean
+  // Line under the camera; defaults to the front-desk hint for guests.
+  hint?: string | null
+  // Open the camera straight away (the tablet lock screen).
+  autoStart?: boolean
+  // Shown over the camera while paused, e.g. "Paused — tap Next guest".
+  pausedText?: string
+}) {
   const { tr } = useLanguage()
   const videoRef = useRef<HTMLVideoElement>(null)
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
   const streamRef = useRef<MediaStream | null>(null)
   const lastRef = useRef<{ text: string; at: number }>({ text: '', at: 0 })
+  const activityRef = useRef(0)
   const onCodeRef = useRef(onCode)
   const pausedRef = useRef(paused)
   const [state, setState] = useState<CamState>('off')
-  // A counter tablet usually faces the guest, so the front camera first.
-  const [facing, setFacing] = useState<Facing>('user')
+  // Back camera by default (v0.14); a switch made on this device is
+  // remembered so a tablet set up the other way round stays that way.
+  const [facing, setFacing] = useState<Facing>('environment')
+  useEffect(() => {
+    let which: Facing = 'environment'
+    try {
+      if (localStorage.getItem(FACING_KEY) === 'user') which = 'user'
+    } catch {
+      /* storage unavailable — keep the back camera */
+    }
+    setFacing(which)
+    if (autoStart) void startRef.current(which)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   onCodeRef.current = onCode
   pausedRef.current = paused
@@ -60,6 +92,7 @@ export function QrScanner({ onCode, paused }: { onCode: (text: string) => void; 
           video.srcObject = stream
           await video.play().catch(() => {})
         }
+        activityRef.current = Date.now()
         setState('on')
       } catch (err) {
         const name = err instanceof DOMException ? err.name : ''
@@ -68,6 +101,8 @@ export function QrScanner({ onCode, paused }: { onCode: (text: string) => void; 
     },
     [stop],
   )
+  const startRef = useRef(start)
+  startRef.current = start
 
   // Decode loop while the camera is on.
   useEffect(() => {
@@ -94,12 +129,27 @@ export function QrScanner({ onCode, paused }: { onCode: (text: string) => void; 
       const now = Date.now()
       if (found.data === lastRef.current.text && now - lastRef.current.at < REPEAT_MS) return
       lastRef.current = { text: found.data, at: now }
+      activityRef.current = now
       navigator.vibrate?.(60)
       onCodeRef.current(found.data)
     }
     raf = requestAnimationFrame(tick)
     return () => cancelAnimationFrame(raf)
   }, [state])
+
+  // Auto-off after a quiet spell (time spent paused on a guest counts as
+  // activity, so it never switches off mid-sale).
+  useEffect(() => {
+    if (state !== 'on') return
+    const id = setInterval(() => {
+      if (pausedRef.current) activityRef.current = Date.now()
+      else if (Date.now() - activityRef.current > IDLE_OFF_MS) {
+        stop()
+        setState('idle')
+      }
+    }, 15_000)
+    return () => clearInterval(id)
+  }, [state, stop])
 
   useEffect(() => stop, [stop])
 
@@ -116,10 +166,29 @@ export function QrScanner({ onCode, paused }: { onCode: (text: string) => void; 
         />
         {on && (
           <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
-            <div className={`h-3/5 aspect-square rounded-2xl border-4 ${paused ? 'border-white/30' : 'border-white/80'}`} />
+            <div className={`h-3/5 aspect-square rounded-2xl border-4 ${paused ? 'border-white/25' : 'border-white/80'}`} />
           </div>
         )}
-        {!on && (
+        {on && paused && pausedText && (
+          <div className="pointer-events-none absolute inset-0 flex items-center justify-center bg-black/55 p-6">
+            <p className="flex items-center gap-2 rounded-full bg-background/95 px-4 py-2 text-center text-sm font-semibold text-foreground shadow">
+              <Pause className="h-4 w-4 shrink-0" aria-hidden="true" />
+              {pausedText}
+            </p>
+          </div>
+        )}
+        {state === 'idle' && (
+          <button
+            type="button"
+            onClick={() => start(facing)}
+            className="absolute inset-0 flex flex-col items-center justify-center gap-3 p-6 text-center text-sm text-background/85"
+          >
+            <Camera className="h-9 w-9" aria-hidden="true" />
+            <span className="font-semibold">{tr(deskCopy.cameraIdleOff)}</span>
+            <span className="rounded-full bg-background px-5 py-2.5 font-semibold text-foreground">{tr(deskCopy.cameraTapToStart)}</span>
+          </button>
+        )}
+        {!on && state !== 'idle' && (
           <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 p-6 text-center text-sm text-background/80">
             <CameraOff className="h-8 w-8" aria-hidden="true" />
             {state === 'denied' && <p>{tr(deskCopy.cameraDenied)}</p>}
@@ -137,7 +206,7 @@ export function QrScanner({ onCode, paused }: { onCode: (text: string) => void; 
       </div>
 
       <div className="mt-2 flex items-center justify-between gap-2">
-        <p className="text-xs leading-relaxed text-muted-foreground">{tr(deskCopy.cameraHint)}</p>
+        <p className="text-xs leading-relaxed text-muted-foreground">{hint === undefined ? tr(deskCopy.cameraHint) : hint}</p>
         {on && (
           <span className="flex shrink-0 gap-1">
             <button
@@ -145,6 +214,11 @@ export function QrScanner({ onCode, paused }: { onCode: (text: string) => void; 
               onClick={() => {
                 const next = facing === 'user' ? 'environment' : 'user'
                 setFacing(next)
+                try {
+                  localStorage.setItem(FACING_KEY, next)
+                } catch {
+                  /* not remembered — fine */
+                }
                 void start(next)
               }}
               className="rounded-full p-2 text-muted-foreground hover:bg-secondary hover:text-foreground"
