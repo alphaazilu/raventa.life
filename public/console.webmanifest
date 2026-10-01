@@ -3,7 +3,7 @@
   "short_name": "RAVENTA BO",
   "description": "RAVENTA Wellness Retreat — Back Office",
   "id": "/console",
-  "start_url": "/console/desk",
+  "start_url": "/tablet",
   "scope": "/",
   "display": "fullscreen",
   "display_override": ["fullscreen", "standalone"],
