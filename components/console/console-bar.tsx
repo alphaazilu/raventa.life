@@ -9,6 +9,7 @@ import { useLanguage } from '@/components/language-provider'
 import { consoleCopy } from '@/lib/console/copy'
 import { CATALOG_PATH, CONSOLE_PATH, DESK_PATH, DEVICES_PATH, MEMBERS_PATH, TIME_PATH } from '@/lib/auth/roles'
 import { cn } from '@/lib/utils'
+import { AppVersion } from '@/components/console/app-version'
 
 type Tab = {
   key: string
@@ -125,6 +126,7 @@ export function ConsoleBar({
             {tr(consoleCopy.backOffice)}
           </span>
         </Link>
+        <AppVersion className="hidden shrink-0 2xl:inline" />
 
         <div className="hidden min-w-0 flex-1 justify-center lg:flex">{nav}</div>
 

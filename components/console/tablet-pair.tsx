@@ -1,5 +1,7 @@
 'use client'
 
+import { AppVersion } from '@/components/console/app-version'
+import { InstallApp } from '@/components/console/install-app'
 import Image from 'next/image'
 import { useCallback, useEffect, useState } from 'react'
 import { Clock, Lock } from 'lucide-react'
@@ -90,6 +92,7 @@ export function TabletPair({ siteUrl }: { siteUrl: string }) {
             {tr(consoleCopy.pairHeading)}
           </h1>
           <p className="mt-3 text-base leading-relaxed text-muted-foreground">{tr(consoleCopy.pairIntro)}</p>
+          <InstallApp className="mt-6" />
           <ol className="mt-7 space-y-4">
             {[consoleCopy.pairStep1, consoleCopy.pairStep2, consoleCopy.pairStep3].map((s, i) => (
               <li key={i} className="flex items-start gap-3.5">
@@ -157,6 +160,7 @@ export function TabletPair({ siteUrl }: { siteUrl: string }) {
       <p className="flex items-center gap-2 text-xs text-muted-foreground">
         <Lock className="h-3.5 w-3.5" aria-hidden="true" />
         {tr(consoleCopy.pairFooter)}
+        <AppVersion className="ml-auto" />
       </p>
     </main>
   )

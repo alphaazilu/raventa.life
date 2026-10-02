@@ -1,5 +1,6 @@
 'use client'
 
+import { AppVersion } from '@/components/console/app-version'
 import Image from 'next/image'
 import { useEffect, useState, useTransition } from 'react'
 import { Check, KeyRound, LogOut, Tablet } from 'lucide-react'
@@ -113,6 +114,7 @@ export function TabletLock({
           </a>
         </div>
       )}
+      <AppVersion className="text-center" />
     </main>
   )
 }
