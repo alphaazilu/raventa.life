@@ -13,7 +13,7 @@ export function AboutSection() {
         <div className="relative">
           <div className="relative aspect-[4/5] overflow-hidden rounded-2xl">
             <Image
-              src="/images/about-pool.png"
+              src="/images/about-pool.webp"
               alt={tr({ th: 'บ่อน้ำร้อนท่ามกลางธรรมชาติ', en: 'Hot pool surrounded by nature' })}
               fill
               sizes="(min-width: 768px) 40vw, 100vw"

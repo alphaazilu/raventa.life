@@ -3,7 +3,7 @@
 import { useMemo, useState } from 'react'
 import { useLanguage } from '@/components/language-provider'
 import { authCopy } from '@/lib/auth/copy'
-import { AvatarCircle } from '@/components/account/avatar'
+import { AvatarCircle } from '@/components/account/avatar-circle'
 import { MEMBERS_PATH } from '@/lib/auth/roles'
 import { consoleCopy } from '@/lib/console/copy'
 

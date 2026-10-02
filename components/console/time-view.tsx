@@ -9,24 +9,19 @@ import { Spinner } from '@/components/ui/spinner'
 import { timeCopy, timeErrors } from '@/lib/console/copy'
 import { TIME_PATH } from '@/lib/auth/roles'
 import type { TimeEntry } from '@/lib/console/time'
-import { entryStats, type ShiftAssignment, type ShiftTemplate, type TimeSettings } from '@/lib/console/shift-math'
+import { entryStats, isForgotten, minutesOf, type ShiftAssignment, type ShiftTemplate, type TimeSettings } from '@/lib/console/shift-math'
 import { RosterGrid, ShiftSettings } from '@/components/console/shift-admin'
 import { addEntry, clockOut, editEntry } from '@/app/console/time/actions'
 import { cn } from '@/lib/utils'
 
 const TZ = 'Asia/Bangkok'
-const FORGOT_AFTER_MS = 14 * 60 * 60 * 1000
 
 const inputClass =
   'w-full rounded-xl border border-border bg-background px-3 py-2 text-sm text-foreground outline-none focus:border-primary'
 const btn =
   'inline-flex items-center justify-center gap-2 rounded-full px-5 py-2.5 text-sm font-semibold transition-opacity disabled:cursor-not-allowed disabled:opacity-50'
 
-function minutesOf(e: TimeEntry, now: number) {
-  const end = e.clockOut ? Date.parse(e.clockOut) : now
-  return Math.max(0, Math.round((end - Date.parse(e.clockIn)) / 60000))
-}
-const forgotten = (e: TimeEntry, now: number) => !e.clockOut && now - Date.parse(e.clockIn) > FORGOT_AFTER_MS
+const forgotten = isForgotten
 const toLocal = (iso: string) => new Date(Date.parse(iso) + 7 * 3600 * 1000).toISOString().slice(0, 16)
 const addDays = (iso: string, n: number) => {
   const d = new Date(`${iso}T00:00:00Z`)

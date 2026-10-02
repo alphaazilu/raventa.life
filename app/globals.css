@@ -1,12 +1,11 @@
 @import 'tailwindcss';
-@import 'tw-animate-css';
-@import 'shadcn/tailwind.css';
 
 @custom-variant dark (&:is(.dark *));
 /* A phone held sideways (tablets and laptops in landscape don't count). */
 @custom-variant phone-landscape (@media (orientation: landscape) and (max-height: 520px));
 
 @theme inline {
+  --animate-fade-in: fade-in 150ms ease-out;
   --font-sans: var(--font-noto), ui-sans-serif, system-ui, sans-serif;
   --font-display: var(--font-sora), var(--font-noto), ui-sans-serif, sans-serif;
 
@@ -136,4 +135,10 @@
 @keyframes rv-slide {
   0% { transform: translateX(-100%); }
   100% { transform: translateX(250%); }
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
 }

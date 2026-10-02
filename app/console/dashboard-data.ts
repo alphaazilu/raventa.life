@@ -32,15 +32,12 @@ export async function loadDashboard(): Promise<DashboardData> {
   ])
 
   const visits = floor.ok ? floor.data.visits : []
-  const takings = { cash: 0, transfer: 0, card: 0, total: 0 }
+  // Bills plus older check-ins without one (see getFloor).
+  const takings = floor.ok ? floor.data.takings : { cash: 0, transfer: 0, card: 0, total: 0 }
   let free = 0
   const byHour = new Map<number, number>()
   for (const v of visits) {
     if (v.entryType === 'reward') free++
-    else if (v.paymentMethod) {
-      takings[v.paymentMethod] += v.price
-      takings.total += v.price
-    }
     const h = bangkokHour(v.checkedInAt)
     byHour.set(h, (byHour.get(h) ?? 0) + 1)
   }

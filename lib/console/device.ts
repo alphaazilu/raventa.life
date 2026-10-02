@@ -1,10 +1,11 @@
+import { isMissingTable } from '@/lib/console/guard'
 import { createHash, randomBytes, randomInt } from 'node:crypto'
 import { cache } from 'react'
 import { cookies } from 'next/headers'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { DEVICE_COOKIE, PAIR_COOKIE } from './device-cookie'
 
-export { DEVICE_COOKIE, PAIR_COOKIE }
+export { DEVICE_COOKIE }
 
 // Counter-tablet registration (supabase/schema.sql §15, Vault R2).
 //
@@ -13,7 +14,7 @@ export { DEVICE_COOKIE, PAIR_COOKIE }
 // its own long-lived key. The database only ever sees SHA-256 hashes of
 // either. SERVER ONLY — uses the service-role client.
 
-export const PAIR_TTL_MS = 10 * 60 * 1000
+const PAIR_TTL_MS = 10 * 60 * 1000
 const DEVICE_TTL_S = 365 * 24 * 60 * 60
 // Only touch last_seen_at this often (every request would be wasteful).
 const SEEN_EVERY_MS = 5 * 60 * 1000
@@ -163,5 +164,5 @@ export async function pollPairing(): Promise<PairStatus> {
 }
 
 function missing(error: { code?: string } | null): boolean {
-  return Boolean(error?.code && ['PGRST202', 'PGRST205', '42883', '42P01'].includes(error.code))
+  return isMissingTable(error)
 }

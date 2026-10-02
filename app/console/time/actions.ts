@@ -1,12 +1,13 @@
 'use server'
 
+import { requireAdmin } from '@/lib/console/guard'
 import { redirect } from 'next/navigation'
 import { revalidatePath } from 'next/cache'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getConsoleSession } from '@/lib/console/session'
 import { getCurrentDevice } from '@/lib/console/device'
 import { bangkokLocalToIso, getOpenEntry } from '@/lib/console/time'
-import { CONSOLE_PATH, isAdmin, TIME_PATH } from '@/lib/auth/roles'
+import { CONSOLE_PATH, TIME_PATH } from '@/lib/auth/roles'
 
 export type TimeResult = { ok: true } | { ok: false; error: string }
 
@@ -37,12 +38,6 @@ export async function clockOut(): Promise<TimeResult> {
   })
   await supabase.auth.signOut()
   redirect(CONSOLE_PATH)
-}
-
-async function requireAdmin(): Promise<{ userId: string } | { error: string }> {
-  const { user, role } = await getConsoleSession()
-  if (!user || !isAdmin(role)) return { error: 'not_admin' }
-  return { userId: user.id }
 }
 
 function parseTimes(inLocal: string, outLocal: string): { inIso: string; outIso: string | null } | { error: string } {

@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import type { User } from '@supabase/supabase-js'
-import { createClient } from '@/lib/supabase/client'
+import { getBrowserClient } from '@/lib/supabase/client'
 
 /**
  * Tracks the current Supabase auth user on the client, for UI like the
@@ -13,20 +13,26 @@ export function useSupabaseUser() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    const supabase = createClient()
-
-    supabase.auth.getUser().then(({ data }) => {
-      setUser(data.user)
-      setLoading(false)
+    let cancelled = false
+    let unsubscribe = () => {}
+    void getBrowserClient().then((supabase) => {
+      if (cancelled) return
+      supabase.auth.getUser().then(({ data }) => {
+        if (cancelled) return
+        setUser(data.user)
+        setLoading(false)
+      })
+      const {
+        data: { subscription },
+      } = supabase.auth.onAuthStateChange((_event, session) => {
+        setUser(session?.user ?? null)
+      })
+      unsubscribe = () => subscription.unsubscribe()
     })
-
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user ?? null)
-    })
-
-    return () => subscription.unsubscribe()
+    return () => {
+      cancelled = true
+      unsubscribe()
+    }
   }, [])
 
   return { user, loading }

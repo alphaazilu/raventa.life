@@ -11,7 +11,7 @@ export function HeroSection() {
   return (
     <section id="top" className="relative min-h-screen w-full overflow-hidden">
       <Image
-        src="/images/hero-bg.png"
+        src="/images/hero-bg.webp"
         alt=""
         fill
         priority

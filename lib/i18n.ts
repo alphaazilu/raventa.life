@@ -13,7 +13,7 @@ export type Zone = {
 export const zones: Zone[] = [
   {
     id: 'warm-roots',
-    image: '/images/warm-roots.jpg',
+    image: '/images/warm-roots.webp',
     category: { th: 'บ่อน้ำร้อน', en: 'Hot Pool' },
     meta: '38°C',
     name: { th: 'รากแห่งความอบอุ่น', en: 'Warm Roots' },
@@ -25,7 +25,7 @@ export const zones: Zone[] = [
   },
   {
     id: 'heartwood',
-    image: '/images/heartwood.jpg',
+    image: '/images/heartwood.webp',
     category: { th: 'บ่อน้ำร้อน', en: 'Hot Pool' },
     meta: '40°C',
     name: { th: 'แก่นแห่งพลัง', en: 'Heartwood' },
@@ -37,7 +37,7 @@ export const zones: Zone[] = [
   },
   {
     id: 'living-sap',
-    image: '/images/living-sap.jpg',
+    image: '/images/living-sap.webp',
     category: { th: 'บ่อแช่เย็น', en: 'Cold Plunge' },
     meta: '10°C',
     name: { th: 'สายน้ำแห่งชีวิต', en: 'Living Sap' },
@@ -49,7 +49,7 @@ export const zones: Zone[] = [
   },
   {
     id: 'winter-ring',
-    image: '/images/winter-ring.jpg',
+    image: '/images/winter-ring.webp',
     category: { th: 'บ่อแช่เย็น', en: 'Cold Plunge' },
     meta: '5°C',
     name: { th: 'วงปีแห่งฤดูหนาว', en: 'Winter Ring' },
@@ -61,7 +61,7 @@ export const zones: Zone[] = [
   },
   {
     id: 'sunlight',
-    image: '/images/sunlight.jpg',
+    image: '/images/sunlight.webp',
     category: { th: 'ซาวน่า', en: 'Sauna' },
     meta: '80°C',
     name: { th: 'แสงแห่งการเติบโต', en: 'Sunlight' },
@@ -73,7 +73,7 @@ export const zones: Zone[] = [
   },
   {
     id: 'forest-mist',
-    image: '/images/forest-mist.jpg',
+    image: '/images/forest-mist.webp',
     category: { th: 'ห้องสตีม', en: 'Steam Room' },
     meta: '45°C',
     name: { th: 'สายหมอกแห่งพงไพร', en: 'Forest Mist' },
@@ -85,7 +85,7 @@ export const zones: Zone[] = [
   },
   {
     id: 'golden-leaf',
-    image: '/images/golden-leaf.jpg',
+    image: '/images/golden-leaf.webp',
     category: { th: 'อาบแดด', en: 'Sun Bath' },
     meta: 'Outdoor',
     name: { th: 'ใบไม้รับแสง', en: 'Golden Leaf' },
@@ -97,7 +97,7 @@ export const zones: Zone[] = [
   },
   {
     id: 'the-canopy',
-    image: '/images/the-canopy.jpg',
+    image: '/images/the-canopy.webp',
     category: { th: 'คาเฟ่ & พักผ่อน', en: 'Café & Rest' },
     meta: 'Rest',
     name: { th: 'เรือนยอดแห่งการพักพิง', en: 'The Canopy' },

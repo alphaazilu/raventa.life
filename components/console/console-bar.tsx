@@ -7,7 +7,7 @@ import { useEffect, useState } from 'react'
 import { Expand, Globe, Lock, LogOut, ShieldAlert, Shrink } from 'lucide-react'
 import { useLanguage } from '@/components/language-provider'
 import { consoleCopy } from '@/lib/console/copy'
-import { CONSOLE_PATH, DESK_PATH, DEVICES_PATH, MEMBERS_PATH, TIME_PATH } from '@/lib/auth/roles'
+import { CATALOG_PATH, CONSOLE_PATH, DESK_PATH, DEVICES_PATH, MEMBERS_PATH, TIME_PATH } from '@/lib/auth/roles'
 import { cn } from '@/lib/utils'
 
 type Tab = {
@@ -27,6 +27,7 @@ const TABS: Tab[] = [
   { key: 'desk', label: consoleCopy.tabDesk, href: DESK_PATH },
   { key: 'members', label: consoleCopy.tabMembers, href: MEMBERS_PATH, adminOnly: true, staffOnTablet: true },
   { key: 'time', label: consoleCopy.tabTime, href: TIME_PATH, adminOnly: true, staffOnTablet: true },
+  { key: 'catalog', label: consoleCopy.tabCatalog, href: CATALOG_PATH, adminOnly: true, notOnTablet: true },
   { key: 'reports', label: consoleCopy.tabReports, adminOnly: true },
   { key: 'devices', label: consoleCopy.tabDevices, href: DEVICES_PATH, adminOnly: true, notOnTablet: true },
 ]

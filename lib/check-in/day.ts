@@ -1,6 +1,6 @@
 // The spa's calendar runs on Bangkok time, whatever timezone the server
 // (Vercel: UTC) or the tablet is set to.
-export const SPA_TIMEZONE = 'Asia/Bangkok'
+const SPA_TIMEZONE = 'Asia/Bangkok'
 
 // Display-only ceiling for "people in the spa now" (see R1 §5 — proposed
 // 40; not enforced by the database yet).

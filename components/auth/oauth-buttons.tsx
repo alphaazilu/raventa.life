@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { useLanguage } from '@/components/language-provider'
 import { authCopy } from '@/lib/auth/copy'
-import { createClient } from '@/lib/supabase/client'
+import { getBrowserClient } from '@/lib/supabase/client'
 import { Spinner } from '@/components/ui/spinner'
 
 export function GoogleIcon(props: React.SVGProps<SVGSVGElement>) {
@@ -55,7 +55,7 @@ const PROVIDER_SCOPES: Partial<Record<OAuthProvider, string>> = {
 // Sends the browser off to the provider. Resolves with an error only when
 // the redirect couldn't even start; on success the page is already leaving.
 export async function startOAuth(provider: OAuthProvider, next: string) {
-  const supabase = createClient()
+  const supabase = await getBrowserClient()
   const redirectTo = `${window.location.origin}/auth/callback?next=${encodeURIComponent(next)}`
   return supabase.auth.signInWithOAuth({
     provider,

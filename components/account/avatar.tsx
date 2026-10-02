@@ -5,48 +5,14 @@ import { Camera } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { useLanguage } from '@/components/language-provider'
 import { authCopy } from '@/lib/auth/copy'
-import { createClient } from '@/lib/supabase/client'
+import { getBrowserClient } from '@/lib/supabase/client'
 import { Spinner } from '@/components/ui/spinner'
 import { cn } from '@/lib/utils'
 import { setAvatar, removeAvatar } from '@/app/account/avatar-actions'
+import { AvatarCircle } from '@/components/account/avatar-circle'
 
 const OUTPUT_SIZE = 512 // px, square
 const JPEG_QUALITY = 0.85
-
-// Round profile picture. Shows the photo if there is one, otherwise the
-// first letter of the name on the brand colour. Also falls back to the
-// letter if the photo link has stopped working (e.g. an old LINE picture).
-export function AvatarCircle({
-  src,
-  name,
-  className,
-}: {
-  src: string | null
-  name: string
-  className?: string
-}) {
-  const [broken, setBroken] = useState(false)
-  // Skip Thai leading vowels (เ แ โ ใ ไ) so "เอก" shows "อ", not "เ".
-  const initial = (name.trim().replace(/^[เแโใไ]+/, '')[0] ?? '?').toUpperCase()
-  return (
-    <span
-      className={cn(
-        'inline-flex shrink-0 items-center justify-center overflow-hidden rounded-full bg-primary font-display font-bold text-primary-foreground',
-        className,
-      )}
-      aria-hidden="true"
-    >
-      {src && !broken ? (
-        // Plain <img>: the photo is a short-lived signed link (or a LINE/
-        // Google URL), which Next's image optimiser has no use for here.
-        // eslint-disable-next-line @next/next/no-img-element
-        <img src={src} alt="" className="h-full w-full object-cover" onError={() => setBroken(true)} />
-      ) : (
-        initial
-      )}
-    </span>
-  )
-}
 
 // Shrinks and centre-crops the chosen photo to a 512px JPEG before upload,
 // so uploads are quick on mobile data and every stored file is small. Uses
@@ -101,7 +67,7 @@ export function AvatarEditor({
       }
       // A new file name each time, so browsers never show a cached old photo.
       const path = `${userId}/${Date.now()}.jpg`
-      const { error: uploadError } = await createClient()
+      const { error: uploadError } = await (await getBrowserClient())
         .storage.from('avatars')
         .upload(path, jpeg, { contentType: 'image/jpeg' })
       if (uploadError) {

@@ -1,23 +1,30 @@
 'use client'
 
 import { useCallback, useEffect, useRef, useState, useTransition } from 'react'
-import { Gift, Lock, LogOut, RotateCcw, Search, Undo2 } from 'lucide-react'
+import { Gift, Lock, LogOut, RotateCcw, Search, ShoppingBag, Undo2 } from 'lucide-react'
 import { useLanguage } from '@/components/language-provider'
-import { AvatarCircle } from '@/components/account/avatar'
+import { AvatarCircle } from '@/components/account/avatar-circle'
 import { QrScanner } from '@/components/admin/qr-scanner'
+import { BillBuilder } from '@/components/admin/bill-builder'
 import { Spinner } from '@/components/ui/spinner'
-import { deskCopy, deskErrors, fill } from '@/lib/check-in/copy'
+import { deskCopy, deskErrors } from '@/lib/check-in/copy'
 import { bangkokTime, FLOOR_CAPACITY } from '@/lib/check-in/day'
 import { formatMemberDate, formatMemberNo } from '@/lib/format-date'
+import { receiptLabel } from '@/lib/console/catalog'
 import { cn } from '@/lib/utils'
 import {
   cancelVisit,
-  checkIn,
+  checkoutBill,
   checkOut,
+  getDeskCatalog,
   getFloor,
   getMember,
   lookupByToken,
   searchMembers,
+  voidSale,
+  type BillInput,
+  type CheckoutDone,
+  type DeskCatalog,
   type DeskMember,
   type DeskResult,
   type Floor,
@@ -30,6 +37,7 @@ type Panel =
   | { kind: 'empty' }
   | { kind: 'hits'; hits: MemberHit[] }
   | { kind: 'member'; member: DeskMember }
+  | { kind: 'sell' }
 
 const FLOOR_REFRESH_MS = 30_000
 
@@ -38,12 +46,14 @@ export function CheckInDesk({
   initialFloor,
   initialError,
   initialMember = null,
+  initialCatalog = null,
 }: {
   // Day totals are for admins only; staff see each visit's method, not sums.
   showTakings: boolean
   initialFloor: Floor | null
   initialError: string | null
   initialMember?: DeskMember | null
+  initialCatalog?: DeskCatalog
 }) {
   const { tr } = useLanguage()
   const [panel, setPanel] = useState<Panel>(initialMember ? { kind: 'member', member: initialMember } : { kind: 'empty' })
@@ -52,6 +62,9 @@ export function CheckInDesk({
   const [notice, setNotice] = useState<string | null>(null)
   const [query, setQuery] = useState('')
   const [busy, startBusy] = useTransition()
+  const [catalog, setCatalog] = useState<DeskCatalog>(initialCatalog)
+  // Bumped after each sale so a fresh, empty bill is shown.
+  const [billKey, setBillKey] = useState(0)
 
   const errText = (code: string) => tr(deskErrors[code] ?? deskErrors.failed)
 
@@ -126,6 +139,27 @@ export function CheckInDesk({
 
   const reloadMember = (id: string) => run(() => getMember(id), showMember)
 
+  const afterChange = () => {
+    void refreshFloor()
+    void getDeskCatalog().then((r) => r.ok && setCatalog(r.data))
+    setBillKey((k) => k + 1)
+  }
+
+  const pay = (memberId: string | null, bill: Omit<BillInput, 'memberId'> & { paymentMethod: PaymentMethod | null; wristband: string }) =>
+    run(
+      () => checkoutBill({ memberId, ...bill }),
+      (done: CheckoutDone) => {
+        const receipt = done.receiptNo ? ` · ${tr(deskCopy.receipt)} ${receiptLabel(done.receiptNo)}` : ''
+        if (done.member) {
+          showMember(done.member)
+          setNotice(`${tr(deskCopy.doneCheckIn)} · ${done.member.name}${receipt}`)
+        } else {
+          setNotice(`${tr(deskCopy.doneSale)} ${done.total.toLocaleString()} ${tr(deskCopy.baht)}${receipt}`)
+        }
+        afterChange()
+      },
+    )
+
   const member = panel.kind === 'member' ? panel.member : null
 
   return (
@@ -184,8 +218,45 @@ export function CheckInDesk({
             </div>
           )}
           {panel.kind === 'empty' && (
-            <div className="flex h-full min-h-[280px] items-center justify-center text-center text-sm text-muted-foreground">
+            <div className="flex h-full min-h-[280px] flex-col items-center justify-center gap-4 text-center text-sm text-muted-foreground">
               {tr(deskCopy.emptyPanel)}
+              {catalog && catalog.items.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setPanel({ kind: 'sell' })}
+                  className="inline-flex items-center gap-2 rounded-full border border-border px-4 py-2 text-sm font-semibold text-foreground hover:border-primary/40"
+                >
+                  <ShoppingBag className="h-4 w-4" aria-hidden="true" />
+                  {tr(deskCopy.sellOnly)}
+                </button>
+              )}
+            </div>
+          )}
+          {panel.kind === 'sell' && (
+            <div>
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <h2 className="font-display text-xl font-bold text-card-foreground">{tr(deskCopy.sellOnlyHeading)}</h2>
+                  <p className="mt-0.5 text-xs text-muted-foreground">{tr(deskCopy.sellOnlyHint)}</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={reset}
+                  className="inline-flex shrink-0 items-center gap-1 rounded-full border border-border px-3 py-1.5 text-sm font-semibold text-foreground hover:border-primary/40"
+                >
+                  <RotateCcw className="h-3.5 w-3.5" aria-hidden="true" />
+                  {tr(deskCopy.nextGuest)}
+                </button>
+              </div>
+              <BillBuilder
+                key={`sell-${billKey}`}
+                memberId={null}
+                withDayPass={false}
+                rewardReady={false}
+                catalog={catalog}
+                busy={busy}
+                onPay={(bill) => pay(null, bill)}
+              />
             </div>
           )}
           {panel.kind === 'hits' && (
@@ -199,17 +270,10 @@ export function CheckInDesk({
             <MemberPanel
               member={member}
               busy={busy}
+              catalog={catalog}
+              billKey={billKey}
               onNext={reset}
-              onCheckIn={(entryType, paymentMethod, wristband) =>
-                run(
-                  () => checkIn({ memberId: member.id, entryType, paymentMethod, wristband }),
-                  (m) => {
-                    showMember(m)
-                    setNotice(`${tr(deskCopy.doneCheckIn)} · ${m.name}`)
-                    void refreshFloor()
-                  },
-                )
-              }
+              onPay={(bill) => pay(member.id, bill)}
               onCheckOut={(visitId) =>
                 run(
                   () => checkOut(visitId),
@@ -220,13 +284,13 @@ export function CheckInDesk({
                   },
                 )
               }
-              onCancel={(visitId, reason) =>
+              onCancel={(visit, reason) =>
                 run(
-                  () => cancelVisit(visitId, reason),
+                  () => (visit.saleId ? voidSale(visit.saleId, reason) : cancelVisit(visit.id, reason)),
                   () => {
-                    setNotice(`${tr(deskCopy.doneCancel)} · ${member.name}`)
+                    setNotice(`${tr(visit.saleId ? deskCopy.doneVoid : deskCopy.doneCancel)} · ${member.name}`)
                     reloadMember(member.id)
-                    void refreshFloor()
+                    afterChange()
                   },
                 )
               }
@@ -303,28 +367,28 @@ function maskPhone(phone: string): string {
 function MemberPanel({
   member,
   busy,
+  catalog,
+  billKey,
   onNext,
-  onCheckIn,
+  onPay,
   onCheckOut,
   onCancel,
 }: {
   member: DeskMember
   busy: boolean
+  catalog: DeskCatalog
+  billKey: number
   onNext: () => void
-  onCheckIn: (entryType: 'paid' | 'reward', method: PaymentMethod | null, wristband: string) => void
+  onPay: (bill: Omit<BillInput, 'memberId'> & { paymentMethod: PaymentMethod | null; wristband: string }) => void
   onCheckOut: (visitId: string) => void
-  onCancel: (visitId: string, reason: string) => void
+  onCancel: (visit: NonNullable<DeskMember['today']>, reason: string) => void
 }) {
   const { tr, lang } = useLanguage()
-  const [method, setMethod] = useState<PaymentMethod | null>(null)
-  const [wristband, setWristband] = useState('')
   const [cancelling, setCancelling] = useState(false)
   const [reason, setReason] = useState('')
 
   // New member on the panel → clear the form.
   useEffect(() => {
-    setMethod(null)
-    setWristband('')
     setCancelling(false)
     setReason('')
   }, [member.id, member.today?.id])
@@ -399,12 +463,12 @@ function MemberPanel({
                 autoFocus
                 className="h-11 w-full rounded-full border border-border bg-background px-4 text-sm outline-none focus:border-destructive"
               />
-              <p className="mt-2 text-xs text-muted-foreground">{tr(deskCopy.cancelHint)}</p>
+              <p className="mt-2 text-xs text-muted-foreground">{tr(visit.saleId ? deskCopy.voidHint : deskCopy.cancelHint)}</p>
               <div className="mt-3 flex gap-2">
                 <button
                   type="button"
                   disabled={busy || !reason.trim()}
-                  onClick={() => onCancel(visit.id, reason)}
+                  onClick={() => onCancel(visit, reason)}
                   className="h-11 flex-1 rounded-full bg-destructive text-sm font-semibold text-white disabled:opacity-40"
                 >
                   {tr(deskCopy.cancelConfirm)}
@@ -437,76 +501,21 @@ function MemberPanel({
                 className="inline-flex h-12 items-center justify-center gap-2 rounded-full border border-border px-5 text-sm font-semibold text-muted-foreground hover:text-destructive"
               >
                 <Undo2 className="h-4 w-4" aria-hidden="true" />
-                {tr(deskCopy.cancelVisit)}
+                {tr(visit.saleId ? deskCopy.voidBill : deskCopy.cancelVisit)}
               </button>
             </div>
           )}
         </div>
       ) : (
-        <div className="mt-5">
-          <div className="flex items-baseline justify-between rounded-2xl bg-secondary px-4 py-3">
-            <span className="text-sm text-secondary-foreground">
-              {tr(deskCopy.dayPassToday)} ({tr(member.weekend ? deskCopy.weekend : deskCopy.weekday)})
-            </span>
-            <span className="font-display text-2xl font-extrabold text-foreground">
-              {member.priceToday.toLocaleString()} <span className="text-sm font-semibold">{tr(deskCopy.baht)}</span>
-            </span>
-          </div>
-
-          <p className="mt-4 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-            {tr(deskCopy.paymentMethod)}
-          </p>
-          <div className="mt-2 grid grid-cols-3 gap-2" role="radiogroup" aria-label={tr(deskCopy.paymentMethod)}>
-            {(['cash', 'transfer', 'card'] as const).map((m) => (
-              <button
-                key={m}
-                type="button"
-                role="radio"
-                aria-checked={method === m}
-                onClick={() => setMethod(m)}
-                className={cn(
-                  'h-12 rounded-2xl border text-sm font-semibold transition-colors',
-                  method === m
-                    ? 'border-primary bg-primary text-primary-foreground'
-                    : 'border-border bg-background text-foreground hover:border-primary/40',
-                )}
-              >
-                {tr(deskCopy[m])}
-              </button>
-            ))}
-          </div>
-
-          <input
-            value={wristband}
-            onChange={(e) => setWristband(e.target.value)}
-            placeholder={tr(deskCopy.wristbandPlaceholder)}
-            aria-label={tr(deskCopy.wristband)}
-            inputMode="numeric"
-            maxLength={20}
-            className="mt-3 h-11 w-full rounded-full border border-border bg-background px-4 text-sm outline-none focus:border-primary"
-          />
-
-          <button
-            type="button"
-            disabled={busy || !method}
-            onClick={() => onCheckIn('paid', method, wristband)}
-            className="mt-4 h-14 w-full rounded-full bg-primary text-base font-bold text-primary-foreground transition-opacity disabled:opacity-40"
-          >
-            {method ? fill(tr(deskCopy.checkInPaid), { price: member.priceToday.toLocaleString() }) : tr(deskCopy.chooseMethod)}
-          </button>
-
-          {rewardReady && (
-            <button
-              type="button"
-              disabled={busy || member.weekend}
-              onClick={() => onCheckIn('reward', null, wristband)}
-              className="mt-2 inline-flex h-12 w-full items-center justify-center gap-2 rounded-full border-2 border-accent text-sm font-semibold text-accent disabled:border-border disabled:text-muted-foreground"
-            >
-              <Gift className="h-4 w-4" aria-hidden="true" />
-              {member.weekend ? tr(deskCopy.rewardWeekdayOnly) : tr(deskCopy.useReward)}
-            </button>
-          )}
-        </div>
+        <BillBuilder
+          key={`${member.id}-${billKey}`}
+          memberId={member.id}
+          withDayPass
+          rewardReady={rewardReady}
+          catalog={catalog}
+          busy={busy}
+          onPay={onPay}
+        />
       )}
     </div>
   )
@@ -555,13 +564,9 @@ function FloorPanel({
   const visits = floor?.visits ?? []
   const inside = visits.filter((v) => !v.checkedOutAt)
   const left = visits.filter((v) => v.checkedOutAt)
-  const takings = { cash: 0, transfer: 0, card: 0 }
-  let free = 0
-  for (const v of visits) {
-    if (v.entryType === 'reward') free++
-    else if (v.paymentMethod) takings[v.paymentMethod] += v.price
-  }
-  const total = takings.cash + takings.transfer + takings.card
+  const takings = floor?.takings ?? { cash: 0, transfer: 0, card: 0, total: 0 }
+  const free = visits.filter((v) => v.entryType === 'reward').length
+  const total = takings.total
   const pct = Math.min(100, Math.round((inside.length / FLOOR_CAPACITY) * 100))
 
   return (

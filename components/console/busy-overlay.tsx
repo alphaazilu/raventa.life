@@ -103,7 +103,7 @@ export function BusyOverlay() {
     <div
       role="status"
       aria-live="polite"
-      className="fixed inset-0 z-[90] flex items-center justify-center bg-black/30 backdrop-blur-[1px] motion-safe:animate-in motion-safe:fade-in"
+      className="fixed inset-0 z-[90] flex items-center justify-center bg-black/30 backdrop-blur-[1px] motion-safe:animate-fade-in"
     >
       <div className="flex items-center gap-3 rounded-full bg-background px-6 py-3.5 text-sm font-semibold text-foreground shadow-lg">
         <Spinner className="h-5 w-5 text-primary" />

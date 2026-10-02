@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { Mail } from 'lucide-react'
 import { useLanguage } from '@/components/language-provider'
 import { authCopy } from '@/lib/auth/copy'
-import { createClient } from '@/lib/supabase/client'
+import { getBrowserClient } from '@/lib/supabase/client'
 import { GoogleIcon, LineIcon } from '@/components/auth/oauth-buttons'
 import { Spinner } from '@/components/ui/spinner'
 import { EmailLoginSetup } from '@/components/account/email-login-setup'
@@ -60,7 +60,7 @@ export function LoginMethods({
   const handleLink = async (provider: LinkProvider) => {
     setPending(provider)
     setStartError(null)
-    const supabase = createClient()
+    const supabase = await getBrowserClient()
     // Same callback as a normal sign-in; `link=` tells it to send any
     // failure back here rather than to the login page.
     const next = encodeURIComponent(`/account/settings?linked=${provider}`)

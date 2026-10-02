@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { useLanguage } from '@/components/language-provider'
 import { authCopy } from '@/lib/auth/copy'
-import { createClient } from '@/lib/supabase/client'
+import { getBrowserClient } from '@/lib/supabase/client'
 import { Spinner } from '@/components/ui/spinner'
 import { LineIcon } from '@/components/auth/oauth-buttons'
 import {
@@ -185,7 +185,7 @@ export async function linkLineAfterMerge(canLinkLine: boolean) {
     return
   }
   const next = encodeURIComponent('/account?linked=line')
-  const { error } = await createClient().auth.linkIdentity({
+  const { error } = await (await getBrowserClient()).auth.linkIdentity({
     provider: 'custom:line',
     options: {
       redirectTo: `${window.location.origin}/auth/callback?link=line&next=${next}`,

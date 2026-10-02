@@ -8,7 +8,7 @@ import { useLanguage } from '@/components/language-provider'
 import { t } from '@/lib/i18n'
 import { cn } from '@/lib/utils'
 import { useSupabaseUser } from '@/lib/supabase/use-user'
-import { createClient } from '@/lib/supabase/client'
+import { getBrowserClient } from '@/lib/supabase/client'
 import { CONSOLE_PATH, isAdmin } from '@/lib/auth/roles'
 import { consoleCopy } from '@/lib/console/copy'
 
@@ -38,11 +38,8 @@ export function SiteHeader() {
       return
     }
     let cancelled = false
-    createClient()
-      .from('profiles')
-      .select('role')
-      .eq('id', user.id)
-      .maybeSingle()
+    getBrowserClient()
+      .then((sb) => sb.from('profiles').select('role').eq('id', user.id).maybeSingle())
       .then(({ data }) => {
         if (!cancelled) setAdmin(isAdmin(data?.role))
       })

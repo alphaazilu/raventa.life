@@ -14,7 +14,7 @@ const PREFIX = 'RV1'
 // How long one code stays valid. The card asks for a new one every
 // REFRESH_SECONDS, so a code is always shown with plenty of life left and a
 // slow scan still lands.
-export const TOKEN_TTL_SECONDS = 90
+const TOKEN_TTL_SECONDS = 90
 export const REFRESH_SECONDS = 60
 
 function secretKey(): Buffer {

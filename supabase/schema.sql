@@ -1024,3 +1024,550 @@ insert into public.time_settings (id) values (1) on conflict (id) do nothing;
 
 alter table public.time_settings enable row level security;
 revoke all on public.time_settings from anon, authenticated;
+
+-- 18. Catalog, prices, promotions and the multi-item bill (v0.20).
+--
+-- products        what the counter sells: the Day Pass (exactly one row),
+--                 add-ons, merchandise, souvenirs. Prices per day type:
+--                 weekday / weekend / public holiday (null = falls back).
+-- product_variants size / colour, each with its own SKU and stock.
+-- holidays        public-holiday dates → holiday price, no free pass.
+-- promotions      % or THB off everything, the Day Pass, or one product;
+--                 automatic (no code) or with a code; optional date range.
+-- sales/sale_lines one bill = one sale with a continuous receipt number.
+--                 A Day Pass line creates the visit (check-in) in the same
+--                 transaction; visits.sale_id links them.
+--
+-- Staff read the catalog; admins change it from the server (service role).
+-- Selling goes through pos_quote / pos_checkout / pos_void_sale, called
+-- with the staff member's own session — like §13, the database decides.
+create table if not exists public.products (
+  id uuid primary key default gen_random_uuid(),
+  kind text not null check (kind in ('day_pass', 'addon', 'merch', 'souvenir')),
+  name_th text not null check (char_length(btrim(name_th)) between 1 and 60),
+  name_en text not null default '' check (char_length(name_en) <= 60),
+  price_weekday integer not null check (price_weekday between 0 and 1000000),
+  price_weekend integer check (price_weekend between 0 and 1000000),   -- null = weekday price
+  price_holiday integer check (price_holiday between 0 and 1000000),   -- null = weekend price
+  track_stock boolean not null default false,
+  stock integer not null default 0 check (stock >= 0),                 -- used when there are no variants
+  is_active boolean not null default true,
+  sort integer not null default 0,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create unique index if not exists products_one_day_pass on public.products ((true)) where kind = 'day_pass';
+
+insert into public.products (kind, name_th, name_en, price_weekday, price_weekend, price_holiday, sort)
+select 'day_pass', 'Day Pass', 'Day Pass', 590, 790, 790, 0
+where not exists (select 1 from public.products where kind = 'day_pass');
+
+create table if not exists public.product_variants (
+  id uuid primary key default gen_random_uuid(),
+  product_id uuid not null references public.products(id) on delete restrict,
+  label text not null check (char_length(btrim(label)) between 1 and 40),
+  sku text unique check (sku is null or char_length(sku) between 1 and 40),
+  stock integer not null default 0 check (stock >= 0),
+  is_active boolean not null default true,
+  sort integer not null default 0,
+  created_at timestamptz not null default now()
+);
+
+create index if not exists product_variants_product_idx on public.product_variants (product_id);
+
+create table if not exists public.holidays (
+  day date primary key,
+  name text not null check (char_length(btrim(name)) between 1 and 60)
+);
+
+create table if not exists public.promotions (
+  id uuid primary key default gen_random_uuid(),
+  name text not null check (char_length(btrim(name)) between 1 and 60),
+  kind text not null check (kind in ('pct', 'thb')),
+  value integer not null check (value > 0),
+  scope text not null default 'all' check (scope in ('all', 'day_pass', 'product')),
+  product_id uuid references public.products(id) on delete cascade,
+  code text check (code is null or code ~ '^[A-Z0-9]{3,20}$'),
+  starts_on date,
+  ends_on date,
+  is_active boolean not null default true,
+  created_at timestamptz not null default now(),
+  constraint promotions_pct_max check (kind <> 'pct' or value <= 100),
+  constraint promotions_product_scope check ((scope = 'product') = (product_id is not null)),
+  constraint promotions_dates check (starts_on is null or ends_on is null or starts_on <= ends_on)
+);
+
+create unique index if not exists promotions_code_idx on public.promotions (code) where code is not null;
+
+create table if not exists public.sales (
+  id uuid primary key default gen_random_uuid(),
+  receipt_no bigint generated always as identity unique,
+  sale_date date not null default public.bkk_today(),
+  member_id uuid references auth.users(id) on delete set null,
+  member_no text,
+  subtotal integer not null check (subtotal >= 0),
+  discount integer not null default 0 check (discount >= 0),
+  total integer not null check (total >= 0),
+  payment_method text check (payment_method in ('cash', 'transfer', 'card')),
+  promotion_id uuid references public.promotions(id) on delete set null,
+  promo_name text,
+  staff_id uuid references auth.users(id) on delete set null,
+  created_at timestamptz not null default now(),
+  voided_at timestamptz,
+  voided_by uuid references auth.users(id) on delete set null,
+  void_reason text,
+  constraint sales_total check (total = subtotal - discount),
+  constraint sales_method check (total = 0 or payment_method is not null)
+);
+
+create index if not exists sales_date_idx on public.sales (sale_date);
+
+create table if not exists public.sale_lines (
+  id bigint generated always as identity primary key,
+  sale_id uuid not null references public.sales(id) on delete cascade,
+  product_id uuid not null references public.products(id) on delete restrict,
+  variant_id uuid references public.product_variants(id) on delete restrict,
+  kind text not null,
+  name text not null,
+  qty integer not null check (qty between 1 and 99),
+  unit_price integer not null check (unit_price >= 0),
+  line_total integer not null check (line_total = qty * unit_price),
+  visit_id uuid references public.visits(id) on delete set null
+);
+
+create index if not exists sale_lines_sale_idx on public.sale_lines (sale_id);
+
+alter table public.visits add column if not exists sale_id uuid references public.sales(id) on delete set null;
+
+-- Staff read everything here (the desk needs it); nobody writes from the app.
+do $$
+declare t text;
+begin
+  foreach t in array array['products', 'product_variants', 'holidays', 'promotions', 'sales', 'sale_lines'] loop
+    execute format('alter table public.%I enable row level security', t);
+    execute format('revoke insert, update, delete on public.%I from anon, authenticated', t);
+    execute format('drop policy if exists "Staff read" on public.%I', t);
+    execute format('create policy "Staff read" on public.%I for select to authenticated using (public.is_staff())', t);
+  end loop;
+end $$;
+
+-- weekday / weekend / holiday for a Bangkok date.
+create or replace function public.day_type(p_date date)
+returns text
+language sql
+security definer
+set search_path = public
+stable
+as $$
+  select case
+    when exists (select 1 from public.holidays where day = p_date) then 'holiday'
+    when extract(isodow from p_date) in (6, 7) then 'weekend'
+    else 'weekday'
+  end;
+$$;
+
+create or replace function public.product_price(p public.products, p_date date)
+returns integer
+language sql
+security definer
+set search_path = public
+stable
+as $$
+  select case public.day_type(p_date)
+    when 'holiday' then coalesce(p.price_holiday, p.price_weekend, p.price_weekday)
+    when 'weekend' then coalesce(p.price_weekend, p.price_weekday)
+    else p.price_weekday
+  end;
+$$;
+
+-- Same name and arguments as §13, now read from the catalog (falls back to
+-- 590 / 790 if the Day Pass row is missing).
+create or replace function public.day_pass_price(p_date date)
+returns int
+language sql
+security definer
+set search_path = public
+stable
+as $$
+  select coalesce(
+    (select public.product_price(p, p_date) from public.products p where p.kind = 'day_pass'),
+    case when extract(isodow from p_date) in (6, 7) then 790 else 590 end
+  );
+$$;
+
+-- Discount one promotion gives a set of priced lines.
+create or replace function public.promo_discount(pr public.promotions, p_lines jsonb)
+returns integer
+language sql
+immutable
+as $$
+  with eligible as (
+    select coalesce(sum((l->>'line_total')::int), 0) as amount
+    from jsonb_array_elements(p_lines) l
+    where pr.scope = 'all'
+       or (pr.scope = 'day_pass' and l->>'kind' = 'day_pass')
+       or (pr.scope = 'product' and (l->>'product_id')::uuid = pr.product_id)
+  )
+  select case pr.kind
+    when 'pct' then (amount * pr.value) / 100
+    else least(pr.value, amount)
+  end::int
+  from eligible;
+$$;
+
+-- Price a bill without writing anything. p_day_pass: 'none' | 'paid' |
+-- 'reward'. p_items: [{"product_id": "…", "variant_id": "…"|null, "qty": n}].
+-- With a code, that promotion (or an error); without, the best automatic one.
+create or replace function public.pos_quote(
+  p_member_id uuid,
+  p_day_pass text,
+  p_items jsonb,
+  p_promo_code text default null
+)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+stable
+as $$
+declare
+  v_today date := public.bkk_today();
+  v_type text := public.day_type(v_today);
+  v_lines jsonb := '[]'::jsonb;
+  v_sub integer := 0;
+  v_price integer;
+  v_available integer;
+  v_dp public.products;
+  v_p public.products;
+  v_v public.product_variants;
+  v_item jsonb;
+  v_qty integer;
+  v_vid uuid;
+  v_stock integer;
+  v_name text;
+  v_code text := upper(btrim(coalesce(p_promo_code, '')));
+  v_promo public.promotions;
+  v_best public.promotions;
+  v_disc integer := 0;
+  v_d integer;
+begin
+  if not public.is_staff() then
+    raise exception 'not_staff';
+  end if;
+  if p_member_id is not null and p_member_id = auth.uid() then
+    raise exception 'self_service';
+  end if;
+  if coalesce(p_day_pass, 'none') not in ('none', 'paid', 'reward') then
+    raise exception 'bad_entry_type';
+  end if;
+
+  if coalesce(p_day_pass, 'none') <> 'none' then
+    if p_member_id is null then
+      raise exception 'member_required';
+    end if;
+    if not exists (select 1 from public.profiles where id = p_member_id) then
+      raise exception 'member_not_found';
+    end if;
+    if exists (
+      select 1 from public.visits
+      where member_id = p_member_id and visit_date = v_today and cancelled_at is null
+    ) then
+      raise exception 'already_checked_in';
+    end if;
+    select * into v_dp from public.products where kind = 'day_pass';
+    if not found or not v_dp.is_active then
+      raise exception 'day_pass_off';
+    end if;
+    if p_day_pass = 'reward' then
+      if v_type <> 'weekday' then
+        raise exception 'reward_weekday_only';
+      end if;
+      select rewards_available into v_available from public.member_stamp_status(p_member_id);
+      if coalesce(v_available, 0) < 1 then
+        raise exception 'no_reward';
+      end if;
+      v_price := 0;
+    else
+      v_price := public.product_price(v_dp, v_today);
+    end if;
+    v_lines := v_lines || jsonb_build_object(
+      'product_id', v_dp.id, 'variant_id', null, 'kind', 'day_pass',
+      'name', v_dp.name_th, 'name_en', v_dp.name_en, 'qty', 1,
+      'unit_price', v_price, 'line_total', v_price, 'reward', p_day_pass = 'reward'
+    );
+    v_sub := v_sub + v_price;
+  end if;
+
+  for v_item in select * from jsonb_array_elements(coalesce(p_items, '[]'::jsonb)) loop
+    v_qty := nullif(v_item->>'qty', '')::int;
+    if v_qty is null or v_qty < 1 or v_qty > 99 then
+      raise exception 'bad_qty';
+    end if;
+    select * into v_p from public.products
+    where id = nullif(v_item->>'product_id', '')::uuid and is_active and kind <> 'day_pass';
+    if not found then
+      raise exception 'product_unavailable';
+    end if;
+    v_vid := nullif(v_item->>'variant_id', '')::uuid;
+    v_name := v_p.name_th;
+    if exists (select 1 from public.product_variants where product_id = v_p.id and is_active) then
+      if v_vid is null then
+        raise exception 'variant_required';
+      end if;
+      select * into v_v from public.product_variants where id = v_vid and product_id = v_p.id and is_active;
+      if not found then
+        raise exception 'product_unavailable';
+      end if;
+      v_stock := v_v.stock;
+      v_name := v_p.name_th || ' · ' || v_v.label;
+    else
+      v_vid := null;
+      v_stock := v_p.stock;
+    end if;
+    if v_p.track_stock and v_stock < v_qty then
+      raise exception 'out_of_stock';
+    end if;
+    v_price := public.product_price(v_p, v_today);
+    v_lines := v_lines || jsonb_build_object(
+      'product_id', v_p.id, 'variant_id', v_vid, 'kind', v_p.kind,
+      'name', v_name, 'name_en', v_p.name_en, 'qty', v_qty,
+      'unit_price', v_price, 'line_total', v_price * v_qty, 'reward', false
+    );
+    v_sub := v_sub + v_price * v_qty;
+  end loop;
+
+  if jsonb_array_length(v_lines) = 0 then
+    raise exception 'empty_bill';
+  end if;
+
+  if v_code <> '' then
+    select * into v_promo from public.promotions
+    where code = v_code and is_active
+      and (starts_on is null or starts_on <= v_today)
+      and (ends_on is null or ends_on >= v_today);
+    if not found then
+      raise exception 'promo_invalid';
+    end if;
+    v_disc := public.promo_discount(v_promo, v_lines);
+    if v_disc <= 0 then
+      raise exception 'promo_not_applicable';
+    end if;
+    v_best := v_promo;
+  else
+    for v_promo in
+      select * from public.promotions
+      where code is null and is_active
+        and (starts_on is null or starts_on <= v_today)
+        and (ends_on is null or ends_on >= v_today)
+    loop
+      v_d := public.promo_discount(v_promo, v_lines);
+      if v_d > v_disc then
+        v_disc := v_d;
+        v_best := v_promo;
+      end if;
+    end loop;
+  end if;
+  v_disc := least(v_disc, v_sub);
+
+  return jsonb_build_object(
+    'lines', v_lines,
+    'subtotal', v_sub,
+    'discount', v_disc,
+    'total', v_sub - v_disc,
+    'promotion_id', v_best.id,
+    'promo_name', v_best.name,
+    'day_type', v_type
+  );
+end;
+$$;
+
+create or replace function public.pos_checkout(
+  p_member_id uuid,
+  p_day_pass text,
+  p_items jsonb,
+  p_payment_method text default null,
+  p_promo_code text default null,
+  p_wristband text default null
+)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_q jsonb := public.pos_quote(p_member_id, p_day_pass, p_items, p_promo_code);
+  v_total integer := (v_q->>'total')::int;
+  v_member_no text;
+  v_sale public.sales;
+  v_line jsonb;
+  v_line_id bigint;
+  v_visit uuid;
+  v_track boolean;
+begin
+  if v_total > 0 or p_day_pass = 'paid' then
+    if p_payment_method is null or p_payment_method not in ('cash', 'transfer', 'card') then
+      raise exception 'payment_method_required';
+    end if;
+  else
+    p_payment_method := null;
+  end if;
+  if p_member_id is not null then
+    select member_no into v_member_no from public.profiles where id = p_member_id;
+  end if;
+
+  insert into public.sales (member_id, member_no, subtotal, discount, total, payment_method, promotion_id, promo_name, staff_id)
+  values (
+    p_member_id, v_member_no, (v_q->>'subtotal')::int, (v_q->>'discount')::int, v_total,
+    p_payment_method, nullif(v_q->>'promotion_id', '')::uuid, v_q->>'promo_name', auth.uid()
+  )
+  returning * into v_sale;
+
+  for v_line in select * from jsonb_array_elements(v_q->'lines') loop
+    insert into public.sale_lines (sale_id, product_id, variant_id, kind, name, qty, unit_price, line_total)
+    values (
+      v_sale.id, (v_line->>'product_id')::uuid, nullif(v_line->>'variant_id', '')::uuid, v_line->>'kind',
+      v_line->>'name', (v_line->>'qty')::int, (v_line->>'unit_price')::int, (v_line->>'line_total')::int
+    )
+    returning id into v_line_id;
+
+    if v_line->>'kind' = 'day_pass' then
+      insert into public.visits (
+        member_id, member_no, entry_type, price, payment_method, earns_stamp, wristband, checked_in_by, sale_id
+      ) values (
+        p_member_id, v_member_no,
+        case when (v_line->>'reward')::boolean then 'reward' else 'paid' end,
+        (v_line->>'unit_price')::int,
+        case when (v_line->>'reward')::boolean then null else p_payment_method end,
+        not (v_line->>'reward')::boolean,
+        nullif(btrim(coalesce(p_wristband, '')), ''), auth.uid(), v_sale.id
+      )
+      returning id into v_visit;
+      update public.sale_lines set visit_id = v_visit where id = v_line_id;
+      insert into public.staff_actions (actor_id, member_id, visit_id, action, detail)
+      values (auth.uid(), p_member_id, v_visit, 'check_in',
+        jsonb_build_object('entry_type', case when (v_line->>'reward')::boolean then 'reward' else 'paid' end,
+          'price', (v_line->>'unit_price')::int, 'payment_method', p_payment_method, 'receipt_no', v_sale.receipt_no));
+    else
+      select track_stock into v_track from public.products where id = (v_line->>'product_id')::uuid;
+      if v_track then
+        begin
+          if v_line->>'variant_id' is not null then
+            update public.product_variants set stock = stock - (v_line->>'qty')::int where id = (v_line->>'variant_id')::uuid;
+          else
+            update public.products set stock = stock - (v_line->>'qty')::int where id = (v_line->>'product_id')::uuid;
+          end if;
+        exception when check_violation then
+          raise exception 'out_of_stock';
+        end;
+      end if;
+    end if;
+  end loop;
+
+  insert into public.staff_actions (actor_id, member_id, visit_id, action, detail)
+  values (auth.uid(), p_member_id, v_visit, 'sale', jsonb_build_object(
+    'sale_id', v_sale.id, 'receipt_no', v_sale.receipt_no, 'total', v_total,
+    'discount', v_sale.discount, 'payment_method', p_payment_method, 'promo', v_sale.promo_name));
+
+  return jsonb_build_object('sale_id', v_sale.id, 'receipt_no', v_sale.receipt_no, 'total', v_total, 'visit_id', v_visit);
+end;
+$$;
+
+-- Void a whole bill: staff within 30 minutes, admins any time. Puts stock
+-- back and cancels the check-in it made (which returns the stamp / reward).
+create or replace function public.pos_void_sale(p_sale_id uuid, p_reason text)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v public.sales;
+  l record;
+begin
+  if not public.is_staff() then
+    raise exception 'not_staff';
+  end if;
+  if btrim(coalesce(p_reason, '')) = '' then
+    raise exception 'reason_required';
+  end if;
+  select * into v from public.sales where id = p_sale_id for update;
+  if not found or v.voided_at is not null then
+    raise exception 'sale_not_found';
+  end if;
+  if v.member_id = auth.uid() then
+    raise exception 'self_service';
+  end if;
+  if not public.is_admin() and v.created_at < now() - interval '30 minutes' then
+    raise exception 'cancel_window_passed';
+  end if;
+
+  update public.sales set voided_at = now(), voided_by = auth.uid(), void_reason = btrim(p_reason) where id = p_sale_id;
+
+  for l in
+    select sl.qty, sl.product_id, sl.variant_id from public.sale_lines sl
+    join public.products p on p.id = sl.product_id
+    where sl.sale_id = p_sale_id and sl.kind <> 'day_pass' and p.track_stock
+  loop
+    if l.variant_id is not null then
+      update public.product_variants set stock = stock + l.qty where id = l.variant_id;
+    else
+      update public.products set stock = stock + l.qty where id = l.product_id;
+    end if;
+  end loop;
+
+  update public.visits
+  set cancelled_at = now(), cancelled_by = auth.uid(), cancel_reason = btrim(p_reason)
+  where sale_id = p_sale_id and cancelled_at is null;
+
+  insert into public.staff_actions (actor_id, member_id, action, detail)
+  values (auth.uid(), v.member_id, 'void_sale',
+    jsonb_build_object('sale_id', v.id, 'receipt_no', v.receipt_no, 'total', v.total, 'reason', btrim(p_reason)));
+end;
+$$;
+
+-- A check-in that came from a bill is undone by voiding the bill (so the
+-- money and stock go back too).
+create or replace function public.staff_cancel_visit(p_visit_id uuid, p_reason text)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v public.visits;
+begin
+  if not public.is_staff() then
+    raise exception 'not_staff';
+  end if;
+  if trim(coalesce(p_reason, '')) = '' then
+    raise exception 'reason_required';
+  end if;
+  select * into v from public.visits where id = p_visit_id for update;
+  if not found or v.cancelled_at is not null then
+    raise exception 'visit_not_found';
+  end if;
+  if v.sale_id is not null then
+    raise exception 'void_bill_instead';
+  end if;
+  if v.member_id = auth.uid() then
+    raise exception 'self_service';
+  end if;
+  if not public.is_admin() and v.checked_in_at < now() - interval '30 minutes' then
+    raise exception 'cancel_window_passed';
+  end if;
+  update public.visits
+  set cancelled_at = now(), cancelled_by = auth.uid(), cancel_reason = trim(p_reason)
+  where id = p_visit_id;
+  insert into public.staff_actions (actor_id, member_id, visit_id, action, detail)
+  values (auth.uid(), v.member_id, p_visit_id, 'cancel_visit', jsonb_build_object('reason', trim(p_reason)));
+end;
+$$;
+
+revoke execute on function public.pos_quote(uuid, text, jsonb, text) from public, anon;
+revoke execute on function public.pos_checkout(uuid, text, jsonb, text, text, text) from public, anon;
+revoke execute on function public.pos_void_sale(uuid, text) from public, anon;
+grant execute on function public.pos_quote(uuid, text, jsonb, text) to authenticated;
+grant execute on function public.pos_checkout(uuid, text, jsonb, text, text, text) to authenticated;
+grant execute on function public.pos_void_sale(uuid, text) to authenticated;
+grant execute on function public.day_type(date) to authenticated;

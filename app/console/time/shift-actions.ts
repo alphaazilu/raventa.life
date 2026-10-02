@@ -1,26 +1,18 @@
 'use server'
 
+import { isMissingTable, requireAdmin } from '@/lib/console/guard'
 import { revalidatePath } from 'next/cache'
 import { createAdminClient } from '@/lib/supabase/admin'
-import { getConsoleSession } from '@/lib/console/session'
-import { isAdmin, TIME_PATH } from '@/lib/auth/roles'
+import { TIME_PATH } from '@/lib/auth/roles'
 
 // Admin: shift templates, the weekly roster and the late/OT rules (§17).
 
 export type ShiftResult = { ok: true } | { ok: false; error: string }
 
-async function requireAdmin(): Promise<{ userId: string } | { error: string }> {
-  const { user, role } = await getConsoleSession()
-  if (!user || !isAdmin(role)) return { error: 'not_admin' }
-  return { userId: user.id }
-}
-
 const TIME_RE = /^([01]\d|2[0-3]):[0-5]\d$/
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/
 
-function missing(error: { code?: string } | null) {
-  return Boolean(error?.code && ['PGRST202', 'PGRST205', '42883', '42P01'].includes(error.code))
-}
+const missing = isMissingTable
 
 export async function saveTemplate(input: {
   id?: string

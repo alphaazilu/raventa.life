@@ -11,7 +11,7 @@ const SIGNED_URL_TTL_SECONDS = 60 * 60
 // Picture from the account's LINE or Google sign-in, if any (LINE first —
 // it's the one most members use). Supabase keeps this from the provider and
 // refreshes it at every sign-in.
-export function providerAvatarOf(user: User): string | null {
+function providerAvatarOf(user: User): string | null {
   const identities = user.identities ?? []
   const line = identities.find((i) => i.provider === 'custom:line')?.identity_data?.picture
   if (typeof line === 'string' && line.startsWith('https://')) return line

@@ -1,5 +1,6 @@
 'use server'
 
+import { isMissingTable } from '@/lib/console/guard'
 import { revalidatePath } from 'next/cache'
 import { getConsoleSession } from '@/lib/console/session'
 import { createAdminClient } from '@/lib/supabase/admin'
@@ -31,7 +32,7 @@ async function requireAdmin(): Promise<{ userId: string } | { error: string }> {
 }
 
 function isMissing(error: { code?: string } | null) {
-  return Boolean(error?.code && ['PGRST202', 'PGRST205', '42883', '42P01'].includes(error.code))
+  return isMissingTable(error)
 }
 
 export async function listDevices(): Promise<DeviceResult<DeviceRow[]>> {

@@ -19,5 +19,6 @@ export const DESK_PATH = '/console/desk'
 export const MEMBERS_PATH = '/console/members'
 export const DEVICES_PATH = '/console/devices'
 export const TIME_PATH = '/console/time'
+export const CATALOG_PATH = '/console/catalog'
 // Pairing screen for a new counter tablet (outside the console's login gate).
 export const TABLET_SETUP_PATH = '/tablet'

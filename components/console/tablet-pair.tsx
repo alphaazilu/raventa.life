@@ -2,7 +2,6 @@
 
 import Image from 'next/image'
 import { useCallback, useEffect, useState } from 'react'
-import QRCode from 'qrcode'
 import { Clock, Lock } from 'lucide-react'
 import { useLanguage } from '@/components/language-provider'
 import { consoleCopy } from '@/lib/console/copy'
@@ -33,6 +32,7 @@ export function TabletPair({ siteUrl }: { siteUrl: string }) {
       const body = await res.json()
       if (!body.ok) return setState({ kind: 'error', error: body.error ?? 'failed' })
       const link = `${siteUrl}/console/devices?code=${body.code}`
+      const QRCode = (await import('qrcode')).default
       const qr = await QRCode.toDataURL(link, { margin: 1, width: 480, color: { dark: '#2b2521', light: '#ffffff' } })
       setState({ kind: 'code', code: body.code, expiresAt: Date.parse(body.expiresAt), qr })
     } catch {

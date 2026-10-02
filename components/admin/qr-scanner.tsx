@@ -1,7 +1,6 @@
 'use client'
 
 import { useCallback, useEffect, useRef, useState } from 'react'
-import jsQR from 'jsqr'
 import { Camera, CameraOff, Pause, SwitchCamera } from 'lucide-react'
 import { useLanguage } from '@/components/language-provider'
 import { deskCopy } from '@/lib/check-in/copy'
@@ -104,14 +103,19 @@ export function QrScanner({
   const startRef = useRef(start)
   startRef.current = start
 
-  // Decode loop while the camera is on.
+  // Decode loop while the camera is on. The decoder (jsQR, ~45 KB) is
+  // fetched when the camera first starts, not with the page.
   useEffect(() => {
     if (state !== 'on') return
+    let jsQR: typeof import('jsqr').default | null = null
+    void import('jsqr').then((m) => {
+      jsQR = m.default
+    })
     let raf = 0
     let last = 0
     const tick = (t: number) => {
       raf = requestAnimationFrame(tick)
-      if (t - last < SCAN_EVERY_MS || pausedRef.current) return
+      if (!jsQR || t - last < SCAN_EVERY_MS || pausedRef.current) return
       last = t
       const video = videoRef.current
       if (!video || video.readyState < 2 || !video.videoWidth) return

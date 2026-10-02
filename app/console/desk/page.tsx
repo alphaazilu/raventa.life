@@ -3,7 +3,7 @@ import { redirect } from 'next/navigation'
 import { CheckInDesk } from '@/components/admin/check-in-desk'
 import { getConsoleSession } from '@/lib/console/session'
 import { canUseDesk, DESK_PATH, isAdmin } from '@/lib/auth/roles'
-import { getFloor } from './actions'
+import { getDeskCatalog, getFloor } from './actions'
 
 export const metadata: Metadata = {
   title: 'ขาย + เช็คอิน | RAVENTA Back Office',
@@ -15,7 +15,7 @@ export default async function DeskPage() {
   if (!user) redirect(`/login?next=${DESK_PATH}`)
   if (!canUseDesk(role)) redirect('/account')
 
-  const floor = await getFloor()
+  const [floor, catalog] = await Promise.all([getFloor(), getDeskCatalog()])
 
   return (
     <main>
@@ -23,6 +23,7 @@ export default async function DeskPage() {
         showTakings={isAdmin(role)}
         initialFloor={floor.ok ? floor.data : null}
         initialError={floor.ok ? null : floor.error}
+        initialCatalog={catalog.ok ? catalog.data : null}
       />
     </main>
   )

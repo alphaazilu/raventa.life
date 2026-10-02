@@ -30,7 +30,7 @@ export function shiftLengthMinutes(t: Pick<ShiftTemplate, 'start' | 'end'>): num
 }
 
 // Scheduled start/end instants for a shift on a Bangkok date.
-export function shiftWindow(date: string, t: Pick<ShiftTemplate, 'start' | 'end'>): { start: number; end: number } {
+function shiftWindow(date: string, t: Pick<ShiftTemplate, 'start' | 'end'>): { start: number; end: number } {
   const start = Date.parse(`${date}T${t.start}:00+07:00`)
   return { start, end: start + shiftLengthMinutes(t) * 60000 }
 }
@@ -71,4 +71,19 @@ export function entryStats(
   }
   const breakTaken = workedMinutes > t.breakMinutes * 2 ? t.breakMinutes : 0
   return { shiftName: t.name, scheduled: true, lateMinutes, earlyMinutes, otMinutes, paidMinutes: Math.max(0, workedMinutes - breakTaken) }
+}
+
+// An entry still open after this long is almost certainly a forgotten
+// clock-out; it is flagged for an admin and not counted as hours.
+const FORGOT_AFTER_MS = 14 * 60 * 60 * 1000
+
+type Span = { clockIn: string; clockOut: string | null }
+
+export function minutesOf(e: Span, now = Date.now()): number {
+  const end = e.clockOut ? Date.parse(e.clockOut) : now
+  return Math.max(0, Math.round((end - Date.parse(e.clockIn)) / 60000))
+}
+
+export function isForgotten(e: Span, now = Date.now()): boolean {
+  return !e.clockOut && now - Date.parse(e.clockIn) > FORGOT_AFTER_MS
 }

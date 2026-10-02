@@ -6,16 +6,17 @@ import './globals.css'
 
 // Self-hosted variable fonts (Sora, Noto Sans Thai) — avoids a next/font/google
 // build-time fetch to fonts.googleapis.com, which some networks/sandboxes block.
-// Files are the official Google Fonts variable TTFs, placed in app/fonts/.
+// Files are the official Google Fonts variable fonts, converted to WOFF2
+// (half the size of the TTFs) and placed in app/fonts/.
 const sora = localFont({
-  src: '../app/fonts/Sora-Variable.ttf',
+  src: '../app/fonts/Sora-Variable.woff2',
   weight: '100 800',
   variable: '--font-sora',
   display: 'swap',
 })
 
 const notoSansThai = localFont({
-  src: '../app/fonts/NotoSansThai-Variable.ttf',
+  src: '../app/fonts/NotoSansThai-Variable.woff2',
   weight: '100 900',
   variable: '--font-noto',
   display: 'swap',

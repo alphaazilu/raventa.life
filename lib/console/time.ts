@@ -16,18 +16,8 @@ export type TimeEntry = {
   edited: boolean
 }
 
-// An entry still open after this long is almost certainly a forgotten
-// clock-out; it is flagged for an admin and not counted as hours.
-export const FORGOT_AFTER_MS = 14 * 60 * 60 * 1000
-
-export function minutesOf(e: Pick<TimeEntry, 'clockIn' | 'clockOut'>, now = Date.now()): number {
-  const end = e.clockOut ? Date.parse(e.clockOut) : now
-  return Math.max(0, Math.round((end - Date.parse(e.clockIn)) / 60000))
-}
-
-export function isForgotten(e: Pick<TimeEntry, 'clockIn' | 'clockOut'>, now = Date.now()): boolean {
-  return !e.clockOut && now - Date.parse(e.clockIn) > FORGOT_AFTER_MS
-}
+// Shared with the time screen (client-safe): see shift-math.ts.
+export { isForgotten, minutesOf } from './shift-math'
 
 // Monday (Bangkok) of the week containing `isoDate` (YYYY-MM-DD).
 export function weekStart(isoDate = bangkokToday()): string {
