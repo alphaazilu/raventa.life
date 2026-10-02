@@ -28,7 +28,7 @@ export function LoginForm({
   hideGoogle = false,
 }: {
   next: string
-  authError?: 'cancelled' | 'failed'
+  authError?: 'cancelled' | 'failed' | 'google_existing'
   // True inside LINE's in-app browser, where Google sign-in can't work.
   hideGoogle?: boolean
 }) {
@@ -336,7 +336,13 @@ export function LoginForm({
             {/* A failed Google/LINE round trip, until the person tries again. */}
             {!state && authError && (
               <p className="text-sm text-destructive">
-                {tr(authError === 'cancelled' ? authCopy.oauthCancelled : authCopy.oauthFailed)}
+                {tr(
+                  authError === 'cancelled'
+                    ? authCopy.oauthCancelled
+                    : authError === 'google_existing'
+                      ? authCopy.googleExisting
+                      : authCopy.oauthFailed,
+                )}
               </p>
             )}
 

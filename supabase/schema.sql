@@ -1571,3 +1571,44 @@ grant execute on function public.pos_quote(uuid, text, jsonb, text) to authentic
 grant execute on function public.pos_checkout(uuid, text, jsonb, text, text, text) to authenticated;
 grant execute on function public.pos_void_sale(uuid, text) to authenticated;
 grant execute on function public.day_type(date) to authenticated;
+
+-- 19. Back Office settings + staff access (v0.20.3).
+--
+-- One row of switches an admin changes in Back Office › Settings, plus a
+-- list of staff allowed to use the front desk from their own phone (e.g. a
+-- shift lead when the tablet is down). Server (service-role) only.
+create table if not exists public.app_settings (
+  id integer primary key default 1 check (id = 1),
+  staff_desk_on_phone boolean not null default false,   -- all staff may sell from their own phone
+  staff_members_on_tablet boolean not null default true, -- staff see the member list (read-only) on a tablet
+  staff_idle_minutes integer not null default 10 check (staff_idle_minutes between 1 and 60),
+  admin_idle_minutes integer not null default 5 check (admin_idle_minutes between 1 and 60),
+  updated_by uuid references auth.users(id) on delete set null,
+  updated_at timestamptz not null default now()
+);
+insert into public.app_settings (id) values (1) on conflict (id) do nothing;
+
+alter table public.app_settings enable row level security;
+revoke all on public.app_settings from anon, authenticated;
+
+create table if not exists public.staff_phone_access (
+  staff_id uuid primary key references auth.users(id) on delete cascade,
+  granted_by uuid references auth.users(id) on delete set null,
+  granted_at timestamptz not null default now()
+);
+
+alter table public.staff_phone_access enable row level security;
+revoke all on public.staff_phone_access from anon, authenticated;
+
+-- Takings are admin business: staff sell through pos_* (security definer)
+-- and never need to read bills directly.
+drop policy if exists "Staff read" on public.sales;
+drop policy if exists "Admins read" on public.sales;
+create policy "Admins read" on public.sales for select to authenticated using (public.is_admin());
+drop policy if exists "Staff read" on public.sale_lines;
+drop policy if exists "Admins read" on public.sale_lines;
+create policy "Admins read" on public.sale_lines for select to authenticated using (public.is_admin());
+
+-- 20. Clock out by card on the tablet lock screen (v0.21).
+alter table public.time_entries drop constraint if exists time_entries_out_method_check;
+alter table public.time_entries add constraint time_entries_out_method_check check (out_method in ('button', 'admin', 'card'));

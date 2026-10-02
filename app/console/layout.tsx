@@ -10,7 +10,9 @@ import { canUseDesk, CONSOLE_PATH, isAdmin } from '@/lib/auth/roles'
 import { DEVICE_COOKIE, getCurrentDevice } from '@/lib/console/device'
 import { signOut } from '@/app/login/actions'
 import { lockConsole } from './lock-actions'
-import { clockInIfNeeded } from '@/lib/console/time'
+import { clockInIfNeeded, isForgotten, listOpenEntries } from '@/lib/console/time'
+import { getAppSettings } from '@/lib/console/settings'
+import { UpdateBanner } from '@/components/console/update-banner'
 
 export const metadata: Metadata = {
   title: 'Back Office | RAVENTA Wellness Retreat',
@@ -44,13 +46,23 @@ export default async function ConsoleLayout({ children }: { children: React.Reac
     // A revoked or unknown key: back to pairing (never /account, which tablet
     // mode would bounce straight back here).
     if (hasDeviceCookie && !device) redirect('/tablet')
-    if (device) return <TabletLock deviceName={device.name} notStaff={Boolean(user)} signOutAction={signOut} />
+    if (device) {
+      const open = await listOpenEntries().catch(() => [])
+      const onShift = open.filter((e) => !isForgotten(e)).map((e) => ({ name: e.name.split(' ')[0] || e.name, since: e.clockIn }))
+      return (
+        <>
+          <TabletLock deviceName={device.name} notStaff={Boolean(user)} signOutAction={signOut} onShift={onShift} />
+          <UpdateBanner />
+        </>
+      )
+    }
     redirect(user ? '/account' : `/login?next=${CONSOLE_PATH}`)
   }
 
   // Staff who got in with the password fallback are clocked in here (a card
   // scan already did it). No-op when an entry is open.
   if (device && role === 'staff') await clockInIfNeeded(user.id, device.id, 'password')
+  const settings = await getAppSettings()
 
   return (
     <div className="min-h-dvh overflow-x-clip bg-background">
@@ -59,9 +71,12 @@ export default async function ConsoleLayout({ children }: { children: React.Reac
         admin={isAdmin(me?.role)}
         deviceName={device?.name ?? null}
         signOutAction={lockConsole.bind(null, 'manual')}
+        staffMembers={settings.staffMembersOnTablet}
+        idleMinutes={isAdmin(me?.role) ? settings.adminIdleMinutes : settings.staffIdleMinutes}
       />
       {children}
-      {device && <IdleLock minutes={isAdmin(me?.role) ? 5 : 10} />}
+      {device && <UpdateBanner />}
+      {device && <IdleLock minutes={isAdmin(me?.role) ? settings.adminIdleMinutes : settings.staffIdleMinutes} />}
       <BusyOverlay />
     </div>
   )

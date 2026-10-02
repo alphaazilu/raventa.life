@@ -12,7 +12,7 @@ export type TimeEntry = {
   clockIn: string
   clockOut: string | null
   inMethod: 'card' | 'password' | 'admin'
-  outMethod: 'button' | 'admin' | null
+  outMethod: 'button' | 'admin' | 'card' | null
   edited: boolean
 }
 

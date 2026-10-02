@@ -4,6 +4,9 @@ import { CheckInDesk } from '@/components/admin/check-in-desk'
 import { getConsoleSession } from '@/lib/console/session'
 import { canUseDesk, DESK_PATH, isAdmin } from '@/lib/auth/roles'
 import { getDeskCatalog, getFloor } from './actions'
+import { getCurrentDevice } from '@/lib/console/device'
+import { deskAllowed } from '@/lib/console/settings'
+import { DeskTabletOnly } from '@/components/console/desk-tablet-only'
 
 export const metadata: Metadata = {
   title: 'ขาย + เช็คอิน | RAVENTA Back Office',
@@ -14,6 +17,8 @@ export default async function DeskPage() {
   const { user, role } = await getConsoleSession()
   if (!user) redirect(`/login?next=${DESK_PATH}`)
   if (!canUseDesk(role)) redirect('/account')
+  const onTablet = Boolean(await getCurrentDevice().catch(() => null))
+  if (!(await deskAllowed({ userId: user.id, admin: isAdmin(role), onTablet }))) return <DeskTabletOnly />
 
   const [floor, catalog] = await Promise.all([getFloor(), getDeskCatalog()])
 

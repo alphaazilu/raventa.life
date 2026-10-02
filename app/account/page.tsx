@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation'
 import { SiteHeader } from '@/components/site-header'
 import { SiteFooter } from '@/components/site-footer'
 import { AccountHome } from '@/components/account/account-home'
+import { deskAllowed } from '@/lib/console/settings'
 import { createClient } from '@/lib/supabase/server'
 import { resolveAvatarUrl } from '@/lib/supabase/avatar'
 
@@ -49,6 +50,10 @@ export default async function AccountPage({
     ? { progress: Number(stampRow.progress), rewardsAvailable: Number(stampRow.rewards_available) }
     : null
   const fullName = [profile?.first_name, profile?.last_name].filter(Boolean).join(' ')
+  // Staff see the front-desk link only when an admin allowed it on their
+  // phone (Back Office › Settings); otherwise they use the counter tablet.
+  const showDeskLink =
+    profile?.role === 'staff' && (await deskAllowed({ userId: user.id, admin: false, onTablet: false }).catch(() => false))
 
   return (
     <>
@@ -60,7 +65,7 @@ export default async function AccountPage({
           avatarUrl={avatarUrl}
           joinedAt={profile?.created_at ?? null}
           stamps={stamps}
-          role={profile?.role ?? 'customer'}
+          showDeskLink={showDeskLink}
           // /account?card=1 (the LINE rich menu's member card button) opens
           // the check-in QR straight away.
           openCardOnLoad={params.card === '1'}

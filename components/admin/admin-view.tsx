@@ -1,6 +1,9 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useEffect, useState, useTransition } from 'react'
+import { useRouter } from 'next/navigation'
+import { Search } from 'lucide-react'
+import { SearchInput } from '@/components/ui/search-input'
 import { useLanguage } from '@/components/language-provider'
 import { authCopy } from '@/lib/auth/copy'
 import { AvatarCircle } from '@/components/account/avatar-circle'
@@ -20,45 +23,66 @@ export type AdminMember = {
   avatar_url: string | null
 }
 
-export function AdminView({ members, readOnly = false }: { members: AdminMember[]; readOnly?: boolean }) {
+export function AdminView({
+  members,
+  total,
+  query,
+  searched,
+  limited,
+  readOnly = false,
+}: {
+  members: AdminMember[]
+  total: number
+  query: string
+  searched: boolean
+  limited: boolean
+  readOnly?: boolean
+}) {
   const { tr } = useLanguage()
-  const [query, setQuery] = useState('')
+  const router = useRouter()
+  const [text, setText] = useState(query)
+  const [pending, start] = useTransition()
 
-  const filtered = useMemo(() => {
-    const q = query.trim().toLowerCase()
-    if (!q) return members
-    return members.filter((m) => {
-      const name = [m.first_name, m.last_name].filter(Boolean).join(' ').toLowerCase()
-      return (
-        (m.member_no ?? '').toLowerCase().includes(q) ||
-        name.includes(q) ||
-        (m.email ?? '').toLowerCase().includes(q) ||
-        (m.phone ?? '').toLowerCase().includes(q)
-      )
-    })
-  }, [members, query])
+  // Search on the server as you type (short pause), via ?q= so the result
+  // survives a refresh and the back button.
+  useEffect(() => {
+    if (text.trim() === query) return
+    const t = setTimeout(() => {
+      const q = text.trim()
+      start(() => router.replace(q ? `${MEMBERS_PATH}?q=${encodeURIComponent(q)}` : MEMBERS_PATH, { scroll: false }))
+    }, 350)
+    return () => clearTimeout(t)
+  }, [text, query, router])
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-6 md:px-6 md:py-8">
       <div className="flex flex-wrap items-center justify-between gap-4">
         <h1 className="font-display text-2xl font-extrabold text-foreground md:text-3xl">
-          {tr(consoleCopy.membersHeading)} <span className="text-base font-semibold text-muted-foreground">({members.length.toLocaleString()})</span>
+          {tr(consoleCopy.membersHeading)} <span className="text-base font-semibold text-muted-foreground">({total.toLocaleString()})</span>
         </h1>
         {readOnly && (
           <span className="rounded-full border border-border bg-secondary px-3 py-1 text-xs font-semibold text-secondary-foreground">
             {tr(consoleCopy.membersReadOnly)}
           </span>
         )}
-        <input
-          type="text"
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          placeholder={tr(authCopy.adminSearchPlaceholder)}
-          aria-label={tr(authCopy.adminSearchPlaceholder)}
-          className="w-full max-w-xs rounded-full border border-border bg-background px-4 py-2 text-sm text-foreground outline-none focus:border-primary"
+        <SearchInput
+          value={text}
+          onChange={setText}
+          placeholder={tr(readOnly ? consoleCopy.membersSearchStaff : authCopy.adminSearchPlaceholder)}
+          clearLabel={tr(consoleCopy.clearSearch)}
+          className="w-full max-w-sm"
+          autoFocus
         />
       </div>
 
+      {!searched ? (
+        <div className="mt-10 flex flex-col items-center gap-2 text-center text-sm text-muted-foreground">
+          <Search className="h-8 w-8 opacity-40" aria-hidden="true" />
+          <p>{tr(text.trim() ? consoleCopy.membersKeepTyping : consoleCopy.membersSearchFirst)}</p>
+        </div>
+      ) : (
+      <>
+      {limited && <p className="mt-3 text-xs text-muted-foreground">{tr(consoleCopy.membersLimited)}</p>}
       <div className="mt-4 overflow-x-auto rounded-2xl border border-border">
         <table className="w-full min-w-[720px] text-left text-sm">
           <thead className="bg-secondary text-xs font-semibold uppercase tracking-wide text-muted-foreground">
@@ -73,7 +97,7 @@ export function AdminView({ members, readOnly = false }: { members: AdminMember[
             </tr>
           </thead>
           <tbody className="divide-y divide-border">
-            {filtered.map((m) => (
+            {members.map((m) => (
               <tr key={m.id} className="bg-card">
                 <td className="whitespace-nowrap px-4 py-3 font-mono text-primary">{m.member_no ?? '—'}</td>
                 <td className="px-4 py-3">
@@ -102,7 +126,7 @@ export function AdminView({ members, readOnly = false }: { members: AdminMember[
                 </td>
               </tr>
             ))}
-            {filtered.length === 0 && (
+            {members.length === 0 && (
               <tr>
                 <td colSpan={7} className="px-4 py-6 text-center text-muted-foreground">
                   {tr(authCopy.adminNoMembersFound)}
@@ -112,6 +136,9 @@ export function AdminView({ members, readOnly = false }: { members: AdminMember[
           </tbody>
         </table>
       </div>
+      </>
+      )}
+      {pending && <p className="mt-3 text-center text-xs text-muted-foreground">…</p>}
     </div>
   )
 }

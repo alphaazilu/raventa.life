@@ -18,7 +18,7 @@ export function AccountHome({
   joinedAt,
   openCardOnLoad,
   stamps,
-  role,
+  showDeskLink,
 }: {
   name: string
   memberNo: string | null
@@ -26,7 +26,7 @@ export function AccountHome({
   joinedAt: string | null
   openCardOnLoad: boolean
   stamps: { progress: number; rewardsAvailable: number } | null
-  role: string
+  showDeskLink: boolean
 }) {
   const { tr } = useLanguage()
   return (
@@ -42,9 +42,9 @@ export function AccountHome({
       {stamps && <StampCard progress={stamps.progress} rewardsAvailable={stamps.rewardsAvailable} />}
 
       <nav className="mt-8 overflow-hidden rounded-2xl border border-border bg-card">
-        {/* Staff only; admins use Back Office in the header. Goes away once
-            staff move onto the counter tablet (Vault R2, phase 2). */}
-        {role === 'staff' && <LinkRow href={DESK_PATH}>{tr(authCopy.deskLinkLabel)}</LinkRow>}
+        {/* Staff allowed to sell from their phone (Back Office › Settings);
+            everyone else uses the counter tablet, admins the header button. */}
+        {showDeskLink && <LinkRow href={DESK_PATH}>{tr(authCopy.deskLinkLabel)}</LinkRow>}
         <LinkRow href="/account/settings">{tr(authCopy.settingsLink)}</LinkRow>
       </nav>
     </div>

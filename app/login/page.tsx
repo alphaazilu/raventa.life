@@ -22,7 +22,13 @@ export default async function LoginPage({
   const next = params.next && params.next.startsWith('/') ? params.next : '/account'
   // Set by app/auth/callback when a Google/LINE/email-confirm round trip
   // fails. Only the kind of failure is used — the raw value is never shown.
-  const authError = params.error ? (params.error === 'access_denied' ? 'cancelled' : 'failed') : undefined
+  const authError = params.error
+    ? params.error === 'access_denied'
+      ? 'cancelled'
+      : params.error === 'google_existing'
+        ? 'google_existing'
+        : 'failed'
+    : undefined
 
   // /login?via=line is the link behind the LINE OA rich menu. It opens in
   // LINE's in-app browser, where LINE Login signs the person in with no

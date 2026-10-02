@@ -6,6 +6,7 @@ import { useLanguage } from '@/components/language-provider'
 import { AvatarCircle } from '@/components/account/avatar-circle'
 import { QrScanner } from '@/components/admin/qr-scanner'
 import { BillBuilder } from '@/components/admin/bill-builder'
+import { SearchInput } from '@/components/ui/search-input'
 import { Spinner } from '@/components/ui/spinner'
 import { deskCopy, deskErrors } from '@/lib/check-in/copy'
 import { bangkokTime, FLOOR_CAPACITY } from '@/lib/check-in/day'
@@ -188,14 +189,12 @@ export function CheckInDesk({
           />
 
           <form onSubmit={handleSearch} className="mt-4 flex gap-2">
-            <input
-              type="search"
+            <SearchInput
               value={query}
-              onChange={(e) => setQuery(e.target.value)}
+              onChange={setQuery}
               placeholder={tr(deskCopy.searchPlaceholder)}
-              aria-label={tr(deskCopy.searchPlaceholder)}
-              autoComplete="off"
-              className="h-11 min-w-0 flex-1 rounded-full border border-border bg-background px-4 text-sm text-foreground outline-none focus:border-primary"
+              clearLabel={tr(deskCopy.clearSearch)}
+              className="min-w-0 flex-1"
             />
             <button
               type="submit"

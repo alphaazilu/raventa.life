@@ -18,6 +18,7 @@ export const deskCopy = {
 
   searchPlaceholder: { th: 'เบอร์โทร / เลขสมาชิก / ชื่อ', en: 'Phone / member no. / name' },
   searchButton: { th: 'ค้นหา', en: 'Search' },
+  clearSearch: { th: 'ล้างคำค้นหา', en: 'Clear search' },
   noResults: { th: 'ไม่พบสมาชิก', en: 'No member found' },
   resultsHeading: { th: 'เลือกสมาชิก', en: 'Choose a member' },
 
@@ -122,6 +123,7 @@ export const deskErrors: Record<string, Bilingual> = {
   cancel_window_passed: { th: 'เกิน 30 นาทีแล้ว — ให้แอดมินยกเลิก', en: 'Over 30 minutes — ask an admin to undo it' },
   qr_expired: { th: 'QR หมดอายุ — ให้ลูกค้าเปิดบัตรใหม่อีกครั้ง', en: 'QR expired — ask the member to reopen their card' },
   qr_invalid: { th: 'QR นี้ไม่ใช่บัตรสมาชิก RAVENTA', en: 'Not a RAVENTA member QR' },
+  desk_tablet_only: { th: 'หน้าขาย + เช็คอินใช้ได้เฉพาะบน Tablet ของร้าน — ขอแอดมินเปิดสิทธิ์ใช้บนมือถือได้ที่ ตั้งค่า', en: 'Selling and check-in work on the shop tablet only — an admin can allow your phone in Settings' },
   member_required: { th: 'Day Pass ต้องมีสมาชิก — สแกนบัตรก่อน', en: 'A Day Pass needs a member — scan their card first' },
   day_pass_off: { th: 'Day Pass ปิดการขายอยู่ (หน้าสินค้าและราคา)', en: 'Day Pass is switched off (Products & prices)' },
   product_unavailable: { th: 'สินค้านี้ปิดการขายหรือถูกลบแล้ว — รีเฟรช', en: 'That item is no longer for sale — refresh' },

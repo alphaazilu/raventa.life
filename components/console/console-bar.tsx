@@ -3,11 +3,11 @@
 import Image from 'next/image'
 import Link, { useLinkStatus } from 'next/link'
 import { usePathname } from 'next/navigation'
-import { useEffect, useState } from 'react'
-import { Expand, Globe, Lock, LogOut, ShieldAlert, Shrink } from 'lucide-react'
+import { useEffect, useRef, useState } from 'react'
+import { ChevronDown, Expand, Globe, Lock, LogOut, Settings, ShieldAlert, Shrink } from 'lucide-react'
 import { useLanguage } from '@/components/language-provider'
 import { consoleCopy } from '@/lib/console/copy'
-import { CATALOG_PATH, CONSOLE_PATH, DESK_PATH, DEVICES_PATH, MEMBERS_PATH, TIME_PATH } from '@/lib/auth/roles'
+import { CATALOG_PATH, SETTINGS_PATH, CONSOLE_PATH, DESK_PATH, DEVICES_PATH, MEMBERS_PATH, TIME_PATH } from '@/lib/auth/roles'
 import { cn } from '@/lib/utils'
 import { AppVersion } from '@/components/console/app-version'
 
@@ -31,7 +31,19 @@ const TABS: Tab[] = [
   { key: 'catalog', label: consoleCopy.tabCatalog, href: CATALOG_PATH, adminOnly: true, notOnTablet: true },
   { key: 'reports', label: consoleCopy.tabReports, adminOnly: true },
   { key: 'devices', label: consoleCopy.tabDevices, href: DEVICES_PATH, adminOnly: true, notOnTablet: true },
+  { key: 'settings', label: consoleCopy.tabSettings, href: SETTINGS_PATH, adminOnly: true, notOnTablet: true },
 ]
+
+// Desktop: with many tabs (an admin on a computer), related pages sit under
+// one menu each. Few tabs (staff, or an admin on the tablet) stay flat — no
+// extra tap at the counter. Phones always get the flat, scrollable row.
+const GROUPS: { key: string; label: { th: string; en: string }; tabs: string[]; icon?: boolean }[] = [
+  { key: 'front', label: consoleCopy.groupFront, tabs: ['desk', 'members'] },
+  { key: 'back', label: consoleCopy.groupBack, tabs: ['time', 'catalog'] },
+  { key: 'system', label: consoleCopy.groupSystem, tabs: ['settings', 'devices'], icon: true },
+]
+const TOP_ORDER = ['overview', 'front', 'back', 'reports', 'system']
+const GROUP_WHEN_MORE_THAN = 5
 
 function isActive(pathname: string, href: string): boolean {
   if (href === CONSOLE_PATH) return pathname === CONSOLE_PATH
@@ -43,6 +55,8 @@ export function ConsoleBar({
   admin,
   deviceName = null,
   signOutAction,
+  staffMembers = true,
+  idleMinutes = 5,
 }: {
   name: string
   admin: boolean
@@ -50,12 +64,18 @@ export function ConsoleBar({
   // sign-out button in place of "back to site" (the site isn't reachable).
   deviceName?: string | null
   signOutAction?: () => Promise<void>
+  // Settings › staff see the member list on the tablet (§19).
+  staffMembers?: boolean
+  // Auto-lock minutes on the tablet, shown in the admin-mode menu.
+  idleMinutes?: number
 }) {
   const { tr, lang, toggle } = useLanguage()
   const pathname = usePathname()
   const onTablet = Boolean(deviceName)
   const tabs = TABS.filter(
-    (t) => (admin || !t.adminOnly || (t.staffOnTablet && onTablet)) && !(t.notOnTablet && onTablet),
+    (t) =>
+      (admin || !t.adminOnly || (t.staffOnTablet && onTablet && (t.key !== 'members' || staffMembers))) &&
+      !(t.notOnTablet && onTablet),
   )
 
   // Full-screen button where the browser allows it (Android Chrome, desktop).
@@ -109,6 +129,70 @@ export function ConsoleBar({
     </nav>
   )
 
+  const tabLink = (t: Tab, inMenu = false) =>
+    t.href ? (
+      <Link
+        key={t.key}
+        href={t.href}
+        aria-current={isActive(pathname, t.href) ? 'page' : undefined}
+        className={
+          inMenu
+            ? cn(
+                'flex items-center justify-between gap-6 rounded-xl px-3 py-2.5 text-sm whitespace-nowrap',
+                isActive(pathname, t.href) ? 'bg-secondary font-bold text-primary' : 'font-medium text-foreground hover:bg-secondary/60',
+              )
+            : cn(
+                'flex h-14 shrink-0 items-center gap-1.5 whitespace-nowrap border-b-2 text-sm transition-colors xl:h-16',
+                isActive(pathname, t.href)
+                  ? 'border-primary font-bold text-primary'
+                  : 'border-transparent font-medium text-muted-foreground hover:text-foreground',
+              )
+        }
+      >
+        {tr(t.label)}
+        <PendingDot />
+      </Link>
+    ) : (
+      <span
+        key={t.key}
+        aria-disabled="true"
+        className="flex h-14 shrink-0 items-center gap-1.5 whitespace-nowrap border-b-2 border-transparent text-sm font-medium text-muted-foreground/60 xl:h-16"
+      >
+        {tr(t.label)}
+        <span className="rounded-full border border-border px-1.5 py-px text-[10px] font-semibold">{tr(consoleCopy.soon)}</span>
+      </span>
+    )
+
+  const byKey = new Map(tabs.map((t) => [t.key, t]))
+  const desktopNav =
+    tabs.length <= GROUP_WHEN_MORE_THAN ? (
+      nav
+    ) : (
+      <nav aria-label={tr(consoleCopy.backOffice)} className="flex items-stretch gap-4 xl:gap-7">
+        {TOP_ORDER.map((key) => {
+          const group = GROUPS.find((g) => g.key === key)
+          if (!group) {
+            const t = byKey.get(key)
+            return t ? tabLink(t) : null
+          }
+          const items = group.tabs.map((k) => byKey.get(k)).filter(Boolean) as Tab[]
+          if (items.length === 0) return null
+          if (items.length === 1) return tabLink(items[0])
+          return (
+            <NavMenu
+              key={group.key}
+              label={tr(group.label)}
+              icon={group.icon}
+              active={items.some((t) => t.href && isActive(pathname, t.href))}
+              pathname={pathname}
+            >
+              {items.map((t) => tabLink(t, true))}
+            </NavMenu>
+          )
+        })}
+      </nav>
+    )
+
   return (
     <header className="sticky top-0 z-40 border-b border-border bg-background/95 backdrop-blur">
       <div className="mx-auto flex h-14 max-w-7xl items-center justify-between gap-2 px-3 sm:gap-4 sm:px-4 md:px-6 xl:h-16">
@@ -128,7 +212,7 @@ export function ConsoleBar({
         </Link>
         <AppVersion className="hidden shrink-0 2xl:inline" />
 
-        <div className="hidden min-w-0 flex-1 justify-center lg:flex">{nav}</div>
+        <div className="hidden min-w-0 flex-1 justify-center lg:flex">{desktopNav}</div>
 
         <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
           <span className={cn('whitespace-nowrap text-sm text-foreground', admin ? 'hidden 2xl:inline' : 'hidden sm:inline')}>
@@ -161,17 +245,7 @@ export function ConsoleBar({
               <span className={lang === 'en' ? 'text-primary' : ''}>EN</span>
             </span>
           </button>
-          {admin && onTablet && (
-            <span
-              role="status"
-              className="flex h-9 items-center gap-1.5 whitespace-nowrap rounded-full bg-primary px-2.5 text-xs font-bold text-primary-foreground sm:px-3"
-              title={tr(consoleCopy.adminModeChip)}
-            >
-              <ShieldAlert className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
-              <span className="hidden 2xl:inline">{tr(consoleCopy.adminModeChip)}</span>
-              <span className="2xl:hidden">{tr(consoleCopy.adminModeShort)}</span>
-            </span>
-          )}
+          {admin && onTablet && <AdminModeChip name={name} idleMinutes={idleMinutes} signOutAction={signOutAction} />}
           {deviceName && signOutAction ? (
             <form action={signOutAction}>
               <button
@@ -211,5 +285,125 @@ function PendingDot() {
         pending ? 'inline-block' : 'hidden',
       )}
     />
+  )
+}
+
+function NavMenu({
+  label,
+  icon,
+  active,
+  pathname,
+  children,
+}: {
+  label: string
+  icon?: boolean
+  active: boolean
+  pathname: string
+  children: React.ReactNode
+}) {
+  const [open, setOpen] = useState(false)
+  const ref = useRef<HTMLDivElement>(null)
+  // Close on navigation, outside click and Escape.
+  useEffect(() => setOpen(false), [pathname])
+  useEffect(() => {
+    if (!open) return
+    const onDown = (e: PointerEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
+    }
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && setOpen(false)
+    document.addEventListener('pointerdown', onDown)
+    document.addEventListener('keydown', onKey)
+    return () => {
+      document.removeEventListener('pointerdown', onDown)
+      document.removeEventListener('keydown', onKey)
+    }
+  }, [open])
+  return (
+    <div ref={ref} className="relative flex">
+      <button
+        type="button"
+        aria-expanded={open}
+        aria-haspopup="menu"
+        onClick={() => setOpen((o) => !o)}
+        className={cn(
+          'flex h-14 shrink-0 items-center gap-1 whitespace-nowrap border-b-2 text-sm transition-colors xl:h-16',
+          active ? 'border-primary font-bold text-primary' : 'border-transparent font-medium text-muted-foreground hover:text-foreground',
+        )}
+      >
+        {icon && <Settings className="h-4 w-4" aria-hidden="true" />}
+        {label}
+        <ChevronDown className={cn('h-3.5 w-3.5 transition-transform', open && 'rotate-180')} aria-hidden="true" />
+      </button>
+      {open && (
+        <div role="menu" className="absolute top-full left-1/2 z-50 mt-1 min-w-48 -translate-x-1/2 rounded-2xl border border-border bg-background p-1.5 shadow-lg">
+          {children}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// On a shared tablet an admin sees takings and can edit, so the red chip is
+// a reminder — tap it to lock straight away.
+function AdminModeChip({
+  name,
+  idleMinutes,
+  signOutAction,
+}: {
+  name: string
+  idleMinutes: number
+  signOutAction?: () => Promise<void>
+}) {
+  const { tr } = useLanguage()
+  const [open, setOpen] = useState(false)
+  const ref = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    if (!open) return
+    const onDown = (e: PointerEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
+    }
+    document.addEventListener('pointerdown', onDown)
+    return () => document.removeEventListener('pointerdown', onDown)
+  }, [open])
+  return (
+    <div ref={ref} className="relative">
+      <button
+        type="button"
+        aria-expanded={open}
+        onClick={() => setOpen((o) => !o)}
+        className="flex h-9 items-center gap-1.5 whitespace-nowrap rounded-full bg-primary px-2.5 text-xs font-bold text-primary-foreground sm:px-3"
+        title={tr(consoleCopy.adminModeChip)}
+      >
+        <ShieldAlert className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+        <span className="hidden 2xl:inline">{tr(consoleCopy.adminModeChip)}</span>
+        <span className="2xl:hidden">{tr(consoleCopy.adminModeShort)}</span>
+        <ChevronDown className="h-3 w-3" aria-hidden="true" />
+      </button>
+      {open && (
+        <div className="absolute right-0 top-full z-50 mt-2 w-80 rounded-2xl border border-border bg-background p-4 shadow-lg">
+          <p className="text-sm font-bold text-foreground">
+            {name} · {tr(consoleCopy.adminMenuTitle)}
+          </p>
+          <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+            {tr(consoleCopy.adminMenuBody).replace('{m}', String(idleMinutes))}
+          </p>
+          {signOutAction && (
+            <form action={signOutAction} className="mt-3">
+              <button type="submit" className="flex h-11 w-full items-center justify-center gap-2 rounded-full bg-primary text-sm font-bold text-primary-foreground">
+                <Lock className="h-4 w-4" aria-hidden="true" />
+                {tr(consoleCopy.adminLockNow)}
+              </button>
+            </form>
+          )}
+          <button
+            type="button"
+            onClick={() => setOpen(false)}
+            className="mt-2 flex h-10 w-full items-center justify-center rounded-full border border-border text-sm font-semibold"
+          >
+            {tr(consoleCopy.adminKeepUsing)}
+          </button>
+        </div>
+      )}
+    </div>
   )
 }

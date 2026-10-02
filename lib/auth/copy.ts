@@ -142,6 +142,10 @@ export const authCopy: Record<string, Bilingual> = {
     th: 'ยกเลิกการเข้าสู่ระบบแล้ว ลองใหม่ได้เลย',
     en: 'Sign-in was cancelled. You can try again.',
   },
+  googleExisting: {
+    th: 'อีเมลนี้มีบัญชี RAVENTA อยู่แล้ว — เข้าสู่ระบบด้วยวิธีเดิมก่อน (อีเมล/รหัสผ่าน หรือ LINE) แล้วเชื่อม Google ได้ที่ บัญชีของฉัน › ตั้งค่า',
+    en: 'This email already has a RAVENTA account — sign in the usual way first (email/password or LINE), then link Google in My account › Settings',
+  },
   oauthFailed: {
     th: 'เข้าสู่ระบบไม่สำเร็จ กรุณาลองใหม่อีกครั้ง หากยังไม่ได้ กรุณาติดต่อเรา',
     en: 'Sign-in didn’t work. Please try again, or contact us if it keeps happening.',

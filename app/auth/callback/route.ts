@@ -23,6 +23,17 @@ export async function GET(request: Request) {
         data: { user },
       } = await supabase.auth.getUser()
 
+      // Supabase joins a Google sign-in onto an existing account with the
+      // same email by itself. We don't allow that: Google is only added from
+      // Settings, by someone already signed in the usual way. So a Google
+      // identity that appeared just now on an older account (and not via the
+      // Settings link flow) is taken off again and the person signed out.
+      if (user && !searchParams.get('link') && (await refusedGoogleAutoLink(supabase, user))) {
+        const url = new URL('/login', origin)
+        url.searchParams.set('error', 'google_existing')
+        return NextResponse.redirect(url)
+      }
+
       if (user) {
         // Every LINE sign-in, so members who joined before this existed get
         // it too. A no-op once it's set, or for non-LINE accounts.
@@ -64,4 +75,25 @@ export async function GET(request: Request) {
   const url = new URL('/login', origin)
   url.searchParams.set('error', reason)
   return NextResponse.redirect(url)
+}
+
+type Supabase = Awaited<ReturnType<typeof createClient>>
+type AuthUser = NonNullable<Awaited<ReturnType<Supabase['auth']['getUser']>>['data']['user']>
+
+const JUST_NOW_MS = 10 * 60 * 1000
+
+async function refusedGoogleAutoLink(supabase: Supabase, user: AuthUser): Promise<boolean> {
+  const identities = user.identities ?? []
+  const google = identities.find((i) => i.provider === 'google')
+  if (!google?.created_at) return false
+  const googleAt = Date.parse(google.created_at)
+  if (Date.now() - googleAt > JUST_NOW_MS) return false
+  // Another way in that existed well before this Google sign-in = an
+  // existing account, not a new Google signup.
+  const older = identities.some((i) => i.provider !== 'google' && i.created_at && Date.parse(i.created_at) < googleAt - 60_000)
+  if (!older) return false
+  const { error } = await supabase.auth.unlinkIdentity(google)
+  if (error) console.error('google auto-link unlink failed', error.message)
+  await supabase.auth.signOut()
+  return true
 }

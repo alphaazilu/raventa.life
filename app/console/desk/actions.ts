@@ -5,7 +5,10 @@ import { createClient } from '@/lib/supabase/server'
 import { getConsoleSession } from '@/lib/console/session'
 import { resolveAvatarUrl } from '@/lib/supabase/avatar'
 import { verifyMemberQrToken } from '@/lib/member-card'
-import { canUseDesk } from '@/lib/auth/roles'
+import { canUseDesk, isAdmin } from '@/lib/auth/roles'
+import { getCurrentDevice } from '@/lib/console/device'
+import { deskAllowed } from '@/lib/console/settings'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { bangkokToday, isWeekend } from '@/lib/check-in/day'
 import { dayTypeOf, loadCatalog, priceOn, type DayType } from '@/lib/console/catalog'
 
@@ -68,11 +71,15 @@ function errorCode(error: { code?: string; message?: string } | null): string {
   return m ? m[1] : 'failed'
 }
 
-async function requireDesk(): Promise<{ supabase: Supabase; userId: string } | { error: string }> {
+async function requireDesk(): Promise<{ supabase: Supabase; userId: string; onTablet: boolean } | { error: string }> {
   const { supabase, user, role } = await getConsoleSession()
   if (!user) return { error: 'not_staff' }
   if (!canUseDesk(role)) return { error: 'not_staff' }
-  return { supabase, userId: user.id }
+  // Staff sell on a registered tablet unless an admin allowed their phone
+  // (Back Office › Settings, §19).
+  const onTablet = Boolean(await getCurrentDevice().catch(() => null))
+  if (!(await deskAllowed({ userId: user.id, admin: isAdmin(role), onTablet }))) return { error: 'desk_tablet_only' }
+  return { supabase, userId: user.id, onTablet }
 }
 
 function fullName(p: { first_name?: string | null; last_name?: string | null; email?: string | null }): string {
@@ -403,6 +410,14 @@ export async function checkoutBill(
     const r = data as Record<string, unknown>
     receiptNo = Number(r.receipt_no)
     total = Number(r.total)
+    // Sold away from a counter tablet (an admin, or staff allowed on their
+    // phone): note it, so the log shows where each bill was taken.
+    if (!ctx.onTablet) {
+      await createAdminClient()
+        .from('staff_actions')
+        .insert({ actor_id: ctx.userId, member_id: input.memberId, action: 'sale_off_tablet', detail: { sale_id: r.sale_id, receipt_no: receiptNo, total } })
+        .then(() => undefined, () => undefined)
+    }
   }
   if (!input.memberId) return { ok: true, data: { receiptNo, total, member: null } }
   const m = await loadMember(ctx.supabase, ctx.userId, input.memberId)
