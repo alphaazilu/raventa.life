@@ -6,7 +6,7 @@ import { authCopy } from '@/lib/auth/copy'
 import { finishEmailVerification, type VerifyEmailState } from '@/app/complete-profile/actions'
 import { requestEmailCode } from '@/app/account/login-actions'
 import { Spinner } from '@/components/ui/spinner'
-import { codeErrorText } from '@/components/account/email-login-setup'
+import { codeErrorText } from '@/lib/auth/code-errors'
 
 const initial: VerifyEmailState = null
 

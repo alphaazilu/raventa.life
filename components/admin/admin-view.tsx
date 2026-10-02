@@ -120,7 +120,7 @@ export function AdminView({
                     href={`${MEMBERS_PATH}/${m.id}`}
                     className="text-xs font-semibold text-primary underline-offset-2 hover:underline"
                   >
-                    {tr(authCopy.editButton)}
+                    {tr(consoleCopy.memberOpen)}
                   </a>
                   )}
                 </td>

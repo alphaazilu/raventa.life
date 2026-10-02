@@ -61,6 +61,7 @@ export const consoleCopy = {
     en: 'Couldn’t load today’s data — make sure the latest supabase/schema.sql has been run',
   },
 
+  memberOpen: { th: 'ดูข้อมูล / ประวัติ', en: 'Details & visits' },
   membersHeading: { th: 'ข้อมูลลูกค้า', en: 'Members' },
   membersSearchFirst: { th: 'พิมพ์ชื่อ เบอร์โทร หรือเลขสมาชิก เพื่อค้นหา', en: 'Type a name, phone or member number to search' },
   membersKeepTyping: { th: 'พิมพ์อีกนิด — ชื่ออย่างน้อย 2 ตัวอักษร หรือตัวเลขอย่างน้อย 3 ตัว', en: 'Keep typing — at least 2 letters or 3 digits' },

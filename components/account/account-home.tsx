@@ -19,6 +19,7 @@ export function AccountHome({
   openCardOnLoad,
   stamps,
   showDeskLink,
+  role,
 }: {
   name: string
   memberNo: string | null
@@ -27,6 +28,7 @@ export function AccountHome({
   openCardOnLoad: boolean
   stamps: { progress: number; rewardsAvailable: number } | null
   showDeskLink: boolean
+  role: string
 }) {
   const { tr } = useLanguage()
   return (
@@ -36,7 +38,7 @@ export function AccountHome({
       </h1>
 
       <div className="mt-8">
-        <MemberCard name={name} memberNo={memberNo} avatarUrl={avatarUrl} joinedAt={joinedAt} autoOpen={openCardOnLoad} />
+        <MemberCard name={name} memberNo={memberNo} avatarUrl={avatarUrl} joinedAt={joinedAt} role={role} autoOpen={openCardOnLoad} />
       </div>
 
       {stamps && <StampCard progress={stamps.progress} rewardsAvailable={stamps.rewardsAvailable} />}
@@ -45,6 +47,7 @@ export function AccountHome({
         {/* Staff allowed to sell from their phone (Back Office › Settings);
             everyone else uses the counter tablet, admins the header button. */}
         {showDeskLink && <LinkRow href={DESK_PATH}>{tr(authCopy.deskLinkLabel)}</LinkRow>}
+        <LinkRow href="/account/history">{tr(authCopy.historyLink)}</LinkRow>
         <LinkRow href="/account/settings">{tr(authCopy.settingsLink)}</LinkRow>
       </nav>
     </div>

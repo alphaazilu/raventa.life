@@ -77,13 +77,7 @@ export function AccountSettingsView({
 
   return (
     <div className="mx-auto max-w-lg px-4 pt-4 pb-16 md:pt-6">
-      <a
-        href="/account"
-        className="inline-flex min-h-11 items-center gap-1 text-sm font-semibold text-primary underline-offset-2 hover:underline"
-      >
-        <ChevronLeft className="h-4 w-4" aria-hidden="true" />
-        {tr(authCopy.backToAccount)}
-      </a>
+      <BackLink href="/account" />
       <h1 className="mt-2 font-display text-2xl font-extrabold text-foreground md:text-3xl">
         {tr(authCopy.settingsHeading)}
       </h1>
@@ -240,6 +234,19 @@ export function LinkRow({ href, children }: { href: string; children: React.Reac
     >
       <span>{children}</span>
       <ChevronRight className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
+    </a>
+  )
+}
+
+export function BackLink({ href }: { href: string }) {
+  const { tr } = useLanguage()
+  return (
+    <a
+      href={href}
+      className="inline-flex min-h-11 items-center gap-1 text-sm font-semibold text-primary underline-offset-2 hover:underline"
+    >
+      <ChevronLeft className="h-4 w-4" aria-hidden="true" />
+      {tr(authCopy.backToAccount)}
     </a>
   )
 }

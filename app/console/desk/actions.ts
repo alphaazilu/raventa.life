@@ -43,6 +43,8 @@ export type DeskMember = {
   role: string
   isSelf: boolean
   stamps: { stamps: number; rewardsAvailable: number; progress: number } | null
+  // Visits before today (not cancelled) and the latest one — no money here.
+  history: { count: number; last: string | null }
   today: TodayVisit | null
   priceToday: number
   weekend: boolean
@@ -110,7 +112,7 @@ async function selectVisits<T>(run: (columns: string) => PromiseLike<{ data: T; 
 
 async function loadMember(supabase: Supabase, userId: string, memberId: string): Promise<DeskResult<DeskMember>> {
   const today = bangkokToday()
-  const [{ data: p, error: pErr }, visitRes, stampRes, priceRes] = await Promise.all([
+  const [{ data: p, error: pErr }, visitRes, stampRes, priceRes, pastRes] = await Promise.all([
     supabase
       .from('profiles')
       .select('id, first_name, last_name, email, member_no, role, created_at, avatar_path, provider_avatar_url')
@@ -121,6 +123,14 @@ async function loadMember(supabase: Supabase, userId: string, memberId: string):
     ),
     supabase.rpc('member_stamp_status', { p_member_id: memberId }),
     supabase.rpc('day_pass_price', { p_date: today }),
+    supabase
+      .from('visits')
+      .select('visit_date', { count: 'exact' })
+      .eq('member_id', memberId)
+      .lt('visit_date', today)
+      .is('cancelled_at', null)
+      .order('visit_date', { ascending: false })
+      .limit(1),
   ])
   if (pErr) return { ok: false, error: errorCode(pErr) }
   if (!p) return { ok: false, error: 'member_not_found' }
@@ -139,6 +149,7 @@ async function loadMember(supabase: Supabase, userId: string, memberId: string):
       role: p.role ?? 'customer',
       isSelf: p.id === userId,
       stamps: s ? { stamps: s.stamps, rewardsAvailable: s.rewards_available, progress: s.progress } : null,
+      history: { count: pastRes.count ?? 0, last: (pastRes.data?.[0]?.visit_date as string | undefined) ?? null },
       today: visitRes.data ? toVisit(visitRes.data as unknown as Record<string, unknown>) : null,
       priceToday: Number(priceRes.data),
       weekend: isWeekend(today),

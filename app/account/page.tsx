@@ -66,6 +66,7 @@ export default async function AccountPage({
           joinedAt={profile?.created_at ?? null}
           stamps={stamps}
           showDeskLink={showDeskLink}
+          role={profile?.role ?? 'customer'}
           // /account?card=1 (the LINE rich menu's member card button) opens
           // the check-in QR straight away.
           openCardOnLoad={params.card === '1'}

@@ -219,6 +219,13 @@ export function CheckInDesk({
           {panel.kind === 'empty' && (
             <div className="flex h-full min-h-[280px] flex-col items-center justify-center gap-4 text-center text-sm text-muted-foreground">
               {tr(deskCopy.emptyPanel)}
+              {/* Nothing to sell yet: say why instead of hiding the button. */}
+              {(!catalog || catalog.items.length === 0) && (
+                <p className="max-w-xs rounded-xl bg-secondary px-3 py-2 text-xs text-secondary-foreground">
+                  <ShoppingBag className="mr-1 inline h-3.5 w-3.5 align-[-2px]" aria-hidden="true" />
+                  {tr(catalog ? deskCopy.noItems : deskCopy.catalogNotSetUp)}
+                </p>
+              )}
               {catalog && catalog.items.length > 0 && (
                 <button
                   type="button"
@@ -408,6 +415,11 @@ function MemberPanel({
               {tr(deskCopy.memberSince)} {since}
             </p>
           )}
+          <p className="mt-0.5 text-xs font-semibold text-secondary-foreground">
+            {member.history.count === 0
+              ? tr(deskCopy.historyFirst)
+              : `${tr(deskCopy.historyCount).replace('{n}', String(member.history.count))} · ${tr(deskCopy.historyLast)} ${formatMemberDate(member.history.last, lang, true) ?? '—'}`}
+          </p>
           {member.role !== 'customer' && (
             <span className="mt-1.5 inline-block rounded-full bg-secondary px-2.5 py-0.5 text-xs font-semibold text-secondary-foreground">
               {tr(member.role === 'admin' ? deskCopy.roleAdmin : deskCopy.roleStaff)}

@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import { isProfileComplete, PROFILE_COMPLETENESS_COLUMNS } from '@/lib/supabase/profile'
 import { saveLineUserId } from '@/lib/supabase/line'
 import { saveProviderAvatar } from '@/lib/supabase/avatar'
+import { makeGoogleLinkTicket } from '@/lib/auth/google-link-ticket'
 
 // Handles the redirect back from Supabase after email confirmation or an
 // OAuth login (Google, LINE).
@@ -28,10 +29,21 @@ export async function GET(request: Request) {
       // Settings, by someone already signed in the usual way. So a Google
       // identity that appeared just now on an older account (and not via the
       // Settings link flow) is taken off again and the person signed out.
+      // The login page then offers to prove the email with a code and link
+      // Google properly (app/login/google-link-actions.ts).
       if (user && !searchParams.get('link') && (await refusedGoogleAutoLink(supabase, user))) {
         const url = new URL('/login', origin)
         url.searchParams.set('error', 'google_existing')
-        return NextResponse.redirect(url)
+        const res = NextResponse.redirect(url)
+        const ticket = makeGoogleLinkTicket(user.id)
+        res.cookies.set(ticket.name, ticket.value, {
+          httpOnly: true,
+          secure: url.protocol === 'https:',
+          sameSite: 'lax',
+          path: '/',
+          maxAge: ticket.maxAge,
+        })
+        return res
       }
 
       if (user) {

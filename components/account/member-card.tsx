@@ -46,12 +46,16 @@ function QrSvg({ text }: { text: string }) {
   )
 }
 
-type Person = { name: string; memberNo: string | null; avatarUrl: string | null; joinedAt: string | null }
+type Person = { name: string; memberNo: string | null; avatarUrl: string | null; joinedAt: string | null; role: string }
+
+// Top-right of the card: who this is at RAVENTA. Staff and admins stand out
+// in RAVENTA red so the counter can tell at a glance.
+const CARD_LABEL: Record<string, string> = { admin: 'ADMIN', staff: 'STAFF' }
 
 // The RAVENTA card itself (also the left half of the sideways view):
 // white, a faint emblem watermark, the wordmark, member number and QR
 // button in RAVENTA red. Its container supplies the white box.
-function CardFace({ name, memberNo, avatarUrl, joinedAt, showQrHint }: Person & { showQrHint: boolean }) {
+function CardFace({ name, memberNo, avatarUrl, joinedAt, role, showQrHint }: Person & { showQrHint: boolean }) {
   const { tr, lang } = useLanguage()
   const since = formatMemberDate(joinedAt, lang, false)
   return (
@@ -66,7 +70,14 @@ function CardFace({ name, memberNo, avatarUrl, joinedAt, showQrHint }: Person & 
       />
       <span className="relative flex w-full items-center justify-between">
         <Image src="/images/logo-wordmark.png" alt="RAVENTA" width={1166} height={157} className="h-4 w-auto" />
-        <span className="font-display text-[10px] font-semibold tracking-[0.22em] text-accent">MEMBER</span>
+        <span
+          className={cn(
+            'font-display text-[10px] font-semibold tracking-[0.22em]',
+            CARD_LABEL[role] ? 'text-primary' : 'text-accent',
+          )}
+        >
+          {CARD_LABEL[role] ?? 'MEMBER'}
+        </span>
       </span>
       <span className="relative flex items-center gap-3">
         <AvatarCircle src={avatarUrl} name={name} className="h-12 w-12 text-xl" />
@@ -96,7 +107,7 @@ function CardFace({ name, memberNo, avatarUrl, joinedAt, showQrHint }: Person & 
   )
 }
 
-export function MemberCard({ name, memberNo, avatarUrl, joinedAt, autoOpen }: Person & { autoOpen: boolean }) {
+export function MemberCard({ name, memberNo, avatarUrl, joinedAt, role, autoOpen }: Person & { autoOpen: boolean }) {
   const { tr } = useLanguage()
   const [open, setOpen] = useState(autoOpen)
   const cardRef = useRef<HTMLButtonElement>(null)
@@ -122,10 +133,12 @@ export function MemberCard({ name, memberNo, avatarUrl, joinedAt, autoOpen }: Pe
         aria-label={tr(authCopy.memberCardOpen)}
         className="relative flex aspect-[1.586] w-full max-w-sm flex-col justify-between overflow-hidden rounded-2xl border border-border bg-white px-5 py-5 text-left text-foreground shadow-[0_10px_24px_rgba(46,70,54,0.14)] transition-transform focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 active:scale-[0.99]"
       >
-        <CardFace name={name} memberNo={memberNo} avatarUrl={avatarUrl} joinedAt={joinedAt} showQrHint />
+        <CardFace name={name} memberNo={memberNo} avatarUrl={avatarUrl} joinedAt={joinedAt} role={role} showQrHint />
       </button>
       <p className="text-sm text-muted-foreground">{tr(authCopy.memberCardTapHint)}</p>
-      {open && <QrOverlay name={name} memberNo={memberNo} avatarUrl={avatarUrl} joinedAt={joinedAt} onClose={close} />}
+      {open && (
+        <QrOverlay name={name} memberNo={memberNo} avatarUrl={avatarUrl} joinedAt={joinedAt} role={role} onClose={close} />
+      )}
     </div>
   )
 }
@@ -135,7 +148,7 @@ type TokenState =
   | { status: 'ready'; token: string; nextAt: number; periodMs: number }
   | { status: 'error' }
 
-function QrOverlay({ name, memberNo, avatarUrl, joinedAt, onClose }: Person & { onClose: () => void }) {
+function QrOverlay({ name, memberNo, avatarUrl, joinedAt, role, onClose }: Person & { onClose: () => void }) {
   const { tr } = useLanguage()
   const [state, setState] = useState<TokenState>({ status: 'loading' })
   const [now, setNow] = useState(() => Date.now())
@@ -255,7 +268,7 @@ function QrOverlay({ name, memberNo, avatarUrl, joinedAt, onClose }: Person & { 
           </div>
         </div>
         <div className="relative hidden aspect-[1.586] h-[min(70vh,270px)] shrink-0 flex-col justify-between overflow-hidden rounded-2xl border border-border bg-white p-6 text-foreground shadow-[0_10px_24px_rgba(46,70,54,0.12)] phone-landscape:flex">
-          <CardFace name={name} memberNo={memberNo} avatarUrl={avatarUrl} joinedAt={joinedAt} showQrHint={false} />
+          <CardFace name={name} memberNo={memberNo} avatarUrl={avatarUrl} joinedAt={joinedAt} role={role} showQrHint={false} />
         </div>
 
         <div className="flex flex-col items-center gap-3">

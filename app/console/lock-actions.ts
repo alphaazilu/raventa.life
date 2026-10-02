@@ -7,6 +7,7 @@ import { verifyMemberQrToken } from '@/lib/member-card'
 import { getCurrentDevice } from '@/lib/console/device'
 import { canUseDesk, CONSOLE_PATH, DESK_PATH, isAdmin } from '@/lib/auth/roles'
 import { clockInIfNeeded } from '@/lib/console/time'
+import { signInAs } from '@/lib/auth/sign-in-as'
 
 // Counter tablet: start working by scanning your own member card (Vault R2).
 // Only on a registered tablet. The signed card QR (lib/member-card.ts, 90 s
@@ -36,10 +37,7 @@ export async function signInWithCard(rawToken: string): Promise<CardSignIn> {
     const supabase = await createClient()
     // Whoever was signed in before is replaced.
     await supabase.auth.signOut()
-    const { data: link, error: linkError } = await admin.auth.admin.generateLink({ type: 'magiclink', email })
-    if (linkError || !link?.properties?.hashed_token) throw linkError ?? new Error('no token')
-    const { error: otpError } = await supabase.auth.verifyOtp({ token_hash: link.properties.hashed_token, type: 'magiclink' })
-    if (otpError) throw otpError
+    await signInAs(supabase, email)
   } catch (err) {
     console.error('signInWithCard failed', err)
     return { ok: false, error: 'failed' }

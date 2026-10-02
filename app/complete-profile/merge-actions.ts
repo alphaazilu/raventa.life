@@ -4,6 +4,7 @@ import { createHash, randomInt, timingSafeEqual } from 'crypto'
 import { createClient as createSupabaseClient, type User } from '@supabase/supabase-js'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { signInAs } from '@/lib/auth/sign-in-as'
 import { isProfileComplete, PROFILE_COMPLETENESS_COLUMNS } from '@/lib/supabase/profile'
 import { getResendClient } from '@/lib/resend'
 import { mergeCodeEmail } from '@/lib/email-templates'
@@ -117,16 +118,7 @@ async function switchToExistingMember(
   // 1) Switch this browser's session to the existing membership. A
   //    magic-link token generated server-side (no email is sent) and
   //    redeemed straight away sets the new session cookies.
-  const { data: link, error: linkError } = await admin.auth.admin.generateLink({
-    type: 'magiclink',
-    email: targetEmail,
-  })
-  if (linkError || !link?.properties?.hashed_token) throw linkError ?? new Error('no token')
-  const { error: otpError } = await supabase.auth.verifyOtp({
-    token_hash: link.properties.hashed_token,
-    type: 'magiclink',
-  })
-  if (otpError) throw otpError
+  await signInAs(supabase, targetEmail)
 
   // 2) Only now remove the empty LINE account. This also frees the LINE
   //    identity so linkIdentity in the browser can attach it to the

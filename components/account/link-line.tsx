@@ -1,6 +1,7 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useTransition } from 'react'
+import { useRouter } from 'next/navigation'
 import { Mail } from 'lucide-react'
 import { useLanguage } from '@/components/language-provider'
 import { authCopy } from '@/lib/auth/copy'
@@ -8,6 +9,7 @@ import { getBrowserClient } from '@/lib/supabase/client'
 import { GoogleIcon, LineIcon } from '@/components/auth/oauth-buttons'
 import { Spinner } from '@/components/ui/spinner'
 import { EmailLoginSetup } from '@/components/account/email-login-setup'
+import { unlinkProvider } from '@/app/account/login-actions'
 
 export type LinkProvider = 'line' | 'google'
 export type LinkResult = { provider: LinkProvider; result: 'linked' | 'already_used' | 'failed' } | null
@@ -56,6 +58,64 @@ export function LoginMethods({
   const [pending, setPending] = useState<LinkProvider | null>(null)
   const [startError, setStartError] = useState<LinkProvider | null>(null)
   const [emailSetupOpen, setEmailSetupOpen] = useState(openEmailSetup && !hasPassword)
+  const router = useRouter()
+  const [asking, setAsking] = useState<LinkProvider | null>(null)
+  const [unlinkMsg, setUnlinkMsg] = useState<{ text: string; ok: boolean } | null>(null)
+  const [unlinking, startUnlink] = useTransition()
+  // Unlinking is offered only while another way in would remain.
+  const methods = Number(hasPassword) + Number(googleLinked) + Number(lineLinked)
+  const canUnlink = methods >= 2
+
+  const unlink = (provider: LinkProvider) =>
+    startUnlink(async () => {
+      const res = await unlinkProvider(provider)
+      setAsking(null)
+      setUnlinkMsg(
+        res.ok
+          ? { text: tr(authCopy.unlinkDone), ok: true }
+          : { text: tr(res.error === 'last_method' ? authCopy.unlinkLastMethod : authCopy.unlinkFailed), ok: false },
+      )
+      if (res.ok) router.replace('/account/settings', { scroll: false })
+    })
+
+  const linkedState = (provider: LinkProvider) => (
+    <span className="flex flex-col items-end gap-1">
+      <span className={on}>{tr(authCopy.statusLinked)}</span>
+      {canUnlink && asking !== provider && (
+        <button
+          type="button"
+          onClick={() => {
+            setAsking(provider)
+            setUnlinkMsg(null)
+          }}
+          className="text-xs text-muted-foreground underline-offset-2 hover:text-destructive hover:underline"
+        >
+          {tr(authCopy.unlinkButton)}
+        </button>
+      )}
+    </span>
+  )
+
+  const confirmRow = (provider: LinkProvider) =>
+    asking === provider && (
+      <div className="-mt-1 mb-3 rounded-xl border border-destructive/30 bg-destructive/5 p-3 text-sm">
+        <p>{tr(authCopy.unlinkAsk).replaceAll('{p}', provider === 'google' ? 'Google' : 'LINE')}</p>
+        <div className="mt-2 flex gap-2">
+          <button
+            type="button"
+            onClick={() => unlink(provider)}
+            disabled={unlinking}
+            className={`${smallBtn} bg-destructive text-white hover:opacity-90`}
+          >
+            {unlinking && <Spinner className="h-3.5 w-3.5" />}
+            {tr(authCopy.unlinkYes)}
+          </button>
+          <button type="button" onClick={() => setAsking(null)} disabled={unlinking} className={`${smallBtn} border border-border`}>
+            {tr(authCopy.unlinkNo)}
+          </button>
+        </div>
+      </div>
+    )
 
   const handleLink = async (provider: LinkProvider) => {
     setPending(provider)
@@ -136,7 +196,7 @@ export function LoginMethods({
         sub={googleLinked ? googleEmail : null}
       >
         {googleLinked ? (
-          <span className={on}>{tr(authCopy.statusLinked)}</span>
+          linkedState('google')
         ) : inLineApp ? (
           <span className="text-muted-foreground">{tr(authCopy.statusNotLinked)}</span>
         ) : (
@@ -152,6 +212,7 @@ export function LoginMethods({
         )}
       </MethodRow>
 
+      {confirmRow('google')}
       {!googleLinked && inLineApp && (
         <p className="-mt-1 pb-3 text-xs leading-relaxed text-muted-foreground">{tr(authCopy.googleOpenInBrowser)}</p>
       )}
@@ -166,7 +227,7 @@ export function LoginMethods({
         last
       >
         {lineLinked ? (
-          <span className={on}>{tr(authCopy.statusLinked)}</span>
+          linkedState('line')
         ) : (
           <button
             type="button"
@@ -180,8 +241,13 @@ export function LoginMethods({
         )}
       </MethodRow>
 
+      {confirmRow('line')}
       {!lineLinked && <p className="pb-3 text-xs leading-relaxed text-muted-foreground">{tr(authCopy.lineLinkHint)}</p>}
-      {message && <p className={`pb-3 text-sm ${message.tone}`}>{message.text}</p>}
+      {unlinkMsg ? (
+        <p className={`pb-3 text-sm ${unlinkMsg.ok ? 'text-accent' : 'text-destructive'}`}>{unlinkMsg.text}</p>
+      ) : (
+        message && <p className={`pb-3 text-sm ${message.tone}`}>{message.text}</p>
+      )}
     </div>
   )
 }

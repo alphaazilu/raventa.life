@@ -9,6 +9,7 @@ import { OAuthButtons } from '@/components/auth/oauth-buttons'
 import { fieldClass } from '@/lib/form-field-class'
 import { signIn, signUp, type AuthActionState } from './actions'
 import { Spinner } from '@/components/ui/spinner'
+import { GoogleLinkPanel } from '@/components/auth/google-link-panel'
 
 type Mode = 'login' | 'signup'
 
@@ -26,11 +27,14 @@ export function LoginForm({
   next,
   authError,
   hideGoogle = false,
+  googleLinkEmail = null,
 }: {
   next: string
   authError?: 'cancelled' | 'failed' | 'google_existing'
   // True inside LINE's in-app browser, where Google sign-in can't work.
   hideGoogle?: boolean
+  // Masked email of the account a refused Google sign-in belongs to.
+  googleLinkEmail?: string | null
 }) {
   const { tr } = useLanguage()
   const [mode, setMode] = useState<Mode>('login')
@@ -72,6 +76,11 @@ export function LoginForm({
   return (
     <div className="mx-auto flex w-full max-w-md flex-col justify-center px-4 py-16 md:py-24">
       <div className="rounded-2xl border border-border bg-card p-8 shadow-sm">
+        {googleLinkEmail && (
+          <div className="mb-6">
+            <GoogleLinkPanel maskedEmail={googleLinkEmail} />
+          </div>
+        )}
         <div className="mb-6 flex rounded-full bg-secondary p-1 text-sm font-semibold">
           <button
             type="button"
@@ -334,7 +343,7 @@ export function LoginForm({
 
             {state?.error && <p className="text-sm text-destructive">{state.error}</p>}
             {/* A failed Google/LINE round trip, until the person tries again. */}
-            {!state && authError && (
+            {!state && authError && !googleLinkEmail && (
               <p className="text-sm text-destructive">
                 {tr(
                   authError === 'cancelled'
