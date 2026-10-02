@@ -39,6 +39,7 @@ export function LoginMethods({
   hasPassword,
   googleEmail,
   googleLinked,
+  googlePending = false,
   lineLinked,
   linkResult,
   inLineApp,
@@ -49,6 +50,9 @@ export function LoginMethods({
   hasPassword: boolean
   googleEmail: string | null
   googleLinked: boolean
+  // Someone signed in with Google on this email and hasn't confirmed the
+  // emailed code yet (app/auth/callback) — Google can't sign in until then.
+  googlePending?: boolean
   lineLinked: boolean
   linkResult: LinkResult
   inLineApp: boolean
@@ -80,7 +84,11 @@ export function LoginMethods({
 
   const linkedState = (provider: LinkProvider) => (
     <span className="flex flex-col items-end gap-1">
-      <span className={on}>{tr(authCopy.statusLinked)}</span>
+      {provider === 'google' && googlePending ? (
+        <span className="font-semibold text-amber-700 dark:text-amber-300">{tr(authCopy.statusPending)}</span>
+      ) : (
+        <span className={on}>{tr(authCopy.statusLinked)}</span>
+      )}
       {canUnlink && asking !== provider && (
         <button
           type="button"
@@ -212,6 +220,7 @@ export function LoginMethods({
         )}
       </MethodRow>
 
+      {googlePending && <p className="-mt-1 pb-3 text-xs leading-relaxed text-muted-foreground">{tr(authCopy.googlePendingHint)}</p>}
       {confirmRow('google')}
       {!googleLinked && inLineApp && (
         <p className="-mt-1 pb-3 text-xs leading-relaxed text-muted-foreground">{tr(authCopy.googleOpenInBrowser)}</p>

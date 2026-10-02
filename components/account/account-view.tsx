@@ -29,6 +29,7 @@ export function AccountSettingsView({
   avatarUrl,
   hasUploadedAvatar,
   googleLinked,
+  googlePending,
   googleEmail,
   joinedAt,
   authEmail,
@@ -53,6 +54,7 @@ export function AccountSettingsView({
   avatarUrl: string | null
   hasUploadedAvatar: boolean
   googleLinked: boolean
+  googlePending: boolean
   googleEmail: string | null
   joinedAt: string | null
 }) {
@@ -185,6 +187,7 @@ export function AccountSettingsView({
         <LoginMethods
           hasPassword={hasPassword}
           googleLinked={googleLinked}
+          googlePending={googlePending}
           googleEmail={googleEmail}
           lineLinked={lineLinked}
           linkResult={linkResult}

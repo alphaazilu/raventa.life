@@ -5,13 +5,13 @@ import { useLanguage } from '@/components/language-provider'
 import { authCopy } from '@/lib/auth/copy'
 import { codeErrorText } from '@/lib/auth/code-errors'
 import { confirmGoogleLinkCode, sendGoogleLinkCode } from '@/app/login/google-link-actions'
-import { getBrowserClient } from '@/lib/supabase/client'
 import { GoogleIcon } from '@/components/auth/oauth-buttons'
 import { Spinner } from '@/components/ui/spinner'
+import { CodeInput } from '@/components/ui/code-input'
 
 // Shown on /login after a Google sign-in was refused because the email
 // already has an account: send a code to that account's email → enter it →
-// signed in (server) → link Google (browser) → back on Settings.
+// Google is confirmed and they're signed in → Settings.
 export function GoogleLinkPanel({ maskedEmail }: { maskedEmail: string }) {
   const { tr } = useLanguage()
   const [sent, setSent] = useState(false)
@@ -39,15 +39,7 @@ export function GoogleLinkPanel({ maskedEmail }: { maskedEmail: string }) {
       return setError(res.error)
     }
     setLinking(true)
-    const supabase = await getBrowserClient()
-    const next = encodeURIComponent('/account/settings?linked=google')
-    const { error: linkError } = await supabase.auth.linkIdentity({
-      provider: 'google',
-      options: { redirectTo: `${window.location.origin}/auth/callback?link=google&next=${next}` },
-    })
-    // Only reached if linking can't start — they're signed in by now, so
-    // Settings is where they can try again.
-    if (linkError) window.location.assign('/account/settings?link=google&link_error=start')
+    window.location.assign('/account/settings?linked=google')
   }
 
   return (
@@ -74,19 +66,14 @@ export function GoogleLinkPanel({ maskedEmail }: { maskedEmail: string }) {
             {tr(authCopy.emailCodeSentTo)} <span className="font-semibold">{maskedEmail}</span>
             <span className="mt-1 block text-xs text-muted-foreground">{tr(authCopy.emailCodeCheckSpam)}</span>
           </p>
-          <input
-            inputMode="numeric"
-            autoComplete="one-time-code"
-            aria-label={tr(authCopy.emailCodeLabel)}
-            maxLength={6}
-            autoFocus
-            value={code}
-            onChange={(e) => setCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' && code.length === 6 && !busy) confirm()
+          <form
+            onSubmit={(e) => {
+              e.preventDefault()
+              if (code.length === 6 && !busy) confirm()
             }}
-            className="w-full rounded-xl border border-border bg-background px-4 py-2.5 text-center font-mono text-xl tracking-[0.5em] outline-none focus:border-primary"
-          />
+          >
+            <CodeInput value={code} onChange={setCode} label={tr(authCopy.emailCodeLabel)} autoFocus disabled={busy} />
+          </form>
           <button
             type="button"
             onClick={confirm}

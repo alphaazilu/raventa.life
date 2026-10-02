@@ -99,6 +99,9 @@ export async function unlinkProvider(provider: 'google' | 'line'): Promise<Login
     // login without its own identity row counts as none.
     return { ok: false, error: error.code === 'single_identity_not_deletable' ? 'last_method' : 'failed' }
   }
+  if (provider === 'google' && user.app_metadata?.google_pending) {
+    await createAdminClient().auth.admin.updateUserById(user.id, { app_metadata: { google_pending: null } })
+  }
   // LINE messages go to the stored LINE user id — stop them too.
   if (provider === 'line') {
     const { error: pErr } = await createAdminClient().from('profiles').update({ line_user_id: null }).eq('id', user.id)

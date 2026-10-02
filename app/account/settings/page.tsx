@@ -79,6 +79,7 @@ export default async function AccountSettingsPage({
           inLineApp={inLineApp}
           openEmailSetup={params.setup === 'email'}
           googleLinked={Boolean(google)}
+          googlePending={Boolean(google) && user.app_metadata?.google_pending === true}
           googleEmail={googleEmail}
           joinedAt={profile?.created_at ?? null}
         />

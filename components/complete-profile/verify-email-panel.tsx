@@ -7,6 +7,7 @@ import { finishEmailVerification, type VerifyEmailState } from '@/app/complete-p
 import { requestEmailCode } from '@/app/account/login-actions'
 import { Spinner } from '@/components/ui/spinner'
 import { codeErrorText } from '@/lib/auth/code-errors'
+import { CodeInput } from '@/components/ui/code-input'
 
 const initial: VerifyEmailState = null
 
@@ -54,19 +55,7 @@ export function VerifyEmailPanel({
         <label className="text-xs font-semibold tracking-wide uppercase text-muted-foreground" htmlFor="code">
           {tr(authCopy.emailCodeLabel)}
         </label>
-        <input
-          id="code"
-          name="code"
-          inputMode="numeric"
-          autoComplete="one-time-code"
-          pattern="[0-9]{6}"
-          maxLength={6}
-          required
-          autoFocus
-          value={code}
-          onChange={(e) => setCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
-          className="mt-1 w-full rounded-xl border border-border bg-background px-4 py-3 text-center font-mono text-2xl tracking-[0.5em] text-foreground outline-none focus:border-primary"
-        />
+        <CodeInput id="code" name="code" value={code} onChange={setCode} autoFocus className="mt-1" />
       </div>
 
       {state?.error && <p className="text-sm text-destructive">{state.error}</p>}

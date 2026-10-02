@@ -9,6 +9,7 @@ import { QrScanner } from '@/components/admin/qr-scanner'
 import { Spinner } from '@/components/ui/spinner'
 import { approveDevice, renameDevice, revokeDevice, type DeviceRow } from '@/app/console/devices/actions'
 import { cn } from '@/lib/utils'
+import { CodeInput } from '@/components/ui/code-input'
 
 const ONLINE_MS = 10 * 60 * 1000
 
@@ -116,14 +117,7 @@ export function DevicesView({
         <form onSubmit={register} className="mt-4 space-y-4">
           <label className="block">
             <span className="text-xs font-semibold tracking-wide text-muted-foreground">{tr(consoleCopy.codeLabel)}</span>
-            <input
-              inputMode="numeric"
-              autoComplete="one-time-code"
-              value={code}
-              onChange={(e) => setCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
-              placeholder="000000"
-              className="mt-1 h-14 w-full rounded-xl border border-border bg-background px-4 text-center font-display text-3xl font-extrabold tracking-[0.4em] text-foreground outline-none focus:border-primary"
-            />
+            <CodeInput value={code} onChange={setCode} label={tr(consoleCopy.codeLabel)} className="mt-1" />
           </label>
           <label className="block">
             <span className="text-xs font-semibold tracking-wide text-muted-foreground">{tr(consoleCopy.nameLabel)}</span>

@@ -1,14 +1,15 @@
 'use server'
 
 import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { checkEmailCode, normalizeEmail, sendEmailCode } from '@/lib/email-verification'
 import { clearGoogleLinkTicket, googleLinkAccount } from '@/lib/auth/google-link-ticket'
 import { signInAs } from '@/lib/auth/sign-in-as'
 
 // Google sign-in on an email that already has a RAVENTA account (refused in
 // app/auth/callback): prove the email is yours with a 6-digit code sent to
-// it, then this browser is signed in to that account and Google is linked
-// to it from the browser (linkIdentity). Someone with only the Google
+// it, then the pending mark on Google is cleared and this browser is signed
+// in to that account (app/auth/callback set the mark). Someone with only the Google
 // account — or only a shared computer — gets nowhere without the inbox.
 // No inbox any more → the counter checks ID and an admin changes the email.
 
@@ -29,6 +30,12 @@ export async function confirmGoogleLinkCode(code: string): Promise<GoogleLinkRes
   // The code went to the account's own email — it must still be that one.
   if (normalizeEmail(check.email) !== account.email) return { ok: false, error: 'failed' }
   try {
+    // Google is already on the account (marked pending) — just clear the
+    // mark and sign in. No second trip to Google.
+    const { error } = await createAdminClient().auth.admin.updateUserById(account.userId, {
+      app_metadata: { google_pending: null },
+    })
+    if (error) throw error
     const supabase = await createClient()
     await supabase.auth.signOut()
     await signInAs(supabase, account.email)

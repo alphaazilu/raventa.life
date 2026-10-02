@@ -7,6 +7,7 @@ import { authCopy } from '@/lib/auth/copy'
 import { confirmEmailCode, requestEmailCode, setLoginPassword } from '@/app/account/login-actions'
 import { Spinner } from '@/components/ui/spinner'
 import { codeErrorText } from '@/lib/auth/code-errors'
+import { CodeInput } from '@/components/ui/code-input'
 
 
 const inputClass =
@@ -132,16 +133,7 @@ export function EmailLoginSetup({
           </p>
           <label className="block">
             <span className={labelClass}>{tr(authCopy.emailCodeLabel)}</span>
-            <input
-              inputMode="numeric"
-              autoComplete="one-time-code"
-              maxLength={6}
-              required
-              autoFocus
-              value={code}
-              onChange={(e) => setCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
-              className={`${inputClass} text-center font-mono text-xl tracking-[0.5em]`}
-            />
+            <CodeInput value={code} onChange={setCode} autoFocus className="mt-1" />
           </label>
           <div className="flex gap-2">
             <button type="submit" disabled={busy || code.length !== 6} className={primaryBtn}>

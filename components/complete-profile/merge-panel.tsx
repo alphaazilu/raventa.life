@@ -13,6 +13,7 @@ import {
   type StartMergeResult,
   type VerifyMergeResult,
 } from '@/app/complete-profile/merge-actions'
+import { CodeInput } from '@/components/ui/code-input'
 
 type Step = 'offer' | 'code' | 'linking'
 
@@ -126,18 +127,7 @@ export function MergePanel({ target, onUseAnother }: { target: MergeTarget; onUs
             <label className="text-xs font-semibold tracking-wide uppercase text-muted-foreground" htmlFor="mergeCode">
               {tr(authCopy.mergeCodeLabel)}
             </label>
-            <input
-              id="mergeCode"
-              inputMode="numeric"
-              autoComplete="one-time-code"
-              pattern="[0-9]{6}"
-              maxLength={6}
-              required
-              autoFocus
-              value={code}
-              onChange={(e) => setCode(e.target.value.replace(/\D/g, ''))}
-              className="mt-1 w-full rounded-xl border border-border bg-background px-4 py-3 text-center font-mono text-2xl tracking-[0.4em] text-foreground outline-none focus:border-primary"
-            />
+            <CodeInput id="mergeCode" value={code} onChange={setCode} autoFocus className="mt-1" />
           </div>
           <button
             type="submit"

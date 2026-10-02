@@ -146,6 +146,11 @@ export const authCopy: Record<string, Bilingual> = {
     th: 'อีเมลนี้มีบัญชี RAVENTA อยู่แล้ว — เข้าสู่ระบบด้วยวิธีเดิมก่อน (อีเมล/รหัสผ่าน หรือ LINE) แล้วเชื่อม Google ได้ที่ บัญชีของฉัน › ตั้งค่า',
     en: 'This email already has a RAVENTA account — sign in the usual way first (email/password or LINE), then link Google in My account › Settings',
   },
+  statusPending: { th: 'รอยืนยันอีเมล', en: 'Awaiting email check' },
+  googlePendingHint: {
+    th: 'มีการกดเข้าด้วย Google ที่อีเมลนี้ แต่ยังไม่ได้ยืนยันรหัสทางอีเมล — ถ้าเป็นคุณ ออกจากระบบแล้วกด “เข้าสู่ระบบด้วย Google” เพื่อยืนยัน ถ้าไม่ใช่คุณ กดยกเลิกการเชื่อม',
+    en: 'Someone signed in with Google on this email but hasn’t confirmed the emailed code — if it was you, sign out and use “Continue with Google” to confirm; if not, unlink it.',
+  },
   unlinkButton: { th: 'ยกเลิกการเชื่อม', en: 'Unlink' },
   unlinkAsk: {
     th: 'ยกเลิกการเชื่อม {p}? หลังจากนี้จะเข้าสู่ระบบด้วย {p} ไม่ได้ จนกว่าจะเชื่อมใหม่',
@@ -166,7 +171,7 @@ export const authCopy: Record<string, Bilingual> = {
   },
   googleLinkSend: { th: 'ส่งรหัสไปที่', en: 'Send a code to' },
   googleLinkConfirm: { th: 'ยืนยันและเชื่อม Google', en: 'Confirm and link Google' },
-  googleLinkLinking: { th: 'กำลังพาไปเชื่อม Google…', en: 'Taking you to Google…' },
+  googleLinkLinking: { th: 'เชื่อม Google แล้ว กำลังเข้าสู่ระบบ…', en: 'Google linked — signing you in…' },
   googleLinkNoInbox: {
     th: 'เข้าอีเมลนี้ไม่ได้แล้ว? ติดต่อเคาน์เตอร์พร้อมบัตรประชาชน ทีมงานจะช่วยเปลี่ยนอีเมลให้',
     en: 'Can’t get into this email any more? Visit the counter with photo ID and we’ll change it for you.',
