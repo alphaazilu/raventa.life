@@ -15,6 +15,11 @@ export type MemberPackage = {
   weekdayOnly: boolean
   cancelled: boolean
   createdAt: string
+  // Sharing (§23)
+  shareable: boolean
+  isOwner: boolean
+  ownerName: string | null // set on packages shared with this member
+  sharedWith: { id: string; name: string }[] // set for the owner
 }
 
 // Still worth showing: not cancelled, not used up, not past its date.
@@ -26,6 +31,8 @@ export function packageAlive(k: MemberPackage, today: string): boolean {
   return true
 }
 
+// Own packages plus those shared with this member (member_package_list, §23;
+// falls back to own packages only before §23 is run).
 // all = include used-up, expired and cancelled ones (history).
 export async function loadMemberPackages(
   supabase: SupabaseClient,
@@ -33,24 +40,33 @@ export async function loadMemberPackages(
   today: string,
   all = false,
 ): Promise<MemberPackage[]> {
-  const { data, error } = await supabase
-    .from('member_packages')
-    .select('id, name, visits_total, visits_used, starts_on, expires_on, activate_by, weekday_only, cancelled_at, created_at')
-    .eq('member_id', memberId)
-    .order('created_at', { ascending: false })
-  if (error) return [] // §21 not run yet
-  const list = (data ?? []).map(
+  const { data, error } = await supabase.rpc('member_package_list', { p_member_id: memberId })
+  let rows: Record<string, unknown>[] = (data as Record<string, unknown>[] | null) ?? []
+  if (error) {
+    const own = await supabase
+      .from('member_packages')
+      .select('id, name, visits_total, visits_used, starts_on, expires_on, activate_by, weekday_only, cancelled_at, created_at')
+      .eq('member_id', memberId)
+      .order('created_at', { ascending: false })
+    if (own.error) return [] // §21 not run yet
+    rows = (own.data ?? []).map((r) => ({ ...r, cancelled: Boolean(r.cancelled_at), is_owner: true }))
+  }
+  const list = rows.map(
     (r): MemberPackage => ({
-      id: r.id,
-      name: r.name,
-      visitsTotal: r.visits_total ?? null,
+      id: r.id as string,
+      name: r.name as string,
+      visitsTotal: (r.visits_total as number | null) ?? null,
       visitsUsed: Number(r.visits_used),
-      startsOn: r.starts_on ?? null,
-      expiresOn: r.expires_on ?? null,
-      activateBy: r.activate_by ?? null,
+      startsOn: (r.starts_on as string | null) ?? null,
+      expiresOn: (r.expires_on as string | null) ?? null,
+      activateBy: (r.activate_by as string | null) ?? null,
       weekdayOnly: Boolean(r.weekday_only),
-      cancelled: Boolean(r.cancelled_at),
-      createdAt: r.created_at,
+      cancelled: Boolean(r.cancelled),
+      createdAt: r.created_at as string,
+      shareable: Boolean(r.shareable),
+      isOwner: Boolean(r.is_owner),
+      ownerName: (r.owner_name as string | null) ?? null,
+      sharedWith: (r.shared_with as { id: string; name: string }[] | null) ?? [],
     }),
   )
   return all ? list : list.filter((k) => packageAlive(k, today))

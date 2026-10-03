@@ -1461,7 +1461,8 @@ begin
             starts_on = coalesce(starts_on, v_today),
             expires_on = coalesce(expires_on, v_today + valid_days - 1)
         where id = (v_line->>'package_id')::uuid
-        returning id, earns_stamp into v_pkg_id, v_pkg_stamp;
+        -- Shared packages (§23): only the owner earns the stamp.
+        returning id, earns_stamp and member_id = p_member_id into v_pkg_id, v_pkg_stamp;
       end if;
       insert into public.visits (
         member_id, member_no, entry_type, price, payment_method, earns_stamp, wristband, checked_in_by, sale_id, package_id
@@ -1486,10 +1487,10 @@ begin
       for i in 1..(v_line->>'qty')::int loop
         insert into public.member_packages (
           member_id, product_id, sale_id, sale_line_id, name, visits_total, valid_days,
-          weekday_only, earns_stamp, starts_on, expires_on, activate_by
+          weekday_only, earns_stamp, shareable, starts_on, expires_on, activate_by
         ) values (
           p_member_id, v_prod.id, v_sale.id, v_line_id, v_prod.name_th, v_prod.pkg_visits, v_prod.pkg_days,
-          v_prod.pkg_weekday_only, v_prod.pkg_earns_stamp,
+          v_prod.pkg_weekday_only, v_prod.pkg_earns_stamp, v_prod.pkg_shareable and v_prod.pkg_visits is not null,
           case when v_prod.pkg_start = 'purchase' then v_today end,
           case when v_prod.pkg_start = 'purchase' then v_today + v_prod.pkg_days - 1 end,
           case when v_prod.pkg_start = 'first_use' then v_today + v_prod.pkg_activate_days - 1 end
@@ -1716,6 +1717,20 @@ create table if not exists public.member_packages (
 );
 create index if not exists member_packages_member_idx on public.member_packages (member_id);
 
+-- Sharing (§23) — declared here because usable_package below reads them.
+alter table public.products add column if not exists pkg_shareable boolean not null default false;
+alter table public.member_packages add column if not exists shareable boolean not null default false;
+create table if not exists public.package_shares (
+  id uuid primary key default gen_random_uuid(),
+  package_id uuid not null references public.member_packages(id) on delete cascade,
+  member_id uuid not null references auth.users(id) on delete cascade,  -- the friend
+  invite_id uuid,
+  created_at timestamptz not null default now(),
+  revoked_at timestamptz
+);
+create unique index if not exists package_shares_one_active on public.package_shares (package_id, member_id) where revoked_at is null;
+create index if not exists package_shares_member_idx on public.package_shares (member_id) where revoked_at is null;
+
 alter table public.member_packages enable row level security;
 revoke insert, update, delete on public.member_packages from anon, authenticated;
 drop policy if exists "Packages: own or staff" on public.member_packages;
@@ -1737,16 +1752,112 @@ set search_path = public
 stable
 as $$
   select id from public.member_packages
-  where member_id = p_member_id
+  where (member_id = p_member_id
+         or (shareable and id in (select package_id from public.package_shares
+                                  where member_id = p_member_id and revoked_at is null)))
     and cancelled_at is null
     and (visits_total is null or visits_used < visits_total)
     and (starts_on is null or starts_on <= p_date)
     and (expires_on is null or expires_on >= p_date)
     and (activate_by is null or starts_on is not null or activate_by >= p_date)
     and (not weekday_only or public.day_type(p_date) = 'weekday')
-  order by starts_on is null, coalesce(expires_on, activate_by), created_at
+  order by member_id <> p_member_id, starts_on is null, coalesce(expires_on, activate_by), created_at
   limit 1;
 $$;
 revoke execute on function public.usable_package(uuid, date) from public, anon;
 grant execute on function public.usable_package(uuid, date) to authenticated;
+
+
+-- 22. Back in the same day (v0.22.1). A Day Pass covers the whole day: a
+-- member who checked out (lunch, an errand) can come back in at no charge,
+-- no extra package visit and no extra stamp. The same visit is reopened;
+-- the earlier check-out time is kept in staff_actions.
+create or replace function public.staff_reenter_visit(p_visit_id uuid)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v public.visits;
+begin
+  if not public.is_staff() then
+    raise exception 'not_staff';
+  end if;
+  select * into v from public.visits where id = p_visit_id for update;
+  if not found or v.cancelled_at is not null then
+    raise exception 'visit_not_found';
+  end if;
+  if v.member_id = auth.uid() then
+    raise exception 'self_service';
+  end if;
+  if v.checked_out_at is null then
+    raise exception 'still_inside';
+  end if;
+  if v.visit_date <> public.bkk_today() then
+    raise exception 'not_today';
+  end if;
+  update public.visits set checked_out_at = null, checked_out_by = null where id = p_visit_id;
+  insert into public.staff_actions (actor_id, member_id, visit_id, action, detail)
+  values (auth.uid(), v.member_id, p_visit_id, 're_enter', jsonb_build_object('was_out_at', v.checked_out_at));
+end;
+$$;
+revoke execute on function public.staff_reenter_visit(uuid) from public, anon;
+grant execute on function public.staff_reenter_visit(uuid) to authenticated;
+
+-- 23. Sharing a package with friends (v0.22.2). The owner of a package of a
+-- set number of visits (and only if the package allows it — Products ›
+-- package › "share with friends") sends a link by email or shows it as a
+-- QR; a friend who opens it while signed in is added to the package. Any
+-- number of friends; every visit by anyone comes off the same count; only
+-- the owner earns stamps. The owner can remove a friend at any time.
+-- Invites and shares are written by the server (service role) only.
+alter table public.package_shares enable row level security;
+revoke all on public.package_shares from anon, authenticated;
+
+create table if not exists public.package_share_invites (
+  id uuid primary key default gen_random_uuid(),
+  package_id uuid not null references public.member_packages(id) on delete cascade,
+  token_hash text not null unique,
+  email text,
+  expires_at timestamptz not null,
+  claimed_by uuid references auth.users(id) on delete set null,
+  claimed_at timestamptz,
+  created_by uuid references auth.users(id) on delete set null,
+  created_at timestamptz not null default now()
+);
+alter table public.package_share_invites enable row level security;
+revoke all on public.package_share_invites from anon, authenticated;
+
+-- One member's packages for display: their own plus those shared with them,
+-- with the owner's first name and, for the owner, who it's shared with.
+create or replace function public.member_package_list(p_member_id uuid)
+returns table (
+  id uuid, name text, visits_total int, visits_used int, starts_on date, expires_on date,
+  activate_by date, weekday_only boolean, cancelled boolean, created_at timestamptz,
+  shareable boolean, is_owner boolean, owner_name text, shared_with jsonb
+)
+language sql
+security definer
+set search_path = public
+stable
+as $$
+  select
+    mp.id, mp.name, mp.visits_total, mp.visits_used, mp.starts_on, mp.expires_on,
+    mp.activate_by, mp.weekday_only, mp.cancelled_at is not null, mp.created_at,
+    mp.shareable, mp.member_id = p_member_id,
+    case when mp.member_id <> p_member_id then (select first_name from public.profiles where id = mp.member_id) end,
+    case when mp.member_id = p_member_id then coalesce((
+      select jsonb_agg(jsonb_build_object('id', ps.id, 'name', coalesce(nullif(btrim(concat_ws(' ', pr.first_name, pr.last_name)), ''), pr.member_no)) order by ps.created_at)
+      from public.package_shares ps join public.profiles pr on pr.id = ps.member_id
+      where ps.package_id = mp.id and ps.revoked_at is null
+    ), '[]'::jsonb) else '[]'::jsonb end
+  from public.member_packages mp
+  where (p_member_id = auth.uid() or public.is_staff())
+    and (mp.member_id = p_member_id
+         or mp.id in (select package_id from public.package_shares where member_id = p_member_id and revoked_at is null))
+  order by mp.created_at desc;
+$$;
+revoke execute on function public.member_package_list(uuid) from public, anon;
+grant execute on function public.member_package_list(uuid) to authenticated;
 

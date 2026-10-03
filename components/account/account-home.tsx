@@ -8,6 +8,7 @@ import { DESK_PATH } from '@/lib/auth/roles'
 import { cn } from '@/lib/utils'
 import { Gift } from 'lucide-react'
 import { PackageList } from '@/components/package-list'
+import { PackageShare } from '@/components/account/package-share'
 import type { MemberPackage } from '@/lib/packages'
 
 // The member page people open at the counter: just the card (and its
@@ -50,7 +51,7 @@ export function AccountHome({
       {packages.length > 0 && (
         <section className="mt-6">
           <h2 className="mb-2 text-base font-semibold text-card-foreground">{tr(authCopy.myPackages)}</h2>
-          <PackageList packages={packages} />
+          <PackageList packages={packages} extra={(k) => (k.isOwner && k.shareable ? <PackageShare pkg={k} /> : null)} />
         </section>
       )}
 

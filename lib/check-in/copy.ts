@@ -82,6 +82,9 @@ export const deskCopy = {
   // Bill (v0.20)
   holiday: { th: 'วันหยุดนักขัตฤกษ์', en: 'public holiday' },
   payForPass: { th: 'เช็คอิน', en: 'Check in' },
+  reEnter: { th: 'กลับเข้าใช้อีกครั้ง', en: 'Back in' },
+  reEnterHint: { th: 'Day Pass ใช้ได้ทั้งวัน — ไม่เก็บเงินเพิ่ม', en: 'The Day Pass covers the whole day — no charge' },
+  doneReEnter: { th: 'กลับเข้าแล้ว', en: 'Back in' },
   usePackage: { th: 'ใช้แพ็กเกจ', en: 'Use package' },
   packageLabel: { th: 'แพ็กเกจ', en: 'Package' },
   packages: { th: 'แพ็กเกจ', en: 'Packages' },
@@ -89,6 +92,8 @@ export const deskCopy = {
   pkgUnlimited: { th: 'ไม่จำกัดครั้ง', en: 'Unlimited' },
   pkgUntil: { th: 'ถึง {d}', en: 'until {d}' },
   pkgNotStarted: { th: 'เริ่มนับเมื่อใช้ครั้งแรก (ภายใน {d})', en: 'Starts on first visit (by {d})' },
+  pkgSharedFrom: { th: 'แชร์จากคุณ{n}', en: 'Shared by {n}' },
+  pkgSharedWith: { th: 'แชร์กับ: {n}', en: 'Shared with: {n}' },
   pkgWeekdayOnly: { th: 'วันธรรมดา', en: 'Weekdays' },
   pkgMemberOnly: { th: 'สแกนสมาชิกก่อน', en: 'Member only' },
   pkgItem: { th: '{v} · {d} วัน', en: '{v} · {d} days' },
@@ -136,6 +141,8 @@ export const deskCopy = {
 // Database / server error codes → what staff see.
 export const deskErrors: Record<string, Bilingual> = {
   not_staff: { th: 'บัญชีนี้ไม่มีสิทธิ์ใช้หน้าเช็คอิน', en: 'This account can’t use the front desk' },
+  still_inside: { th: 'ลูกค้ายังอยู่ในร้าน (ยังไม่ได้เช็คเอาท์)', en: 'Still inside (not checked out)' },
+  not_today: { th: 'กลับเข้าได้เฉพาะการเข้าใช้ของวันนี้', en: 'Only today’s visit can be reopened' },
   no_package: { th: 'ไม่มีแพ็กเกจที่ใช้ได้วันนี้ (หมดครั้ง หมดอายุ หรือใช้ได้เฉพาะวันธรรมดา)', en: 'No package usable today (used up, expired or weekdays only)' },
   package_needs_member: { th: 'แพ็กเกจขายได้เฉพาะสมาชิก — สแกนบัตรหรือค้นหาสมาชิกก่อน', en: 'Packages are for members — scan or find the member first' },
   package_used: { th: 'แพ็กเกจในบิลนี้ถูกใช้ไปแล้ว — ให้แอดมินเป็นคนยกเลิกบิล', en: 'A package on this bill has been used — an admin must void it' },

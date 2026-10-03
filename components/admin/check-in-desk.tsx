@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useState, useTransition } from 'react'
-import { Gift, Lock, LogOut, RotateCcw, Search, ShoppingBag, Undo2, X } from 'lucide-react'
+import { Gift, LogIn, Lock, LogOut, RotateCcw, Search, ShoppingBag, Undo2, X } from 'lucide-react'
 import { useLanguage } from '@/components/language-provider'
 import { AvatarCircle } from '@/components/account/avatar-circle'
 import { QrScanner } from '@/components/admin/qr-scanner'
@@ -17,6 +17,7 @@ import { cn } from '@/lib/utils'
 import {
   cancelVisit,
   checkoutBill,
+  reEnter,
   checkOut,
   getDeskCatalog,
   getFloor,
@@ -220,6 +221,16 @@ export function CheckInDesk({
             setView('desk')
             run(() => getMember(id), showMember)
           }}
+          onReEnter={(v) =>
+            run(
+              () => reEnter(v.id),
+              () => {
+                setNotice(`${tr(deskCopy.doneReEnter)} · ${v.name}`)
+                void refreshFloor()
+                if (member && member.id === v.memberId) reloadMember(member.id)
+              },
+            )
+          }
           onCheckOut={(v) =>
             run(
               () => checkOut(v.id),
@@ -299,6 +310,16 @@ export function CheckInDesk({
                       () => checkOut(visitId),
                       () => {
                         setNotice(`${tr(deskCopy.doneCheckOut)} · ${member.name}`)
+                        reloadMember(member.id)
+                        void refreshFloor()
+                      },
+                    )
+                  }
+                  onReEnter={(visitId) =>
+                    run(
+                      () => reEnter(visitId),
+                      () => {
+                        setNotice(`${tr(deskCopy.doneReEnter)} · ${member.name}`)
                         reloadMember(member.id)
                         void refreshFloor()
                       },
@@ -426,11 +447,13 @@ function MemberInfo({
   member,
   busy,
   onCheckOut,
+  onReEnter,
   onCancel,
 }: {
   member: DeskMember
   busy: boolean
   onCheckOut: (visitId: string) => void
+  onReEnter: (visitId: string) => void
   onCancel: (visit: NonNullable<DeskMember['today']>, reason: string) => void
 }) {
   const { tr, lang } = useLanguage()
@@ -526,6 +549,18 @@ function MemberInfo({
               </div>
             ) : (
               <div className="mt-3 flex flex-wrap gap-2">
+                {visit.checkedOutAt && (
+                  <button
+                    type="button"
+                    disabled={busy}
+                    onClick={() => onReEnter(visit.id)}
+                    title={tr(deskCopy.reEnterHint)}
+                    className="inline-flex h-11 flex-1 items-center justify-center gap-2 rounded-full bg-accent px-4 text-sm font-semibold text-white disabled:opacity-40"
+                  >
+                    <LogIn className="h-4 w-4" aria-hidden="true" />
+                    {tr(deskCopy.reEnter)}
+                  </button>
+                )}
                 {!visit.checkedOutAt && (
                   <button
                     type="button"
@@ -585,6 +620,7 @@ function FloorPanel({
   onRefresh,
   onOpen,
   onCheckOut,
+  onReEnter,
 }: {
   floor: Floor | null
   showTakings: boolean
@@ -592,6 +628,7 @@ function FloorPanel({
   onRefresh: () => void
   onOpen: (memberId: string) => void
   onCheckOut: (v: FloorVisit) => void
+  onReEnter: (v: FloorVisit) => void
 }) {
   const { tr } = useLanguage()
   const visits = floor?.visits ?? []
@@ -651,7 +688,7 @@ function FloorPanel({
       ) : (
         <ul className="mt-3 divide-y divide-border">
           {inside.map((v) => (
-            <FloorRow key={v.id} v={v} busy={busy} onOpen={onOpen} onCheckOut={onCheckOut} />
+            <FloorRow key={v.id} v={v} busy={busy} onOpen={onOpen} onCheckOut={onCheckOut} onReEnter={onReEnter} />
           ))}
           {left.length > 0 && (
             <li className="pt-4 pb-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
@@ -659,7 +696,7 @@ function FloorPanel({
             </li>
           )}
           {left.map((v) => (
-            <FloorRow key={v.id} v={v} busy={busy} onOpen={onOpen} onCheckOut={onCheckOut} />
+            <FloorRow key={v.id} v={v} busy={busy} onOpen={onOpen} onCheckOut={onCheckOut} onReEnter={onReEnter} />
           ))}
         </ul>
       )}
@@ -672,11 +709,13 @@ function FloorRow({
   busy,
   onOpen,
   onCheckOut,
+  onReEnter,
 }: {
   v: FloorVisit
   busy: boolean
   onOpen: (memberId: string) => void
   onCheckOut: (v: FloorVisit) => void
+  onReEnter: (v: FloorVisit) => void
 }) {
   const { tr } = useLanguage()
   return (
@@ -696,7 +735,18 @@ function FloorRow({
         {v.entryType === 'reward' ? tr(deskCopy.free) : v.entryType === 'package' ? tr(deskCopy.packageLabel) : tr(deskCopy[v.paymentMethod ?? 'cash'])}
       </span>
       {v.checkedOutAt ? (
-        <span className="w-24 shrink-0 text-right font-mono text-xs">→ {bangkokTime(v.checkedOutAt)}</span>
+        <span className="flex shrink-0 items-center gap-2">
+          <span className="font-mono text-xs">→ {bangkokTime(v.checkedOutAt)}</span>
+          <button
+            type="button"
+            disabled={busy}
+            onClick={() => onReEnter(v)}
+            title={tr(deskCopy.reEnterHint)}
+            className="w-24 rounded-full border border-accent/40 py-1.5 text-xs font-semibold text-accent hover:bg-accent/10 disabled:opacity-40"
+          >
+            {tr(deskCopy.reEnter)}
+          </button>
+        </span>
       ) : (
         <button
           type="button"

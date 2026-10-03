@@ -186,6 +186,7 @@ function ProductForm({ product, onCreated }: { product: Product | null; onCreate
   const [pkgActivate, setPkgActivate] = useState(String(pk?.activateDays ?? 90))
   const [pkgWeekday, setPkgWeekday] = useState(pk?.weekdayOnly ?? false)
   const [pkgStamp, setPkgStamp] = useState(pk?.earnsStamp ?? false)
+  const [pkgShare, setPkgShare] = useState(pk?.shareable ?? false)
   const chipCls = (on: boolean) => cn('rounded-full px-3 py-1.5 text-xs font-semibold', on ? 'bg-foreground text-background' : 'border border-border')
 
   return (
@@ -213,6 +214,7 @@ function ProductForm({ product, onCreated }: { product: Product | null; onCreate
                     activateDays: Number(pkgActivate),
                     weekdayOnly: pkgWeekday,
                     earnsStamp: pkgStamp,
+                    shareable: !pkgUnlimited && pkgShare,
                   }
                 : null,
             }),
@@ -307,6 +309,15 @@ function ProductForm({ product, onCreated }: { product: Product | null; onCreate
               <input type="checkbox" checked={pkgStamp} onChange={(e) => setPkgStamp(e.target.checked)} className="h-4 w-4 accent-[var(--primary)]" />
               {tr(c.pkgStamp)}
             </label>
+            {!pkgUnlimited && (
+              <label className="flex items-start gap-2 text-sm">
+                <input type="checkbox" checked={pkgShare} onChange={(e) => setPkgShare(e.target.checked)} className="mt-0.5 h-4 w-4 accent-[var(--primary)]" />
+                <span>
+                  {tr(c.pkgShare)}
+                  <span className="block text-xs text-muted-foreground">{tr(c.pkgShareHint)}</span>
+                </span>
+              </label>
+            )}
           </fieldset>
         </>
       ) : (

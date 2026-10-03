@@ -40,6 +40,7 @@ export type PackageRules = {
   activateDays: number // first_use: must start within this many days
   weekdayOnly: boolean
   earnsStamp: boolean
+  shareable: boolean // friends can use it (set number of visits only)
 }
 
 export type Promotion = {
@@ -119,6 +120,7 @@ export async function loadCatalog(client: Client): Promise<Catalog | null> {
                 activateDays: Number(r.pkg_activate_days ?? 90),
                 weekdayOnly: Boolean(r.pkg_weekday_only),
                 earnsStamp: Boolean(r.pkg_earns_stamp),
+                shareable: Boolean(r.pkg_shareable),
               }
             : null,
       }),

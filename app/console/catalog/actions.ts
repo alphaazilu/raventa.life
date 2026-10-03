@@ -65,6 +65,7 @@ export async function saveProduct(input: {
       pkg_activate_days: r.activateDays,
       pkg_weekday_only: Boolean(r.weekdayOnly),
       pkg_earns_stamp: Boolean(r.earnsStamp),
+      pkg_shareable: r.visits !== null && Boolean(r.shareable),
       price_weekend: null,
       price_holiday: null,
       track_stock: false,

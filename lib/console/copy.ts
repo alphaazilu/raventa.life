@@ -359,6 +359,8 @@ export const catalogCopy = {
   pkgAnyDay: { th: 'ทุกวัน', en: 'Any day' },
   pkgWeekdayOnly: { th: 'เฉพาะวันธรรมดา', en: 'Weekdays only' },
   pkgStamp: { th: 'เข้าใช้ด้วยแพ็กเกจได้แสตมป์', en: 'Package visits earn a stamp' },
+  pkgShare: { th: 'แชร์ให้เพื่อนสมาชิกใช้ได้', en: 'Can be shared with friends' },
+  pkgShareHint: { th: 'เจ้าของส่งลิงก์ทางอีเมลหรือให้สแกน QR · ทุกคนใช้จากจำนวนครั้งเดียวกัน · แสตมป์เฉพาะเจ้าของ', en: 'Owner sends a link by email or QR · everyone uses the same visits · stamps for the owner only' },
   pkgPriceNote: { th: 'แพ็กเกจมีราคาเดียว ขายได้เฉพาะลูกค้าที่เป็นสมาชิก', en: 'One price; sold to members only' },
   pkgSummaryCount: { th: '{n} ครั้ง', en: '{n} visits' },
   pkgSummaryUnlimited: { th: 'ไม่จำกัดครั้ง', en: 'Unlimited' },

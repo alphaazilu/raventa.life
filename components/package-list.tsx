@@ -14,11 +14,14 @@ export function PackageList({
   packages,
   useToday = null,
   heading = false,
+  extra,
   className,
 }: {
   packages: MemberPackage[]
   useToday?: string | null
   heading?: boolean
+  // Extra controls under a package (the member's share panel).
+  extra?: (k: MemberPackage) => React.ReactNode
   className?: string
 }) {
   const { tr, lang } = useLanguage()
@@ -50,6 +53,13 @@ export function PackageList({
                 {k.startsOn ? fill(tr(deskCopy.pkgUntil), { d: date(k.expiresOn) }) : fill(tr(deskCopy.pkgNotStarted), { d: date(k.activateBy) })}
                 {k.weekdayOnly && ` · ${tr(deskCopy.pkgWeekdayOnly)}`}
               </span>
+              {!k.isOwner && <span className="block text-xs font-semibold text-accent">{fill(tr(deskCopy.pkgSharedFrom), { n: k.ownerName ?? '—' })}</span>}
+              {k.isOwner && k.sharedWith.length > 0 && (
+                <span className="block text-xs text-muted-foreground">
+                  {fill(tr(deskCopy.pkgSharedWith), { n: k.sharedWith.map((f) => f.name).join(', ') })}
+                </span>
+              )}
+              {extra?.(k)}
             </span>
           </li>
         )

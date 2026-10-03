@@ -218,6 +218,14 @@ export async function searchMembers(query: string): Promise<DeskResult<MemberHit
   return { ok: true, data: hits }
 }
 
+// Back in the same day (§22): reopens today's visit, no charge.
+export async function reEnter(visitId: string): Promise<DeskResult<null>> {
+  const ctx = await requireDesk()
+  if ('error' in ctx) return { ok: false, error: ctx.error }
+  const { error } = await ctx.supabase.rpc('staff_reenter_visit', { p_visit_id: visitId })
+  return error ? { ok: false, error: errorCode(error) } : { ok: true, data: null }
+}
+
 export async function checkOut(visitId: string): Promise<DeskResult<null>> {
   const ctx = await requireDesk()
   if ('error' in ctx) return { ok: false, error: ctx.error }
