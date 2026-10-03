@@ -26,6 +26,7 @@ export function BillBuilder({
   withDayPass,
   rewardReady,
   packageReady = false,
+  packageIsGift = false,
   catalog,
   busy,
   onPay,
@@ -41,6 +42,8 @@ export function BillBuilder({
   rewardReady: boolean
   // The member has a package usable today (§21): check in with it by default.
   packageReady?: boolean
+  // Today's visit would come from a gift a friend handed over (§23).
+  packageIsGift?: boolean
   catalog: DeskCatalog
   busy: boolean
   onPay: (bill: {
@@ -242,7 +245,7 @@ export function BillBuilder({
                 {m === 'reward' && <Gift className="h-3.5 w-3.5" aria-hidden="true" />}
                 {m === 'package' && <PackageIcon className="h-3.5 w-3.5" aria-hidden="true" />}
                 {m === 'none' && <Ban className="h-3.5 w-3.5" aria-hidden="true" />}
-                {tr(m === 'paid' ? deskCopy.payForPass : m === 'reward' ? deskCopy.useReward : m === 'package' ? deskCopy.usePackage : deskCopy.noCheckIn)}
+                {tr(m === 'paid' ? deskCopy.payForPass : m === 'reward' ? deskCopy.useReward : m === 'package' ? (packageIsGift ? deskCopy.useGift : deskCopy.usePackage) : deskCopy.noCheckIn)}
               </button>
             ))}
           </div>

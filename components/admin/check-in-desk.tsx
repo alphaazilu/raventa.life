@@ -14,6 +14,7 @@ import { bangkokTime, FLOOR_CAPACITY } from '@/lib/check-in/day'
 import { formatMemberDate, formatMemberNo } from '@/lib/format-date'
 import { receiptLabel } from '@/lib/console/catalog'
 import { cn } from '@/lib/utils'
+import { isGift } from '@/lib/packages'
 import {
   cancelVisit,
   checkoutBill,
@@ -366,6 +367,7 @@ export function CheckInDesk({
                 withDayPass={Boolean(memberBill)}
                 rewardReady={(member?.stamps?.rewardsAvailable ?? 0) > 0}
                 packageReady={Boolean(memberBill && member.packageToday)}
+                packageIsGift={Boolean(member?.packages.some((k) => k.id === member.packageToday && isGift(k)))}
                 catalog={catalog}
                 busy={busy}
               onPay={(bill) => pay(member && !member.isSelf ? member.id : null, bill)}

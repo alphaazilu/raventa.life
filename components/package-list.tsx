@@ -51,7 +51,9 @@ export function PackageList({
               <Package className="mt-0.5 h-4 w-4 shrink-0 text-primary" aria-hidden="true" />
             )}
             <span className="min-w-0 flex-1">
-              <span className="block font-semibold text-card-foreground">{k.name}</span>
+              {/* A gift carries the giver's package name ("10 Day Pass"); show
+                  it as one gift visit, not as a package of 10. */}
+              <span className="block font-semibold text-card-foreground">{isGift(k) ? tr(deskCopy.pkgGiftTitle) : k.name}</span>
               <span className="block text-xs text-muted-foreground">
                 {left === null ? tr(deskCopy.pkgUnlimited) : fill(tr(deskCopy.pkgLeft), { n: left })}
                 {' · '}
@@ -60,7 +62,9 @@ export function PackageList({
               </span>
               {!k.isOwner && (
                 <span className="block text-xs font-semibold text-accent">
-                  {fill(tr(k.shareWhole ? deskCopy.pkgSharedFromWhole : deskCopy.pkgSharedFrom), { n: k.ownerName ?? '—' })}
+                  {isGift(k)
+                    ? fill(tr(deskCopy.pkgGiftFrom), { n: k.ownerName ?? '—', p: k.name })
+                    : fill(tr(deskCopy.pkgSharedFromWhole), { n: k.ownerName ?? '—' })}
                 </span>
               )}
               {k.isOwner && friends.length > 0 && (
