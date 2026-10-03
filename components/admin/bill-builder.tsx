@@ -28,6 +28,7 @@ export function BillBuilder({
   catalog,
   busy,
   onPay,
+  hint,
   quoteFn = quoteBill,
 }: {
   // Shown in the bill's pinned header next to the total.
@@ -46,6 +47,8 @@ export function BillBuilder({
     paymentMethod: PaymentMethod | null
     wristband: string
   }) => void
+  // A note shown at the top of the bill (e.g. "no products yet").
+  hint?: React.ReactNode
   // Injected only by design previews; the counter always asks the database.
   quoteFn?: typeof quoteBill
 }) {
@@ -150,7 +153,7 @@ export function BillBuilder({
   const passModes: DayPassMode[] = rewardReady ? ['paid', 'reward', 'none'] : ['paid', 'none']
 
   return (
-    <div>
+    <div className="flex flex-1 flex-col">
       {/* Pinned under the console bar: who, how many, and the total — always in view. */}
       <div className="sticky top-[57px] z-10 -mx-4 -mt-4 flex rounded-t-2xl items-start gap-3 border-b border-border bg-card/95 px-4 pt-4 pb-3 backdrop-blur md:-mx-5 md:-mt-5 md:px-5 md:pt-5 xl:top-[65px]">
         <div className="min-w-0 flex-1">
@@ -187,6 +190,7 @@ export function BillBuilder({
       </div>
 
       <div className="mt-4">
+      {hint}
       {withDayPass && (
         <div className="rounded-2xl bg-secondary px-4 py-3">
           <div className="flex items-baseline justify-between gap-3">
@@ -424,9 +428,11 @@ export function BillBuilder({
 
       </div>
 
-      {/* Pinned to the bottom of the screen while the bill is long. */}
+      <div className="h-4 shrink-0" />
+      {/* Always at the bottom of the screen: pinned while the bill is long,
+          pushed down by the full-height box while it's short. */}
       {hasBill && (
-        <div className="sticky bottom-0 z-10 -mx-4 -mb-4 mt-4 rounded-b-2xl border-t border-border bg-card/95 px-4 pt-3 pb-4 backdrop-blur md:-mx-5 md:-mb-5 md:px-5 md:pb-5">
+        <div className="sticky bottom-0 z-10 -mx-4 -mb-4 mt-auto rounded-b-2xl border-t border-border bg-card/95 px-4 pt-3 pb-4 backdrop-blur md:-mx-5 md:-mb-5 md:px-5 md:pb-5">
           <button
             type="button"
             disabled={!canPay}

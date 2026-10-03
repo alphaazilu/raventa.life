@@ -109,3 +109,68 @@ export async function copyPreviousWeek(weekStart: string): Promise<ShiftResult> 
   revalidatePath(TIME_PATH)
   return { ok: true }
 }
+
+// Plan several days at once (Roster › "Plan a date range"): the same shift,
+// day off or "clear" for each chosen person on each chosen weekday between
+// two dates. weekdays: 0 = Sunday … 6 = Saturday. Up to ~3 months per go.
+export async function setAssignmentRange(input: {
+  staffIds: string[]
+  from: string
+  to: string
+  weekdays: number[]
+  value: string
+  overwrite: boolean
+}): Promise<ShiftResult & { count?: number }> {
+  const ctx = await requireAdmin()
+  if ('error' in ctx) return { ok: false, error: ctx.error }
+  const { from, to } = input
+  if (!DATE_RE.test(from) || !DATE_RE.test(to) || from > to) return { ok: false, error: 'bad_range' }
+  const staffIds = [...new Set(input.staffIds)].filter((id) => /^[0-9a-f-]{36}$/i.test(id))
+  if (staffIds.length === 0) return { ok: false, error: 'need_staff' }
+  const days = new Set(input.weekdays.filter((d) => Number.isInteger(d) && d >= 0 && d <= 6))
+
+  const dates: string[] = []
+  for (let d = new Date(`${from}T00:00:00Z`); d.toISOString().slice(0, 10) <= to; d.setUTCDate(d.getUTCDate() + 1)) {
+    if (days.has(d.getUTCDay())) dates.push(d.toISOString().slice(0, 10))
+    if (dates.length > 100) return { ok: false, error: 'range_too_long' }
+  }
+  if (dates.length === 0) return { ok: false, error: 'bad_range' }
+
+  const admin = createAdminClient()
+  let targets = staffIds.flatMap((staff_id) => dates.map((work_date) => ({ staff_id, work_date })))
+  if (!input.overwrite) {
+    const { data: cur, error } = await admin
+      .from('shift_assignments')
+      .select('staff_id, work_date')
+      .in('staff_id', staffIds)
+      .gte('work_date', dates[0])
+      .lte('work_date', dates[dates.length - 1])
+    if (error) return { ok: false, error: missing(error) ? 'not_set_up' : 'failed' }
+    const taken = new Set((cur ?? []).map((r) => `${r.staff_id}|${r.work_date}`))
+    targets = targets.filter((t) => !taken.has(`${t.staff_id}|${t.work_date}`))
+  }
+  if (targets.length === 0) return { ok: true, count: 0 }
+
+  if (!input.value) {
+    // Clear: one delete per person over the chosen dates.
+    for (const staffId of staffIds) {
+      const mine = targets.filter((t) => t.staff_id === staffId).map((t) => t.work_date)
+      if (mine.length === 0) continue
+      const { error } = await admin.from('shift_assignments').delete().eq('staff_id', staffId).in('work_date', mine)
+      if (error) return { ok: false, error: missing(error) ? 'not_set_up' : 'failed' }
+    }
+  } else {
+    const now = new Date().toISOString()
+    const rows = targets.map((t) => ({
+      ...t,
+      template_id: input.value === 'off' ? null : input.value,
+      day_off: input.value === 'off',
+      updated_by: ctx.userId,
+      updated_at: now,
+    }))
+    const { error } = await admin.from('shift_assignments').upsert(rows, { onConflict: 'staff_id,work_date' })
+    if (error) return { ok: false, error: missing(error) ? 'not_set_up' : 'failed' }
+  }
+  revalidatePath(TIME_PATH)
+  return { ok: true, count: targets.length }
+}

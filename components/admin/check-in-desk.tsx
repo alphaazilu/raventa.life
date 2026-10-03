@@ -326,7 +326,8 @@ export function CheckInDesk({
           </section>
 
           {/* Right: the bill. */}
-          <section className="scroll-mt-4 rounded-2xl border border-border bg-card p-4 md:p-5">
+          {/* Fills the screen height, so the pay button always sits at the very bottom. */}
+          <section className="flex scroll-mt-4 flex-col rounded-2xl border border-border bg-card p-4 md:min-h-[calc(100dvh-9.5rem)] md:p-5">
             <BillBuilder
                 title={memberBill ? tr(deskCopy.billHeading) : tr(deskCopy.sellOnlyHeading)}
                 subtitle={
@@ -343,13 +344,15 @@ export function CheckInDesk({
                 catalog={catalog}
                 busy={busy}
               onPay={(bill) => pay(member && !member.isSelf ? member.id : null, bill)}
-            />
-            {!catalog || (catalog.items.length === 0 && !memberBill) ? (
-              <p className="mt-4 rounded-xl bg-secondary px-3 py-2 text-xs text-secondary-foreground">
+              hint={
+                !catalog || (catalog.items.length === 0 && !memberBill) ? (
+                  <p className="mb-3 rounded-xl bg-secondary px-3 py-2 text-xs text-secondary-foreground">
                 <ShoppingBag className="mr-1 inline h-3.5 w-3.5 align-[-2px]" aria-hidden="true" />
                 {tr(catalog ? deskCopy.noItems : deskCopy.catalogNotSetUp)}
               </p>
-            ) : null}
+                ) : null
+              }
+            />
           </section>
         </div>
       )}

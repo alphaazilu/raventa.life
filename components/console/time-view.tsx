@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useEffect, useMemo, useState, useTransition } from 'react'
-import { AlertTriangle, ChevronLeft, ChevronRight, Clock, Download, LogOut, Pencil, Plus } from 'lucide-react'
+import { AlertTriangle, CalendarDays, ChevronLeft, ChevronRight, Clock, Download, LogOut, Pencil, Plus } from 'lucide-react'
 import { useLanguage } from '@/components/language-provider'
 import { Spinner } from '@/components/ui/spinner'
 import { timeCopy, timeErrors } from '@/lib/console/copy'
@@ -63,6 +63,7 @@ export function TimeView({
   settings: TimeSettings
 }) {
   const { tr, lang } = useLanguage()
+  const router = useRouter()
   const tmap = useMemo(() => new Map(templates.map((t) => [t.id, t])), [templates])
   const amap = useMemo(() => new Map(assignments.map((a) => [`${a.staffId}|${a.date}`, a])), [assignments])
   const statsOf = (e: TimeEntry, now: number) =>
@@ -89,7 +90,21 @@ export function TimeView({
           <Link href={`${TIME_PATH}?week=${addDays(weekStart, -7)}${view !== 'entries' ? `&view=${view}` : ''}`} aria-label={tr(timeCopy.prevWeek)} className="flex h-9 w-9 items-center justify-center rounded-full border border-border hover:border-primary/40">
             <ChevronLeft className="h-4 w-4" aria-hidden="true" />
           </Link>
-          <span className="min-w-[11rem] text-center text-sm font-semibold tabular-nums">{isThisWeek ? `${tr(timeCopy.thisWeek)} · ` : ''}{weekLabel}</span>
+          {/* Tap the week to pick any date from the calendar → that week. */}
+          <label className="relative inline-flex min-w-[11rem] cursor-pointer items-center justify-center gap-1.5 rounded-full px-2 py-1.5 text-center text-sm font-semibold tabular-nums hover:bg-secondary">
+            <CalendarDays className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
+            {isThisWeek ? `${tr(timeCopy.thisWeek)} · ` : ''}
+            {weekLabel}
+            <input
+              type="date"
+              aria-label={tr(timeCopy.pickWeek)}
+              value={weekStart}
+              onChange={(e) => {
+                if (e.target.value) router.push(`${TIME_PATH}?week=${e.target.value}${view !== 'entries' ? `&view=${view}` : ''}`)
+              }}
+              className="absolute inset-0 cursor-pointer opacity-0"
+            />
+          </label>
           <Link href={`${TIME_PATH}?week=${addDays(weekStart, 7)}${view !== 'entries' ? `&view=${view}` : ''}`} aria-label={tr(timeCopy.nextWeek)} className="flex h-9 w-9 items-center justify-center rounded-full border border-border hover:border-primary/40">
             <ChevronRight className="h-4 w-4" aria-hidden="true" />
           </Link>

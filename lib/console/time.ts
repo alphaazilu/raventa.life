@@ -140,7 +140,7 @@ export async function listStaff(): Promise<{ id: string; name: string }[]> {
   const { data } = await createAdminClient()
     .from('profiles')
     .select('id, first_name, last_name, email, role')
-    .in('role', ['staff', 'admin'])
+    .eq('role', 'staff') // admins don't clock in, so they aren't rostered
   return (data ?? [])
     .map((p) => ({ id: p.id as string, name: [p.first_name, p.last_name].filter(Boolean).join(' ') || (p.email as string) || '—' }))
     .sort((a, b) => a.name.localeCompare(b.name, 'th'))

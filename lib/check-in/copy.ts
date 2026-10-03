@@ -81,7 +81,7 @@ export const deskCopy = {
 
   // Bill (v0.20)
   holiday: { th: 'วันหยุดนักขัตฤกษ์', en: 'public holiday' },
-  payForPass: { th: 'จ่ายเงิน', en: 'Pay' },
+  payForPass: { th: 'เช็คอิน', en: 'Check in' },
   addItems: { th: 'เพิ่มสินค้า / ส่วนเสริม', en: 'Add items / extras' },
   hideItems: { th: 'ซ่อนรายการสินค้า', en: 'Hide items' },
   catalogNotSetUp: {

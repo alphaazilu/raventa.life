@@ -9,6 +9,7 @@ import { shiftErrors, timeCopy } from '@/lib/console/copy'
 import { shiftLengthMinutes, type ShiftAssignment, type ShiftTemplate, type TimeSettings } from '@/lib/console/shift-math'
 import { copyPreviousWeek, saveTemplate, saveTimeSettings, setAssignment } from '@/app/console/time/shift-actions'
 import { cn } from '@/lib/utils'
+import { RangePlanner } from '@/components/console/range-planner'
 
 const inputClass =
   'w-full rounded-xl border border-border bg-background px-3 py-2 text-sm text-foreground outline-none focus:border-primary'
@@ -64,6 +65,7 @@ export function RosterGrid({
     <section className="rounded-2xl border border-border bg-card p-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h2 className="text-base font-semibold">{tr(timeCopy.viewRoster)}</h2>
+        <div className="flex flex-wrap items-center gap-2">
         <button
           type="button"
           disabled={pending}
@@ -80,7 +82,9 @@ export function RosterGrid({
           <Copy className="h-4 w-4" aria-hidden="true" />
           {tr(timeCopy.copyLastWeek)}
         </button>
+        </div>
       </div>
+      <RangePlanner staff={staff} templates={active} today={today} />
       <p className="mt-1 text-xs text-muted-foreground">{tr(timeCopy.rosterHint)}</p>
       {error && <p className="mt-2 text-sm font-semibold text-destructive">{tr(shiftErrors[error] ?? shiftErrors.failed)}</p>}
       <div className="mt-3 overflow-x-auto">
