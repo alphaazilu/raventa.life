@@ -13,7 +13,9 @@ export const metadata: Metadata = {
 }
 
 // Sell + check in — the counter tablet's main screen.
-export default async function DeskPage() {
+// ?view=floor opens the "In today" tab (e.g. Dashboard › Recent check-ins › See all).
+export default async function DeskPage({ searchParams }: { searchParams: Promise<{ view?: string }> }) {
+  const { view } = await searchParams
   const { user, role } = await getConsoleSession()
   if (!user) redirect(`/login?next=${DESK_PATH}`)
   if (!canUseDesk(role)) redirect('/account')
@@ -29,6 +31,7 @@ export default async function DeskPage() {
         initialFloor={floor.ok ? floor.data : null}
         initialError={floor.ok ? null : floor.error}
         initialCatalog={catalog.ok ? catalog.data : null}
+        initialView={view === 'floor' ? 'floor' : 'desk'}
       />
     </main>
   )

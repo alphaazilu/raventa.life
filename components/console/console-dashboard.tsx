@@ -86,7 +86,7 @@ export function ConsoleDashboard({ firstName, data }: { firstName: string | null
         <section className="rounded-2xl border border-border bg-card p-4 md:p-5 lg:col-span-2">
           <div className="flex items-baseline justify-between">
             <h2 className="text-base font-semibold text-card-foreground">{tr(consoleCopy.recentHeading)}</h2>
-            <Link href={DESK_PATH} className="text-sm font-semibold text-primary hover:underline">
+            <Link href={`${DESK_PATH}?view=floor`} className="text-sm font-semibold text-primary hover:underline">
               {tr(consoleCopy.seeAll)}
             </Link>
           </div>

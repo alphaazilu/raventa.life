@@ -47,6 +47,7 @@ export function CheckInDesk({
   initialError,
   initialMember = null,
   initialCatalog = null,
+  initialView = 'desk',
 }: {
   // Day totals are for admins only; staff see each visit's method, not sums.
   showTakings: boolean
@@ -54,6 +55,7 @@ export function CheckInDesk({
   initialError: string | null
   initialMember?: DeskMember | null
   initialCatalog?: DeskCatalog
+  initialView?: 'desk' | 'floor'
 }) {
   const { tr } = useLanguage()
   const [panel, setPanel] = useState<Panel>(initialMember ? { kind: 'member', member: initialMember } : { kind: 'empty' })
@@ -67,7 +69,7 @@ export function CheckInDesk({
   const [billKey, setBillKey] = useState(0)
   const [searchOpen, setSearchOpen] = useState(false)
   // 'floor' = who's in today (and check-outs), so the sale screen fits one screen.
-  const [view, setView] = useState<'desk' | 'floor'>('desk')
+  const [view, setView] = useState<'desk' | 'floor'>(initialView)
 
   const errText = (code: string) => tr(deskErrors[code] ?? deskErrors.failed)
 
