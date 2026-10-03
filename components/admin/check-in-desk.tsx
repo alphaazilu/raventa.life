@@ -327,33 +327,29 @@ export function CheckInDesk({
 
           {/* Right: the bill. */}
           <section className="scroll-mt-4 rounded-2xl border border-border bg-card p-4 md:p-5">
-            <h2 className="font-display text-xl font-bold text-card-foreground">
-              {memberBill ? tr(deskCopy.billHeading) : tr(deskCopy.sellOnlyHeading)}
-            </h2>
-            <p className="mt-0.5 text-xs text-muted-foreground">
-              {memberBill
-                ? member.name
-                : member && !member.isSelf
-                  ? tr(deskCopy.sellToMemberHint)
-                  : tr(deskCopy.sellOnlyHint)}
-            </p>
-            {!catalog || (catalog.items.length === 0 && !memberBill) ? (
-              <p className="mt-4 rounded-xl bg-secondary px-3 py-2 text-xs text-secondary-foreground">
-                <ShoppingBag className="mr-1 inline h-3.5 w-3.5 align-[-2px]" aria-hidden="true" />
-                {tr(catalog ? deskCopy.noItems : deskCopy.catalogNotSetUp)}
-              </p>
-            ) : null}
-            {(catalog || memberBill) && (
-              <BillBuilder
+            <BillBuilder
+                title={memberBill ? tr(deskCopy.billHeading) : tr(deskCopy.sellOnlyHeading)}
+                subtitle={
+                  memberBill
+                    ? member.name
+                    : member && !member.isSelf
+                      ? tr(deskCopy.sellToMemberHint)
+                      : tr(deskCopy.sellOnlyHint)
+                }
                 key={`${memberBill ? member.id : member && !member.isSelf ? `items-${member.id}` : 'walkup'}-${billKey}`}
                 memberId={member && !member.isSelf ? member.id : null}
                 withDayPass={Boolean(memberBill)}
                 rewardReady={(member?.stamps?.rewardsAvailable ?? 0) > 0}
                 catalog={catalog}
                 busy={busy}
-                onPay={(bill) => pay(member && !member.isSelf ? member.id : null, bill)}
-              />
-            )}
+              onPay={(bill) => pay(member && !member.isSelf ? member.id : null, bill)}
+            />
+            {!catalog || (catalog.items.length === 0 && !memberBill) ? (
+              <p className="mt-4 rounded-xl bg-secondary px-3 py-2 text-xs text-secondary-foreground">
+                <ShoppingBag className="mr-1 inline h-3.5 w-3.5 align-[-2px]" aria-hidden="true" />
+                {tr(catalog ? deskCopy.noItems : deskCopy.catalogNotSetUp)}
+              </p>
+            ) : null}
           </section>
         </div>
       )}

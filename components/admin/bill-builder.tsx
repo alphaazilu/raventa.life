@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Gift, Minus, Plus, ShoppingBag, Tag, X } from 'lucide-react'
+import { Ban, Gift, Minus, Plus, ShoppingBag, Tag, Trash2, X } from 'lucide-react'
 import { useLanguage } from '@/components/language-provider'
 import { Spinner } from '@/components/ui/spinner'
 import { deskCopy, deskErrors, fill } from '@/lib/check-in/copy'
@@ -20,6 +20,8 @@ import {
 // plus any extras, a promo code, one payment. The database prices it
 // (pos_quote) — this screen only shows what the database says.
 export function BillBuilder({
+  title,
+  subtitle,
   memberId,
   withDayPass,
   rewardReady,
@@ -28,6 +30,9 @@ export function BillBuilder({
   onPay,
   quoteFn = quoteBill,
 }: {
+  // Shown in the bill's pinned header next to the total.
+  title: string
+  subtitle: string
   memberId: string | null
   // false = walk-up sale (no member, no check-in)
   withDayPass: boolean
@@ -99,6 +104,20 @@ export function BillBuilder({
   const bump = (idx: number, d: number) =>
     setLines((ls) => ls.flatMap((l, j) => (j !== idx ? [l] : l.qty + d <= 0 ? [] : [{ ...l, qty: Math.min(99, l.qty + d) }])))
 
+  // "Clear bill": back to how it opened.
+  const clear = () => {
+    setDayPass(withDayPass ? 'paid' : 'none')
+    setLines([])
+    setCode('')
+    setCodeInput('')
+    setMethod(null)
+    setWristband('')
+    setPicking(null)
+  }
+  const dirty = lines.length > 0 || code !== '' || codeInput !== '' || method !== null || wristband !== '' || dayPass !== (withDayPass ? 'paid' : 'none')
+  const hasBill = dayPass !== 'none' || lines.length > 0
+  const count = lines.reduce((n, l) => n + l.qty, 0) + (dayPass !== 'none' ? 1 : 0)
+
   const lineLabel = (l: BillLine) => {
     const item = byId.get(l.productId)
     if (!item) return '—'
@@ -128,44 +147,89 @@ export function BillBuilder({
         ? tr(deskCopy.checkInFree)
         : fill(tr(dayPass === 'none' ? deskCopy.payOnly : deskCopy.payAndCheckIn), { price: total.toLocaleString() })
 
+  const passModes: DayPassMode[] = rewardReady ? ['paid', 'reward', 'none'] : ['paid', 'none']
+
   return (
-    <div className="mt-5">
+    <div>
+      {/* Pinned under the console bar: who, how many, and the total — always in view. */}
+      <div className="sticky top-[57px] z-10 -mx-4 -mt-4 flex rounded-t-2xl items-start gap-3 border-b border-border bg-card/95 px-4 pt-4 pb-3 backdrop-blur md:-mx-5 md:-mt-5 md:px-5 md:pt-5 xl:top-[65px]">
+        <div className="min-w-0 flex-1">
+          <h2 className="font-display text-xl font-bold text-card-foreground">{title}</h2>
+          <p className="truncate text-xs text-muted-foreground">
+            {subtitle}
+            {count > 0 && ` · ${fill(tr(deskCopy.itemCount), { n: count })}`}
+          </p>
+          {dirty && (
+            <button
+              type="button"
+              onClick={clear}
+              disabled={busy}
+              className="mt-1.5 inline-flex items-center gap-1 rounded-full border border-border px-2.5 py-1 text-xs font-semibold text-muted-foreground hover:border-destructive/40 hover:text-destructive"
+            >
+              <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
+              {tr(deskCopy.clearBill)}
+            </button>
+          )}
+        </div>
+        <div className="shrink-0 text-right">
+          <p className="text-xs text-muted-foreground">{tr(deskCopy.totalDue)}</p>
+          <p className="font-display text-3xl font-extrabold leading-tight text-foreground">
+            {quoting ? <Spinner className="inline h-5 w-5 text-primary" /> : total.toLocaleString()}{' '}
+            <span className="text-base font-bold">{tr(deskCopy.baht)}</span>
+          </p>
+          {quote && quote.discount > 0 && (
+            <p className="text-xs font-semibold text-accent">
+              {tr(deskCopy.discount)} −{quote.discount.toLocaleString()}
+              {quote.promoName ? ` · ${quote.promoName}` : ''}
+            </p>
+          )}
+        </div>
+      </div>
+
+      <div className="mt-4">
       {withDayPass && (
         <div className="rounded-2xl bg-secondary px-4 py-3">
           <div className="flex items-baseline justify-between gap-3">
             <span className="text-sm text-secondary-foreground">
               {tr(deskCopy.dayPassToday)} ({tr(dayLabel)})
             </span>
-            <span className="font-display text-2xl font-extrabold text-foreground">
-              {dayPass === 'reward' ? (
-                tr(deskCopy.free)
-              ) : (
-                <>
-                  {passLine ? passLine.unitPrice.toLocaleString() : '…'} <span className="text-sm font-semibold">{tr(deskCopy.baht)}</span>
-                </>
-              )}
-            </span>
+            {dayPass === 'none' ? (
+              <span className="text-sm font-semibold text-muted-foreground">{tr(deskCopy.notCheckingIn)}</span>
+            ) : (
+              <span className="font-display text-2xl font-extrabold text-foreground">
+                {dayPass === 'reward' ? (
+                  tr(deskCopy.free)
+                ) : (
+                  <>
+                    {passLine ? passLine.unitPrice.toLocaleString() : '…'} <span className="text-sm font-semibold">{tr(deskCopy.baht)}</span>
+                  </>
+                )}
+              </span>
+            )}
           </div>
-          {rewardReady && (
-            <div className="mt-2 flex gap-2" role="radiogroup" aria-label={tr(deskCopy.dayPassToday)}>
-              {(['paid', 'reward'] as const).map((m) => (
-                <button
-                  key={m}
-                  type="button"
-                  role="radio"
-                  aria-checked={dayPass === m}
-                  onClick={() => setDayPass(m)}
-                  className={cn(
-                    'inline-flex h-9 items-center gap-1.5 rounded-full border px-3 text-xs font-semibold',
-                    dayPass === m ? 'border-accent bg-accent text-white' : 'border-border bg-background text-foreground',
-                  )}
-                >
-                  {m === 'reward' && <Gift className="h-3.5 w-3.5" aria-hidden="true" />}
-                  {tr(m === 'paid' ? deskCopy.payForPass : deskCopy.useReward)}
-                </button>
-              ))}
-            </div>
-          )}
+          <div className="mt-2 flex flex-wrap gap-2" role="radiogroup" aria-label={tr(deskCopy.dayPassToday)}>
+            {passModes.map((m) => (
+              <button
+                key={m}
+                type="button"
+                role="radio"
+                aria-checked={dayPass === m}
+                onClick={() => setDayPass(m)}
+                className={cn(
+                  'inline-flex h-9 items-center gap-1.5 rounded-full border px-3 text-xs font-semibold',
+                  dayPass === m
+                    ? m === 'none'
+                      ? 'border-foreground bg-foreground text-background'
+                      : 'border-accent bg-accent text-white'
+                    : 'border-border bg-background text-foreground',
+                )}
+              >
+                {m === 'reward' && <Gift className="h-3.5 w-3.5" aria-hidden="true" />}
+                {m === 'none' && <Ban className="h-3.5 w-3.5" aria-hidden="true" />}
+                {tr(m === 'paid' ? deskCopy.payForPass : m === 'reward' ? deskCopy.useReward : deskCopy.noCheckIn)}
+              </button>
+            ))}
+          </div>
         </div>
       )}
 
@@ -185,7 +249,13 @@ export function BillBuilder({
                   <Plus className="h-3.5 w-3.5" aria-hidden="true" />
                 </button>
                 <span className="w-16 text-right font-semibold">{priced ? priced.lineTotal.toLocaleString() : '…'}</span>
-                <button type="button" onClick={() => bump(idx, -l.qty)} aria-label={tr(deskCopy.remove)} className="text-muted-foreground hover:text-destructive">
+                <button
+                  type="button"
+                  onClick={() => bump(idx, -l.qty)}
+                  aria-label={tr(deskCopy.remove)}
+                  title={tr(deskCopy.remove)}
+                  className="flex h-9 w-9 items-center justify-center rounded-full bg-destructive/10 text-destructive hover:bg-destructive/20"
+                >
                   <X className="h-4 w-4" aria-hidden="true" />
                 </button>
               </li>
@@ -315,32 +385,6 @@ export function BillBuilder({
         </p>
       )}
 
-      {/* Totals */}
-      {(dayPass !== 'none' || lines.length > 0) && (
-        <div className="mt-3 space-y-1 text-sm">
-          {quote && quote.discount > 0 && (
-            <>
-              <div className="flex justify-between text-muted-foreground">
-                <span>{tr(deskCopy.subtotal)}</span>
-                <span>{quote.subtotal.toLocaleString()}</span>
-              </div>
-              <div className="flex justify-between text-accent">
-                <span>
-                  {tr(deskCopy.discount)} · {quote.promoName}
-                </span>
-                <span>−{quote.discount.toLocaleString()}</span>
-              </div>
-            </>
-          )}
-          <div className="flex items-baseline justify-between">
-            <span className="text-muted-foreground">{tr(deskCopy.totalDue)}</span>
-            <span className="font-display text-3xl font-extrabold text-foreground">
-              {quoting ? <Spinner className="inline h-5 w-5 text-primary" /> : `${total.toLocaleString()} ${tr(deskCopy.baht)}`}
-            </span>
-          </div>
-        </div>
-      )}
-
       {needMethod && (
         <>
           <p className="mt-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">{tr(deskCopy.paymentMethod)}</p>
@@ -378,15 +422,20 @@ export function BillBuilder({
         />
       )}
 
-      {(dayPass !== 'none' || lines.length > 0) && (
-        <button
-          type="button"
-          disabled={!canPay}
-          onClick={() => onPay({ dayPass, items: lines, code, paymentMethod: needMethod ? method : null, wristband })}
-          className="mt-4 h-14 w-full rounded-full bg-primary text-base font-bold text-primary-foreground transition-opacity disabled:opacity-40"
-        >
-          {payLabel}
-        </button>
+      </div>
+
+      {/* Pinned to the bottom of the screen while the bill is long. */}
+      {hasBill && (
+        <div className="sticky bottom-0 z-10 -mx-4 -mb-4 mt-4 rounded-b-2xl border-t border-border bg-card/95 px-4 pt-3 pb-4 backdrop-blur md:-mx-5 md:-mb-5 md:px-5 md:pb-5">
+          <button
+            type="button"
+            disabled={!canPay}
+            onClick={() => onPay({ dayPass, items: lines, code, paymentMethod: needMethod ? method : null, wristband })}
+            className="h-14 w-full rounded-full bg-primary text-base font-bold text-primary-foreground transition-opacity disabled:opacity-40"
+          >
+            {payLabel}
+          </button>
+        </div>
       )}
     </div>
   )
