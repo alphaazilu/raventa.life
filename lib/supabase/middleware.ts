@@ -32,6 +32,17 @@ export async function updateSession(request: NextRequest) {
     },
   )
 
+  // A redirect is a brand-new response: copy over any session cookies that
+  // getUser() just refreshed. Without this the browser keeps the old refresh
+  // token, which Supabase has already rotated out — the next request is
+  // treated as token reuse and the person is signed out ("doesn't remember
+  // my login"). LINE hid it by signing in again on every menu tap.
+  const redirectKeepingSession = (url: URL) => {
+    const res = NextResponse.redirect(url)
+    supabaseResponse.cookies.getAll().forEach((c) => res.cookies.set(c))
+    return res
+  }
+
   // IMPORTANT: avoid writing logic between createServerClient and getUser().
   // A stray early return can drop the session refresh and randomly log users out.
   const {
@@ -53,7 +64,7 @@ export async function updateSession(request: NextRequest) {
     const url = request.nextUrl.clone()
     url.pathname = CONSOLE_PATH
     url.search = ''
-    return NextResponse.redirect(url)
+    return redirectKeepingSession(url)
   }
   // On the tablet the console layout shows its own lock screen instead of
   // bouncing to /login or /account.
@@ -64,7 +75,7 @@ export async function updateSession(request: NextRequest) {
     url.pathname = '/login'
     url.search = ''
     url.searchParams.set('next', back)
-    return NextResponse.redirect(url)
+    return redirectKeepingSession(url)
   }
 
   if ((isConsoleRoute || isAccountRoute) && user) {
@@ -82,7 +93,7 @@ export async function updateSession(request: NextRequest) {
       url.pathname = '/complete-profile'
       url.search = ''
       url.searchParams.set('next', back)
-      return NextResponse.redirect(url)
+      return redirectKeepingSession(url)
     }
 
     // Back Office: admins get everything; staff get the front desk only
@@ -97,7 +108,7 @@ export async function updateSession(request: NextRequest) {
         const url = request.nextUrl.clone()
         url.pathname = canUseDesk(profile?.role) ? DESK_PATH : '/account'
         url.search = ''
-        return NextResponse.redirect(url)
+        return redirectKeepingSession(url)
       }
     }
   }
