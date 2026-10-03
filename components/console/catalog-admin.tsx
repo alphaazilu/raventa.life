@@ -186,7 +186,7 @@ function ProductForm({ product, onCreated }: { product: Product | null; onCreate
   const [pkgActivate, setPkgActivate] = useState(String(pk?.activateDays ?? 90))
   const [pkgWeekday, setPkgWeekday] = useState(pk?.weekdayOnly ?? false)
   const [pkgStamp, setPkgStamp] = useState(pk?.earnsStamp ?? false)
-  const [pkgShare, setPkgShare] = useState(pk?.shareable ?? false)
+  const [pkgShare, setPkgShare] = useState<'off' | 'split' | 'whole'>(pk?.share ?? 'off')
   const chipCls = (on: boolean) => cn('rounded-full px-3 py-1.5 text-xs font-semibold', on ? 'bg-foreground text-background' : 'border border-border')
 
   return (
@@ -214,7 +214,7 @@ function ProductForm({ product, onCreated }: { product: Product | null; onCreate
                     activateDays: Number(pkgActivate),
                     weekdayOnly: pkgWeekday,
                     earnsStamp: pkgStamp,
-                    shareable: !pkgUnlimited && pkgShare,
+                    share: pkgUnlimited && pkgShare === 'split' ? 'off' : pkgShare,
                   }
                 : null,
             }),
@@ -309,15 +309,18 @@ function ProductForm({ product, onCreated }: { product: Product | null; onCreate
               <input type="checkbox" checked={pkgStamp} onChange={(e) => setPkgStamp(e.target.checked)} className="h-4 w-4 accent-[var(--primary)]" />
               {tr(c.pkgStamp)}
             </label>
-            {!pkgUnlimited && (
-              <label className="flex items-start gap-2 text-sm">
-                <input type="checkbox" checked={pkgShare} onChange={(e) => setPkgShare(e.target.checked)} className="mt-0.5 h-4 w-4 accent-[var(--primary)]" />
-                <span>
-                  {tr(c.pkgShare)}
-                  <span className="block text-xs text-muted-foreground">{tr(c.pkgShareHint)}</span>
-                </span>
-              </label>
-            )}
+            <div>
+              <span className={label}>{tr(c.pkgShare)}</span>
+              <div className="mt-1 flex flex-wrap gap-1.5">
+                <button type="button" onClick={() => setPkgShare('off')} className={chipCls(pkgShare === 'off' || (pkgUnlimited && pkgShare === 'split'))}>{tr(c.pkgShareOff)}</button>
+                {!pkgUnlimited && (
+                  <button type="button" onClick={() => setPkgShare('split')} className={chipCls(pkgShare === 'split')}>{tr(c.pkgShareSplit)}</button>
+                )}
+                <button type="button" onClick={() => setPkgShare('whole')} className={chipCls(pkgShare === 'whole')}>{tr(c.pkgShareWhole)}</button>
+              </div>
+              {pkgShare === 'split' && !pkgUnlimited && <p className="mt-1 text-xs text-muted-foreground">{tr(c.pkgShareSplitHint)}</p>}
+              {pkgShare === 'whole' && <p className="mt-1 text-xs text-muted-foreground">{tr(c.pkgShareWholeHint)}</p>}
+            </div>
           </fieldset>
         </>
       ) : (

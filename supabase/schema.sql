@@ -1461,7 +1461,7 @@ begin
             starts_on = coalesce(starts_on, v_today),
             expires_on = coalesce(expires_on, v_today + valid_days - 1)
         where id = (v_line->>'package_id')::uuid
-        -- Shared packages (§23): only the owner earns the stamp.
+        -- Shared visits (§23) never earn a stamp — only the owner's own.
         returning id, earns_stamp and member_id = p_member_id into v_pkg_id, v_pkg_stamp;
       end if;
       insert into public.visits (
@@ -1487,10 +1487,12 @@ begin
       for i in 1..(v_line->>'qty')::int loop
         insert into public.member_packages (
           member_id, product_id, sale_id, sale_line_id, name, visits_total, valid_days,
-          weekday_only, earns_stamp, shareable, starts_on, expires_on, activate_by
+          weekday_only, earns_stamp, shareable, share_whole, starts_on, expires_on, activate_by
         ) values (
           p_member_id, v_prod.id, v_sale.id, v_line_id, v_prod.name_th, v_prod.pkg_visits, v_prod.pkg_days,
-          v_prod.pkg_weekday_only, v_prod.pkg_earns_stamp, v_prod.pkg_shareable and v_prod.pkg_visits is not null,
+          v_prod.pkg_weekday_only, v_prod.pkg_earns_stamp,
+          v_prod.pkg_shareable and (v_prod.pkg_visits is not null or v_prod.pkg_share_whole),
+          v_prod.pkg_shareable and v_prod.pkg_share_whole,
           case when v_prod.pkg_start = 'purchase' then v_today end,
           case when v_prod.pkg_start = 'purchase' then v_today + v_prod.pkg_days - 1 end,
           case when v_prod.pkg_start = 'first_use' then v_today + v_prod.pkg_activate_days - 1 end
@@ -1551,7 +1553,8 @@ begin
   end if;
 
   -- Packages bought on this bill (§21). Once used, only an admin may void.
-  if exists (select 1 from public.member_packages where sale_id = p_sale_id and visits_used > 0 and cancelled_at is null)
+  -- A visit handed to a friend (§23) counts as used.
+  if exists (select 1 from public.member_packages where sale_id = p_sale_id and visits_used + visits_given > 0 and cancelled_at is null)
      and not public.is_admin() then
     raise exception 'package_used';
   end if;
@@ -1560,7 +1563,9 @@ begin
 
   update public.member_packages
   set cancelled_at = now(), cancelled_by = auth.uid(), cancel_reason = btrim(p_reason)
-  where sale_id = p_sale_id and cancelled_at is null;
+  where (sale_id = p_sale_id
+         or shared_from in (select id from public.member_packages where sale_id = p_sale_id))
+    and cancelled_at is null;
 
   -- A check-in made with a package gives that visit back.
   update public.member_packages mp
@@ -1720,6 +1725,18 @@ create index if not exists member_packages_member_idx on public.member_packages 
 -- Sharing (§23) — declared here because usable_package below reads them.
 alter table public.products add column if not exists pkg_shareable boolean not null default false;
 alter table public.member_packages add column if not exists shareable boolean not null default false;
+-- v0.22.3: two ways to share, set per product:
+--  · one visit at a time (default) — the friend's visits are their own small
+--    package (shared_from = the owner's); the owner's visits_given counts
+--    what they've handed out (left = total - used - given).
+--  · the whole package (share_whole; family, couples) — friends join the
+--    package and everyone uses the same count (package_shares). Works for
+--    unlimited passes too.
+alter table public.products add column if not exists pkg_share_whole boolean not null default false;
+alter table public.member_packages add column if not exists share_whole boolean not null default false;
+alter table public.member_packages add column if not exists visits_given integer not null default 0 check (visits_given >= 0);
+alter table public.member_packages add column if not exists shared_from uuid references public.member_packages(id) on delete set null;
+create index if not exists member_packages_shared_from_idx on public.member_packages (shared_from) where shared_from is not null;
 create table if not exists public.package_shares (
   id uuid primary key default gen_random_uuid(),
   package_id uuid not null references public.member_packages(id) on delete cascade,
@@ -1753,10 +1770,10 @@ stable
 as $$
   select id from public.member_packages
   where (member_id = p_member_id
-         or (shareable and id in (select package_id from public.package_shares
-                                  where member_id = p_member_id and revoked_at is null)))
+         or (shareable and share_whole and id in (select package_id from public.package_shares
+                                                  where member_id = p_member_id and revoked_at is null)))
     and cancelled_at is null
-    and (visits_total is null or visits_used < visits_total)
+    and (visits_total is null or visits_used + visits_given < visits_total)
     and (starts_on is null or starts_on <= p_date)
     and (expires_on is null or expires_on >= p_date)
     and (activate_by is null or starts_on is not null or activate_by >= p_date)
@@ -1805,12 +1822,17 @@ $$;
 revoke execute on function public.staff_reenter_visit(uuid) from public, anon;
 grant execute on function public.staff_reenter_visit(uuid) to authenticated;
 
--- 23. Sharing a package with friends (v0.22.2). The owner of a package of a
--- set number of visits (and only if the package allows it — Products ›
--- package › "share with friends") sends a link by email or shows it as a
--- QR; a friend who opens it while signed in is added to the package. Any
--- number of friends; every visit by anyone comes off the same count; only
--- the owner earns stamps. The owner can remove a friend at any time.
+-- 23. Sharing a package with friends (v0.22.2; two ways since v0.22.3).
+-- If the product allows it (Products › package › sharing), the owner sends
+-- a link by email or shows it as a QR; a friend opens it while signed in.
+--  · One visit at a time: each link hands ONE visit to the friend. It leaves
+--    the owner's count straight away and becomes the friend's own (a small
+--    package with shared_from set, same end date, no stamps). The owner can
+--    take back visits the friend hasn't used yet. Set numbers of visits only.
+--  · Whole package (family, couples): the friend joins the package and
+--    everyone uses the same count/pass; the owner can remove them any time.
+-- Only the owner earns stamps. Shares made with v0.22.2 on a package set to
+-- one-visit sharing become one visit each at the end of this section.
 -- Invites and shares are written by the server (service role) only.
 alter table public.package_shares enable row level security;
 revoke all on public.package_shares from anon, authenticated;
@@ -1829,13 +1851,121 @@ create table if not exists public.package_share_invites (
 alter table public.package_share_invites enable row level security;
 revoke all on public.package_share_invites from anon, authenticated;
 
--- One member's packages for display: their own plus those shared with them,
--- with the owner's first name and, for the owner, who it's shared with.
+-- Hand one visit of p_package_id to p_friend (called by the server after
+-- it has checked the invite). Returns the friend's package.
+create or replace function public.package_share_split(p_package_id uuid, p_friend uuid)
+returns uuid
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_owner uuid;
+  v_product uuid;
+  v_name text;
+  v_total int;
+  v_used int;
+  v_given int;
+  v_days int;
+  v_weekday boolean;
+  v_shareable boolean;
+  v_whole boolean;
+  v_cancelled timestamptz;
+  v_starts date;
+  v_expires date;
+  v_activate date;
+  v_from uuid;
+  v_today date := public.bkk_today();
+  v_piece uuid;
+begin
+  select member_id, product_id, name, visits_total, visits_used, visits_given, valid_days, weekday_only,
+         shareable, share_whole, cancelled_at, starts_on, expires_on, activate_by, shared_from
+    into v_owner, v_product, v_name, v_total, v_used, v_given, v_days, v_weekday,
+         v_shareable, v_whole, v_cancelled, v_starts, v_expires, v_activate, v_from
+  from public.member_packages where id = p_package_id for update;
+  if not found then
+    raise exception 'not_found';
+  end if;
+  if v_owner = p_friend then
+    raise exception 'own_package';
+  end if;
+  if not v_shareable or v_whole or v_from is not null or v_cancelled is not null or v_total is null
+     or v_used + v_given >= v_total
+     or (v_expires is not null and v_expires < v_today)
+     or (v_starts is null and v_activate is not null and v_activate < v_today) then
+    raise exception 'not_shareable';
+  end if;
+  -- The friend's visit lasts no longer than the package itself could.
+  v_expires := coalesce(v_expires, greatest(coalesce(v_activate, v_today), v_today) + v_days - 1);
+
+  select id into v_piece from public.member_packages
+  where shared_from = p_package_id and member_id = p_friend and cancelled_at is null and expires_on >= v_today
+  order by created_at desc limit 1
+  for update;
+  if found then
+    update public.member_packages set visits_total = visits_total + 1, expires_on = v_expires where id = v_piece;
+  else
+    insert into public.member_packages (
+      member_id, product_id, name, visits_total, visits_used, valid_days, weekday_only, earns_stamp,
+      starts_on, expires_on, shareable, shared_from
+    ) values (
+      p_friend, v_product, v_name, 1, 0, greatest(v_expires - v_today + 1, 1), v_weekday, false,
+      v_today, v_expires, false, p_package_id
+    ) returning id into v_piece;
+  end if;
+  update public.member_packages set visits_given = visits_given + 1 where id = p_package_id;
+  return v_piece;
+end;
+$$;
+revoke execute on function public.package_share_split(uuid, uuid) from public, anon, authenticated;
+grant execute on function public.package_share_split(uuid, uuid) to service_role;
+
+-- The owner takes back the visits a friend hasn't used. Returns how many.
+create or replace function public.package_share_revoke(p_piece_id uuid)
+returns int
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_from uuid;
+  v_total int;
+  v_used int;
+  v_back int;
+begin
+  select shared_from, visits_total, visits_used into v_from, v_total, v_used
+  from public.member_packages where id = p_piece_id and cancelled_at is null for update;
+  if not found or v_from is null then
+    raise exception 'not_found';
+  end if;
+  v_back := v_total - v_used;
+  if v_back <= 0 then
+    raise exception 'nothing_left';
+  end if;
+  update public.member_packages set visits_given = greatest(visits_given - v_back, 0) where id = v_from;
+  if v_used = 0 then
+    update public.member_packages
+    set cancelled_at = now(), cancel_reason = 'returned to owner'
+    where id = p_piece_id;
+  else
+    update public.member_packages set visits_total = v_used where id = p_piece_id;
+  end if;
+  return v_back;
+end;
+$$;
+revoke execute on function public.package_share_revoke(uuid) from public, anon, authenticated;
+grant execute on function public.package_share_revoke(uuid) to service_role;
+
+-- One member's packages for display: their own (including visits a friend
+-- handed them) and whole packages shared with them, with the owner's first
+-- name; for the owner, who they share with — kind 'piece' (visits handed
+-- over: total/used) or 'member' (on the whole package).
+drop function if exists public.member_package_list(uuid);
 create or replace function public.member_package_list(p_member_id uuid)
 returns table (
-  id uuid, name text, visits_total int, visits_used int, starts_on date, expires_on date,
+  id uuid, name text, visits_total int, visits_used int, visits_given int, starts_on date, expires_on date,
   activate_by date, weekday_only boolean, cancelled boolean, created_at timestamptz,
-  shareable boolean, is_owner boolean, owner_name text, shared_with jsonb
+  shareable boolean, share_whole boolean, is_owner boolean, owner_name text, shared_with jsonb
 )
 language sql
 security definer
@@ -1843,21 +1973,60 @@ set search_path = public
 stable
 as $$
   select
-    mp.id, mp.name, mp.visits_total, mp.visits_used, mp.starts_on, mp.expires_on,
+    mp.id, mp.name, mp.visits_total, mp.visits_used, mp.visits_given, mp.starts_on, mp.expires_on,
     mp.activate_by, mp.weekday_only, mp.cancelled_at is not null, mp.created_at,
-    mp.shareable, mp.member_id = p_member_id,
-    case when mp.member_id <> p_member_id then (select first_name from public.profiles where id = mp.member_id) end,
+    mp.shareable, mp.share_whole, mp.member_id = p_member_id and mp.shared_from is null,
+    case
+      when mp.member_id <> p_member_id then (select first_name from public.profiles where id = mp.member_id)
+      when mp.shared_from is not null then (
+        select pr.first_name from public.member_packages o join public.profiles pr on pr.id = o.member_id
+        where o.id = mp.shared_from)
+    end,
     case when mp.member_id = p_member_id then coalesce((
-      select jsonb_agg(jsonb_build_object('id', ps.id, 'name', coalesce(nullif(btrim(concat_ws(' ', pr.first_name, pr.last_name)), ''), pr.member_no)) order by ps.created_at)
-      from public.package_shares ps join public.profiles pr on pr.id = ps.member_id
-      where ps.package_id = mp.id and ps.revoked_at is null
+      select jsonb_agg(x.j order by x.at) from (
+        select f.created_at as at, jsonb_build_object(
+          'id', f.id, 'kind', 'piece',
+          'name', coalesce(nullif(btrim(concat_ws(' ', pr.first_name, pr.last_name)), ''), pr.member_no),
+          'total', f.visits_total, 'used', f.visits_used, 'expiresOn', f.expires_on) as j
+        from public.member_packages f join public.profiles pr on pr.id = f.member_id
+        where f.shared_from = mp.id and f.cancelled_at is null
+        union all
+        select ps.created_at, jsonb_build_object(
+          'id', ps.id, 'kind', 'member',
+          'name', coalesce(nullif(btrim(concat_ws(' ', pr.first_name, pr.last_name)), ''), pr.member_no))
+        from public.package_shares ps join public.profiles pr on pr.id = ps.member_id
+        where ps.package_id = mp.id and ps.revoked_at is null and mp.share_whole
+      ) x
     ), '[]'::jsonb) else '[]'::jsonb end
   from public.member_packages mp
   where (p_member_id = auth.uid() or public.is_staff())
     and (mp.member_id = p_member_id
-         or mp.id in (select package_id from public.package_shares where member_id = p_member_id and revoked_at is null))
+         or (mp.share_whole and mp.id in (select package_id from public.package_shares
+                                          where member_id = p_member_id and revoked_at is null)))
   order by mp.created_at desc;
 $$;
 revoke execute on function public.member_package_list(uuid) from public, anon;
 grant execute on function public.member_package_list(uuid) to authenticated;
+
+-- v0.22.2 shares on packages set to one-visit sharing → one visit each,
+-- while visits are left.
+do $$
+declare
+  r record;
+begin
+  for r in
+    select ps.id, ps.package_id, ps.member_id from public.package_shares ps
+    join public.member_packages mp on mp.id = ps.package_id
+    where ps.revoked_at is null and not mp.share_whole
+    order by ps.created_at
+  loop
+    begin
+      perform public.package_share_split(r.package_id, r.member_id);
+    exception when others then
+      null; -- nothing left to hand over
+    end;
+    update public.package_shares set revoked_at = now() where id = r.id;
+  end loop;
+end;
+$$;
 

@@ -4,7 +4,7 @@ import { Package } from 'lucide-react'
 import { useLanguage } from '@/components/language-provider'
 import { deskCopy, fill } from '@/lib/check-in/copy'
 import { formatMemberDate } from '@/lib/format-date'
-import { packageAlive, type MemberPackage } from '@/lib/packages'
+import { packageAlive, packageLeft, pieceOpen, type MemberPackage } from '@/lib/packages'
 import { bangkokToday } from '@/lib/check-in/day'
 import { cn } from '@/lib/utils'
 
@@ -33,7 +33,8 @@ export function PackageList({
     {heading && <h2 className="mb-2 font-display text-xl font-extrabold text-foreground">{tr(deskCopy.packages)}</h2>}
     <ul className="space-y-2">
       {packages.map((k) => {
-        const left = k.visitsTotal === null ? null : k.visitsTotal - k.visitsUsed
+        const left = packageLeft(k)
+        const friends = k.sharedWith.filter((f) => pieceOpen(f, today))
         const ended = !packageAlive(k, today)
         return (
           <li
@@ -53,10 +54,18 @@ export function PackageList({
                 {k.startsOn ? fill(tr(deskCopy.pkgUntil), { d: date(k.expiresOn) }) : fill(tr(deskCopy.pkgNotStarted), { d: date(k.activateBy) })}
                 {k.weekdayOnly && ` · ${tr(deskCopy.pkgWeekdayOnly)}`}
               </span>
-              {!k.isOwner && <span className="block text-xs font-semibold text-accent">{fill(tr(deskCopy.pkgSharedFrom), { n: k.ownerName ?? '—' })}</span>}
-              {k.isOwner && k.sharedWith.length > 0 && (
+              {!k.isOwner && (
+                <span className="block text-xs font-semibold text-accent">
+                  {fill(tr(k.shareWhole ? deskCopy.pkgSharedFromWhole : deskCopy.pkgSharedFrom), { n: k.ownerName ?? '—' })}
+                </span>
+              )}
+              {k.isOwner && friends.length > 0 && (
                 <span className="block text-xs text-muted-foreground">
-                  {fill(tr(deskCopy.pkgSharedWith), { n: k.sharedWith.map((f) => f.name).join(', ') })}
+                  {fill(tr(k.shareWhole ? deskCopy.pkgSharedWithWhole : deskCopy.pkgSharedWith), {
+                    n: friends
+                      .map((f) => (f.kind === 'piece' ? `${f.name} (${fill(tr(deskCopy.pkgLeft), { n: (f.total ?? 0) - (f.used ?? 0) })})` : f.name))
+                      .join(', '),
+                  })}
                 </span>
               )}
               {extra?.(k)}

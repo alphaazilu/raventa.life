@@ -7,26 +7,39 @@ import { useLanguage } from '@/components/language-provider'
 import { QrSvg } from '@/components/ui/qr-svg'
 import { Spinner } from '@/components/ui/spinner'
 import { createShareLink, revokeShare } from '@/app/account/package-actions'
-import type { MemberPackage } from '@/lib/packages'
+import { packageLeft, pieceOpen, type MemberPackage } from '@/lib/packages'
+import { bangkokToday } from '@/lib/check-in/day'
 import { cn } from '@/lib/utils'
 
 const t = {
-  share: { th: 'แชร์ให้เพื่อน', en: 'Share with a friend' },
-  how: { th: 'ให้เพื่อนสแกน QR ด้วยกล้องมือถือ หรือส่งลิงก์ทางอีเมล — เพื่อนต้องเป็นสมาชิก (สมัครฟรีได้จากลิงก์)', en: 'Let your friend scan the QR, or email them the link — they sign in or join for free' },
+  share: { th: 'แบ่งให้เพื่อน', en: 'Give a friend a visit' },
+  how: { th: '1 ลิงก์ = แบ่งให้เพื่อน 1 ครั้ง ให้เพื่อนสแกน QR หรือส่งลิงก์ทางอีเมล — เพื่อนต้องเป็นสมาชิก (สมัครฟรีได้จากลิงก์)', en: 'Each link gives a friend 1 visit. Let them scan the QR, or email the link — they sign in or join for free' },
+  none: { th: 'ไม่มีครั้งเหลือให้แบ่งแล้ว', en: 'No visits left to give' },
   qr: { th: 'แสดง QR', en: 'Show QR' },
   qrNote: { th: 'ใช้ได้ {n} นาที ครั้งเดียว', en: 'Valid {n} min, once' },
   email: { th: 'อีเมลเพื่อน', en: 'Friend’s email' },
   send: { th: 'ส่ง', en: 'Send' },
   sent: { th: 'ส่งแล้ว — ลิงก์ใช้ได้ 7 วัน', en: 'Sent — the link works for 7 days' },
-  friends: { th: 'เพื่อนที่ใช้ได้', en: 'Friends on this package' },
-  remove: { th: 'เอาออก', en: 'Remove' },
+  friends: { th: 'แบ่งให้แล้ว', en: 'Given to' },
+  pieceLeft: { th: 'เหลือ {n}/{t} ครั้ง', en: '{n} of {t} left' },
+  remove: { th: 'ดึงคืน', en: 'Take back' },
   close: { th: 'ปิด', en: 'Close' },
+  note: { th: 'หักจากแพ็กเกจของคุณเมื่อเพื่อนกดรับ · ดึงคืนได้ถ้าเพื่อนยังไม่ได้ใช้ · แสตมป์เฉพาะคุณ', en: 'Taken off your package when your friend accepts · take back unused visits any time · stamps go to you only' },
+}
+// Whole-package sharing (families, couples): friends join the package.
+const w = {
+  share: { th: 'แชร์ให้ครอบครัว/เพื่อนใช้ร่วม', en: 'Share with family or a friend' },
+  how: { th: 'คนที่รับลิงก์จะใช้แพ็กเกจนี้ร่วมกับคุณ ให้สแกน QR หรือส่งลิงก์ทางอีเมล — ต้องเป็นสมาชิก (สมัครฟรีได้จากลิงก์)', en: 'Whoever accepts uses this package with you. Let them scan the QR, or email the link — they sign in or join for free' },
+  none: { th: 'แพ็กเกจนี้ไม่มีครั้งเหลือแล้ว', en: 'No visits left on this package' },
+  friends: { th: 'ใช้ร่วมกับ', en: 'Shared with' },
+  remove: { th: 'เอาออก', en: 'Remove' },
   note: { th: 'ทุกคนใช้จากจำนวนครั้งเดียวกัน · แสตมป์เฉพาะคุณ', en: 'Everyone uses the same visits · stamps go to you only' },
 }
 const errors: Record<string, { th: string; en: string }> = {
   invalid_email: { th: 'อีเมลไม่ถูกต้อง', en: 'That email doesn’t look right' },
   limit: { th: 'สร้างลิงก์ครบจำนวนต่อวันแล้ว ลองพรุ่งนี้', en: 'Daily limit reached — try tomorrow' },
-  not_shareable: { th: 'แพ็กเกจนี้แชร์ไม่ได้แล้ว', en: 'This package can’t be shared now' },
+  not_shareable: { th: 'แพ็กเกจนี้แบ่งไม่ได้แล้ว', en: 'This package can’t be shared now' },
+  nothing_left: { th: 'เพื่อนใช้ครบแล้ว ดึงคืนไม่ได้', en: 'Already used — nothing to take back' },
   send_failed: { th: 'ส่งอีเมลไม่สำเร็จ', en: 'Couldn’t send the email' },
   failed: { th: 'ทำรายการไม่สำเร็จ ลองอีกครั้ง', en: 'Something went wrong — try again' },
 }
@@ -42,12 +55,16 @@ export function PackageShare({ pkg }: { pkg: MemberPackage }) {
   const [pending, start] = useTransition()
 
   const err = (code: string) => tr(errors[code] ?? errors.failed)
+  const copy = pkg.shareWhole ? { ...t, ...w } : t
+  const left = packageLeft(pkg)
+  const canShare = left === null ? pkg.shareWhole : left > 0
+  const friends = pkg.sharedWith.filter((f) => pieceOpen(f, bangkokToday()))
 
   if (!open) {
     return (
       <button type="button" onClick={() => setOpen(true)} className="mt-2 inline-flex items-center gap-1.5 rounded-full border border-primary/40 px-3 py-1.5 text-xs font-semibold text-primary">
         <Share2 className="h-3.5 w-3.5" aria-hidden="true" />
-        {tr(t.share)}
+        {tr(copy.share)}
       </button>
     )
   }
@@ -55,13 +72,15 @@ export function PackageShare({ pkg }: { pkg: MemberPackage }) {
   return (
     <div className="mt-2 rounded-xl border border-border bg-background p-3">
       <div className="flex items-start justify-between gap-2">
-        <p className="text-xs text-muted-foreground">{tr(t.how)}</p>
+        <p className="text-xs text-muted-foreground">{tr(copy.how)}</p>
         <button type="button" onClick={() => setOpen(false)} aria-label={tr(t.close)} className="text-muted-foreground">
           <X className="h-4 w-4" aria-hidden="true" />
         </button>
       </div>
 
-      {qr ? (
+      {!canShare && !qr ? (
+        <p className="mt-3 text-sm font-semibold text-muted-foreground">{tr(copy.none)}</p>
+      ) : qr ? (
         <div className="mt-3 flex flex-col items-center">
           <div className="h-48 w-48 rounded-xl bg-white p-2">
             <QrSvg text={qr.url} />
@@ -87,6 +106,7 @@ export function PackageShare({ pkg }: { pkg: MemberPackage }) {
         </button>
       )}
 
+      {canShare && (
       <form
         onSubmit={(e) => {
           e.preventDefault()
@@ -117,35 +137,46 @@ export function PackageShare({ pkg }: { pkg: MemberPackage }) {
           {tr(t.send)}
         </button>
       </form>
+      )}
       {msg && <p className={cn('mt-2 text-xs font-semibold', msg.ok ? 'text-accent' : 'text-destructive')}>{msg.text}</p>}
 
-      {pkg.sharedWith.length > 0 && (
+      {friends.length > 0 && (
         <div className="mt-3">
-          <p className="text-xs font-semibold text-muted-foreground">{tr(t.friends)}</p>
+          <p className="text-xs font-semibold text-muted-foreground">{tr(copy.friends)}</p>
           <ul className="mt-1 divide-y divide-border">
-            {pkg.sharedWith.map((f) => (
-              <li key={f.id} className="flex items-center justify-between py-1.5 text-sm">
-                {f.name}
+            {friends.map((f) => (
+              <li key={f.id} className="flex items-center justify-between gap-2 py-1.5 text-sm">
+                <span className="min-w-0">
+                  {f.name}
+                  {f.kind === 'piece' && (
+                    <span className="ml-2 text-xs text-muted-foreground">
+                      {tr(t.pieceLeft)
+                        .replace('{n}', String((f.total ?? 0) - (f.used ?? 0)))
+                        .replace('{t}', String(f.total ?? 0))}
+                    </span>
+                  )}
+                </span>
                 <button
                   type="button"
                   disabled={pending}
                   onClick={() =>
                     start(async () => {
-                      const r = await revokeShare(f.id)
+                      const r = await revokeShare(f.id, f.kind)
                       if (!r.ok) setMsg({ ok: false, text: err(r.error) })
+                      setQr(null)
                       router.refresh()
                     })
                   }
                   className="text-xs font-semibold text-muted-foreground hover:text-destructive"
                 >
-                  {tr(t.remove)}
+                  {tr(copy.remove)}
                 </button>
               </li>
             ))}
           </ul>
         </div>
       )}
-      <p className="mt-2 text-[11px] text-muted-foreground">{tr(t.note)}</p>
+      <p className="mt-2 text-[11px] text-muted-foreground">{tr(copy.note)}</p>
     </div>
   )
 }

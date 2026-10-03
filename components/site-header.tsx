@@ -25,7 +25,9 @@ export function SiteHeader() {
   const pathname = usePathname()
   const isHome = pathname === '/'
   const [open, setOpen] = useState(false)
-  const { user } = useSupabaseUser()
+  // Until the session is checked the link stays invisible: showing "Log in"
+  // for a moment on every reload looked like being signed out.
+  const { user, loading: authLoading } = useSupabaseUser()
   const authHref = user ? '/account' : '/login'
   const authLabel = user ? tr(t.nav.account) : tr(t.nav.login)
 
@@ -133,7 +135,9 @@ export function SiteHeader() {
             className={cn(
               'hidden whitespace-nowrap text-sm font-medium transition-colors hover:text-primary xl:inline-block',
               solid ? 'text-foreground/80' : 'text-white/90',
+              authLoading && 'invisible',
             )}
+            aria-hidden={authLoading || undefined}
           >
             {authLabel}
           </a>
@@ -200,7 +204,8 @@ export function SiteHeader() {
             <a
               href={authHref}
               onClick={() => setOpen(false)}
-              className="border-b border-border/60 py-3 text-sm font-medium text-foreground/80"
+              className={cn('border-b border-border/60 py-3 text-sm font-medium text-foreground/80', authLoading && 'invisible')}
+              aria-hidden={authLoading || undefined}
             >
               {authLabel}
             </a>

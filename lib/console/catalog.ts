@@ -40,7 +40,9 @@ export type PackageRules = {
   activateDays: number // first_use: must start within this many days
   weekdayOnly: boolean
   earnsStamp: boolean
-  shareable: boolean // friends can use it (set number of visits only)
+  // Sharing with friends (§23): off; split = each link hands over one visit
+  // (set number of visits only); whole = friends join and use the same package.
+  share: 'off' | 'split' | 'whole'
 }
 
 export type Promotion = {
@@ -120,7 +122,7 @@ export async function loadCatalog(client: Client): Promise<Catalog | null> {
                 activateDays: Number(r.pkg_activate_days ?? 90),
                 weekdayOnly: Boolean(r.pkg_weekday_only),
                 earnsStamp: Boolean(r.pkg_earns_stamp),
-                shareable: Boolean(r.pkg_shareable),
+                share: !r.pkg_shareable ? 'off' : r.pkg_share_whole ? 'whole' : 'split',
               }
             : null,
       }),

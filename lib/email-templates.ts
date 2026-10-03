@@ -138,17 +138,17 @@ export function emailVerificationCodeEmail(code: string): { subject: string; htm
 }
 
 // A friend shares a package (§23): link to accept it.
-export function packageShareEmail(ownerName: string, packageName: string, url: string): { subject: string; html: string } {
+export function packageShareEmail(ownerName: string, packageName: string, url: string, whole = false): { subject: string; html: string } {
   const safe = (v: string) => v.replace(/[<>&"]/g, (ch) => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', '"': '&quot;' })[ch] as string)
   return {
-    subject: `${ownerName} แชร์แพ็กเกจ RAVENTA ให้คุณ`,
+    subject: whole ? `${ownerName} แชร์แพ็กเกจ RAVENTA ให้คุณใช้ร่วมกัน` : `${ownerName} แบ่งแพ็กเกจ RAVENTA ให้คุณ 1 ครั้ง`,
     html: wrapper(`
-      <h1 style="margin:0 0 12px;font-size:20px;color:${COLORS.text};">${safe(ownerName)} แชร์แพ็กเกจให้คุณ</h1>
+      <h1 style="margin:0 0 12px;font-size:20px;color:${COLORS.text};">${safe(ownerName)} ${whole ? 'แชร์แพ็กเกจให้คุณใช้ร่วมกัน' : 'แบ่งแพ็กเกจให้คุณ 1 ครั้ง'}</h1>
       <p style="margin:0 0 16px;font-size:15px;line-height:1.6;color:${COLORS.text};">
-        แพ็กเกจ <b>${safe(packageName)}</b> — กดรับแล้วใช้เช็คอินที่ RAVENTA ได้เลย (ใช้จากจำนวนครั้งเดียวกับเจ้าของ)
+        แพ็กเกจ <b>${safe(packageName)}</b> — ${whole ? 'กดรับแล้วใช้เช็คอินที่ RAVENTA ได้เลย (ใช้จากจำนวนครั้งเดียวกับเจ้าของ)' : 'กดรับแล้วใช้เช็คอินที่ RAVENTA ได้ 1 ครั้ง'}
       </p>
       <p style="margin:0 0 20px;text-align:center;">
-        <a href="${url}" style="display:inline-block;background-color:${COLORS.primary};color:${COLORS.primaryForeground};padding:12px 28px;border-radius:999px;text-decoration:none;font-weight:600;">รับแพ็กเกจ</a>
+        <a href="${url}" style="display:inline-block;background-color:${COLORS.primary};color:${COLORS.primaryForeground};padding:12px 28px;border-radius:999px;text-decoration:none;font-weight:600;">${whole ? 'รับแพ็กเกจ' : 'รับ 1 ครั้ง'}</a>
       </p>
       <p style="margin:0;font-size:12px;color:${COLORS.muted};">ลิงก์ใช้ได้ 7 วัน และใช้ได้ครั้งเดียว · ต้องเป็นสมาชิก RAVENTA (สมัครฟรีได้จากลิงก์นี้)</p>
     `),
