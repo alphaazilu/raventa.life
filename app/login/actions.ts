@@ -138,7 +138,7 @@ export async function signUp(_prevState: AuthActionState, formData: FormData): P
 
 export async function signOut() {
   const supabase = await createClient()
-  await supabase.auth.signOut()
+  await supabase.auth.signOut({ scope: 'local' })
   revalidatePath('/', 'layout')
   redirect('/')
 }

@@ -189,6 +189,8 @@ export const authCopy: Record<string, Bilingual> = {
   memberSince: { th: 'สมาชิกตั้งแต่', en: 'Member since' },
   joinedFieldLabel: { th: 'วันที่สมัคร', en: 'Joined' },
   myPackages: { th: 'แพ็กเกจของฉัน', en: 'My packages' },
+  myGifts: { th: 'ของขวัญของฉัน', en: 'My gifts' },
+  myGiftsHint: { th: 'ยื่นบัตรสมาชิกที่เคาน์เตอร์ได้เลย — พนักงานจะใช้สิทธิ์ของขวัญให้อัตโนมัติ', en: 'Just show your member card at the counter — the gift is used automatically' },
   historyLink: { th: 'ประวัติการใช้บริการ', en: 'My visits' },
   settingsLink: { th: 'ข้อมูลส่วนตัวและการตั้งค่า', en: 'Personal details & settings' },
   settingsHeading: { th: 'ข้อมูลส่วนตัวและการตั้งค่า', en: 'Personal Details & Settings' },

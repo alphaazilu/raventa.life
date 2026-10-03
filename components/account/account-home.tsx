@@ -9,7 +9,9 @@ import { cn } from '@/lib/utils'
 import { Gift } from 'lucide-react'
 import { PackageList } from '@/components/package-list'
 import { PackageShare } from '@/components/account/package-share'
-import type { MemberPackage } from '@/lib/packages'
+import { GiftVoucher } from '@/components/gift-voucher'
+import { packageAlive, packageLeft, type MemberPackage } from '@/lib/packages'
+import { bangkokToday } from '@/lib/check-in/day'
 
 // The member page people open at the counter: just the card (and its
 // check-in QR). Phone, email and the rest sit one tap away on the settings
@@ -24,6 +26,7 @@ export function AccountHome({
   showDeskLink,
   role,
   packages,
+  gifts = [],
 }: {
   name: string
   memberNo: string | null
@@ -34,6 +37,7 @@ export function AccountHome({
   showDeskLink: boolean
   role: string
   packages: MemberPackage[]
+  gifts?: MemberPackage[]
 }) {
   const { tr } = useLanguage()
   return (
@@ -47,6 +51,8 @@ export function AccountHome({
       </div>
 
       {stamps && <StampCard progress={stamps.progress} rewardsAvailable={stamps.rewardsAvailable} />}
+
+      {gifts.length > 0 && <MyGifts gifts={gifts} />}
 
       {packages.length > 0 && (
         <section className="mt-6">
@@ -63,6 +69,43 @@ export function AccountHome({
         <LinkRow href="/account/settings">{tr(authCopy.settingsLink)}</LinkRow>
       </nav>
     </div>
+  )
+}
+
+// Visits friends handed this member (§23), as gift vouchers: ready ones
+// first, then used/expired ones (faded) from the last couple of months.
+function MyGifts({ gifts }: { gifts: MemberPackage[] }) {
+  const { tr } = useLanguage()
+  const today = bangkokToday()
+  const rows = gifts
+    .map((k) => {
+      const left = packageLeft(k) ?? 0
+      const state = packageAlive(k, today) ? 'ready' : left === 0 ? 'used' : 'expired'
+      return { k, left, state } as const
+    })
+    .sort((a, b) => Number(a.state !== 'ready') - Number(b.state !== 'ready'))
+  const anyReady = rows.some((r) => r.state === 'ready')
+  return (
+    <section className="mt-6">
+      <h2 className="mb-2 flex items-center gap-1.5 text-base font-semibold text-card-foreground">
+        <Gift className="h-4 w-4 text-primary" aria-hidden="true" />
+        {tr(authCopy.myGifts)}
+      </h2>
+      <div className="space-y-3">
+        {rows.map(({ k, left, state }) => (
+          <GiftVoucher
+            key={k.id}
+            from={k.ownerName ?? '—'}
+            left={left}
+            total={k.visitsTotal ?? 1}
+            until={k.expiresOn}
+            weekdayOnly={k.weekdayOnly}
+            state={state}
+          />
+        ))}
+      </div>
+      {anyReady && <p className="mt-2 text-xs text-muted-foreground">{tr(authCopy.myGiftsHint)}</p>}
+    </section>
   )
 }
 

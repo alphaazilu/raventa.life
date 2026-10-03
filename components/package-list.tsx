@@ -1,10 +1,10 @@
 'use client'
 
-import { Package } from 'lucide-react'
+import { Gift, Package } from 'lucide-react'
 import { useLanguage } from '@/components/language-provider'
 import { deskCopy, fill } from '@/lib/check-in/copy'
 import { formatMemberDate } from '@/lib/format-date'
-import { packageAlive, packageLeft, pieceOpen, type MemberPackage } from '@/lib/packages'
+import { isGift, packageAlive, packageLeft, pieceOpen, type MemberPackage } from '@/lib/packages'
 import { bangkokToday } from '@/lib/check-in/day'
 import { cn } from '@/lib/utils'
 
@@ -45,7 +45,11 @@ export function PackageList({
               ended && 'opacity-55',
             )}
           >
-            <Package className="mt-0.5 h-4 w-4 shrink-0 text-primary" aria-hidden="true" />
+            {isGift(k) ? (
+              <Gift className="mt-0.5 h-4 w-4 shrink-0 text-primary" aria-hidden="true" />
+            ) : (
+              <Package className="mt-0.5 h-4 w-4 shrink-0 text-primary" aria-hidden="true" />
+            )}
             <span className="min-w-0 flex-1">
               <span className="block font-semibold text-card-foreground">{k.name}</span>
               <span className="block text-xs text-muted-foreground">

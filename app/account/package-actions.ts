@@ -114,7 +114,10 @@ export async function createShareLink(packageId: string, rawEmail?: string): Pro
     const from = process.env.EMAIL_FROM_ADDRESS
     if (!from) return { ok: false, error: 'no_sender' }
     const { data: owner } = await admin.from('profiles').select('first_name').eq('id', user.id).maybeSingle()
-    const { subject, html } = packageShareEmail(owner?.first_name || 'เพื่อนของคุณ', pkg.name, url, pkg.share_whole)
+    const { subject, html } = packageShareEmail(owner?.first_name || 'เพื่อนของคุณ', pkg.name, url, {
+      whole: pkg.share_whole,
+      until: pkg.share_whole ? null : pieceUntil(pkg),
+    })
     const sent = await getResendClient().emails.send({ from, to: email, subject, html })
     if (sent.error) return { ok: false, error: 'send_failed' }
   }
@@ -128,14 +131,16 @@ export async function revokeShare(id: string, kind: 'piece' | 'member'): Promise
   if (!user) return { ok: false, error: 'not_signed_in' }
   const admin = createAdminClient()
   if (kind === 'member') {
-    const { data: share } = await admin.from('package_shares').select('id, package_id').eq('id', id).maybeSingle()
+    const { data: share } = await admin.from('package_shares').select('id, package_id, member_id, revoked_at').eq('id', id).maybeSingle()
     if (!share || !(await ownedPackage(share.package_id, user.id))) return { ok: false, error: 'not_yours' }
+    if (share.revoked_at) return { ok: true, data: null }
     const { error } = await admin.from('package_shares').update({ revoked_at: new Date().toISOString() }).eq('id', id)
     if (error) return { ok: false, error: 'failed' }
+    await logShareEvent({ package_id: share.package_id, owner_id: user.id, friend_id: share.member_id, action: 'remove', actor: user.id })
   } else {
     const { data: piece } = await admin.from('member_packages').select('id, shared_from').eq('id', id).maybeSingle()
     if (!piece?.shared_from || !(await ownedPackage(piece.shared_from, user.id))) return { ok: false, error: 'not_yours' }
-    const { error } = await admin.rpc('package_share_revoke', { p_piece_id: id })
+    const { error } = await admin.rpc('package_share_revoke', { p_piece_id: id, p_actor: user.id })
     if (error) return { ok: false, error: error.message.includes('nothing_left') ? 'nothing_left' : 'failed' }
   }
   revalidatePath('/account')
@@ -175,7 +180,7 @@ export async function acceptShareLink(token: string): Promise<ShareResult> {
   if (!user) return { ok: false, error: 'not_signed_in' }
   const invite = await findInvite(token)
   if (!invite.ok) return invite
-  const { id, pkg } = invite.data
+  const { id, pkg, via } = invite.data
   if (pkg.member_id === user.id) return { ok: false, error: 'own_package' }
   const admin = createAdminClient()
   // Claim the link first (one use), then hand over the visit / add the
@@ -189,23 +194,41 @@ export async function acceptShareLink(token: string): Promise<ShareResult> {
   if (!claimed?.length) return { ok: false, error: 'used' }
   const { error } = pkg.share_whole
     ? await admin.from('package_shares').insert({ package_id: pkg.id, member_id: user.id, invite_id: id })
-    : await admin.rpc('package_share_split', { p_package_id: pkg.id, p_friend: user.id })
+    : await admin.rpc('package_share_split', { p_package_id: pkg.id, p_friend: user.id, p_via: via })
   // Already on the whole package = fine.
   if (error && !(pkg.share_whole && error.code === '23505')) {
     await admin.from('package_share_invites').update({ claimed_by: null, claimed_at: null }).eq('id', id)
     const code = ['not_shareable', 'own_package'].find((c) => error.message.includes(c))
     return { ok: false, error: code ?? 'failed' }
   }
+  if (pkg.share_whole && !error) {
+    await logShareEvent({ package_id: pkg.id, owner_id: pkg.member_id, friend_id: user.id, action: 'join', via, actor: user.id })
+  }
   revalidatePath('/account')
   return { ok: true, data: null }
 }
 
-async function findInvite(token: string): Promise<ShareResult<{ id: string; pkg: PackageRow }>> {
+// The share history (schema §23, package_share_events). Best-effort: a
+// missing log line never undoes a share. One-visit gives/take-backs are
+// logged by the SQL functions themselves.
+async function logShareEvent(row: {
+  package_id: string
+  owner_id: string
+  friend_id: string
+  action: 'join' | 'remove'
+  via?: 'qr' | 'email'
+  actor: string
+}) {
+  const { error } = await createAdminClient().from('package_share_events').insert({ ...row, visits: null })
+  if (error) console.error('package_share_events insert failed', error.message)
+}
+
+async function findInvite(token: string): Promise<ShareResult<{ id: string; pkg: PackageRow; via: 'qr' | 'email' }>> {
   if (!/^[A-Za-z0-9_-]{20,64}$/.test(token)) return { ok: false, error: 'invalid' }
   const admin = createAdminClient()
   const { data: invite } = await admin
     .from('package_share_invites')
-    .select('id, package_id, expires_at, claimed_by')
+    .select('id, package_id, expires_at, claimed_by, email')
     .eq('token_hash', hashShareToken(token))
     .maybeSingle()
   if (!invite) return { ok: false, error: 'invalid' }
@@ -217,5 +240,5 @@ async function findInvite(token: string): Promise<ShareResult<{ id: string; pkg:
     .eq('id', invite.package_id)
     .maybeSingle()
   if (!pkg || !shareableNow(pkg as PackageRow)) return { ok: false, error: 'not_shareable' }
-  return { ok: true, data: { id: invite.id, pkg: pkg as PackageRow } }
+  return { ok: true, data: { id: invite.id, pkg: pkg as PackageRow, via: invite.email ? 'email' : 'qr' } }
 }

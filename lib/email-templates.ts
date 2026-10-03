@@ -138,19 +138,64 @@ export function emailVerificationCodeEmail(code: string): { subject: string; htm
 }
 
 // A friend shares a package (§23): link to accept it.
-export function packageShareEmail(ownerName: string, packageName: string, url: string, whole = false): { subject: string; html: string } {
+// A package shared by email (§23). One-visit sharing reads as a gift: a
+// ticket-style voucher (table layout, so mail apps keep it together).
+export function packageShareEmail(
+  ownerName: string,
+  packageName: string,
+  url: string,
+  opts: { whole?: boolean; until?: string | null } = {},
+): { subject: string; html: string } {
   const safe = (v: string) => v.replace(/[<>&"]/g, (ch) => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', '"': '&quot;' })[ch] as string)
-  return {
-    subject: whole ? `${ownerName} แชร์แพ็กเกจ RAVENTA ให้คุณใช้ร่วมกัน` : `${ownerName} แบ่งแพ็กเกจ RAVENTA ให้คุณ 1 ครั้ง`,
-    html: wrapper(`
-      <h1 style="margin:0 0 12px;font-size:20px;color:${COLORS.text};">${safe(ownerName)} ${whole ? 'แชร์แพ็กเกจให้คุณใช้ร่วมกัน' : 'แบ่งแพ็กเกจให้คุณ 1 ครั้ง'}</h1>
+  const footer = `<p style="margin:0;font-size:12px;color:${COLORS.muted};">ลิงก์ใช้ได้ 7 วัน และใช้ได้ครั้งเดียว · ต้องเป็นสมาชิก RAVENTA (สมัครฟรีได้จากลิงก์นี้)</p>`
+  const button = (label: string) =>
+    `<p style="margin:0 0 20px;text-align:center;"><a href="${url}" style="display:inline-block;background-color:${COLORS.primary};color:${COLORS.primaryForeground};padding:12px 28px;border-radius:999px;text-decoration:none;font-weight:600;">${label}</a></p>`
+
+  if (opts.whole) {
+    return {
+      subject: `${ownerName} แชร์แพ็กเกจ RAVENTA ให้คุณใช้ร่วมกัน`,
+      html: wrapper(`
+      <h1 style="margin:0 0 12px;font-size:20px;color:${COLORS.text};">${safe(ownerName)} ชวนใช้แพ็กเกจร่วมกัน</h1>
       <p style="margin:0 0 16px;font-size:15px;line-height:1.6;color:${COLORS.text};">
-        แพ็กเกจ <b>${safe(packageName)}</b> — ${whole ? 'กดรับแล้วใช้เช็คอินที่ RAVENTA ได้เลย (ใช้จากจำนวนครั้งเดียวกับเจ้าของ)' : 'กดรับแล้วใช้เช็คอินที่ RAVENTA ได้ 1 ครั้ง'}
+        แพ็กเกจ <b>${safe(packageName)}</b> — กดรับแล้วใช้เช็คอินที่ RAVENTA ได้เลย (ใช้จากจำนวนครั้งเดียวกับเจ้าของ)
       </p>
-      <p style="margin:0 0 20px;text-align:center;">
-        <a href="${url}" style="display:inline-block;background-color:${COLORS.primary};color:${COLORS.primaryForeground};padding:12px 28px;border-radius:999px;text-decoration:none;font-weight:600;">${whole ? 'รับแพ็กเกจ' : 'รับ 1 ครั้ง'}</a>
-      </p>
-      <p style="margin:0;font-size:12px;color:${COLORS.muted};">ลิงก์ใช้ได้ 7 วัน และใช้ได้ครั้งเดียว · ต้องเป็นสมาชิก RAVENTA (สมัครฟรีได้จากลิงก์นี้)</p>
+      ${button('รับแพ็กเกจ')}
+      ${footer}
+    `),
+    }
+  }
+
+  const until = opts.until ? thaiDate(opts.until) : null
+  return {
+    subject: `${ownerName} ส่ง Day Pass ให้คุณเป็นของขวัญ 🎁`,
+    html: wrapper(`
+      <h1 style="margin:0 0 6px;font-size:20px;color:${COLORS.text};">${safe(ownerName)} ส่งของขวัญให้คุณ 🎁</h1>
+      <p style="margin:0 0 18px;font-size:14px;color:${COLORS.muted};">Day Pass 1 ครั้ง ที่ RAVENTA Wellness Retreat</p>
+      <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="border-collapse:separate;border:1px solid ${COLORS.line};border-radius:16px;overflow:hidden;margin:0 0 20px;">
+        <tr>
+          <td style="padding:16px 18px;background:#ffffff;">
+            <div style="font-size:10px;letter-spacing:3px;font-weight:600;color:${COLORS.primary};">GIFT VOUCHER</div>
+            <div style="margin-top:4px;font-size:22px;font-weight:800;color:${COLORS.text};">Day Pass</div>
+            <div style="margin-top:2px;font-size:14px;font-weight:600;color:${COLORS.text};">จากคุณ${safe(ownerName)}</div>
+            ${until ? `<div style="margin-top:8px;font-size:12px;color:${COLORS.muted};">ใช้ได้ถึง ${until}</div>` : ''}
+          </td>
+          <td width="96" align="center" style="width:96px;padding:12px 8px;background:${COLORS.primary};color:${COLORS.primaryForeground};border-left:2px dashed ${COLORS.primaryForeground};">
+            <div style="font-size:22px;line-height:1;">🎁</div>
+            <div style="margin-top:4px;font-size:24px;font-weight:800;line-height:1;">×1</div>
+            <div style="font-size:11px;">ครั้ง</div>
+          </td>
+        </tr>
+      </table>
+      ${button('รับของขวัญ')}
+      <p style="margin:0 0 12px;font-size:13px;line-height:1.6;color:${COLORS.text};">กดรับแล้วบัตรของขวัญจะอยู่ในบัญชีของคุณ — มาที่ RAVENTA แล้วยื่นบัตรสมาชิกที่เคาน์เตอร์ได้เลย</p>
+      ${footer}
     `),
   }
+}
+
+// "2026-11-01" → "1 พ.ย. 2569"
+function thaiDate(iso: string): string {
+  const [y, m, d] = iso.split('-').map(Number)
+  const months = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.']
+  return `${d} ${months[m - 1]} ${y + 543}`
 }

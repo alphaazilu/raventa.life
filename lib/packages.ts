@@ -35,6 +35,11 @@ export type SharedPiece = {
   expiresOn?: string | null
 }
 
+// Visits a friend handed this member (one-visit sharing) — shown as a gift.
+export function isGift(k: MemberPackage): boolean {
+  return !k.isOwner && !k.shareWhole
+}
+
 export function packageLeft(k: MemberPackage): number | null {
   return k.visitsTotal === null ? null : Math.max(0, k.visitsTotal - k.visitsUsed - k.visitsGiven)
 }

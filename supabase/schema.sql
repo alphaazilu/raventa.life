@@ -1561,6 +1561,12 @@ begin
 
   update public.sales set voided_at = now(), voided_by = auth.uid(), void_reason = btrim(p_reason) where id = p_sale_id;
 
+  -- Visits handed to friends from a package on this bill go too (§23).
+  insert into public.package_share_events (package_id, piece_id, owner_id, friend_id, action, visits, actor)
+  select o.id, f.id, o.member_id, f.member_id, 'cancelled', f.visits_total - f.visits_used, auth.uid()
+  from public.member_packages f join public.member_packages o on o.id = f.shared_from
+  where o.sale_id = p_sale_id and f.cancelled_at is null;
+
   update public.member_packages
   set cancelled_at = now(), cancelled_by = auth.uid(), cancel_reason = btrim(p_reason)
   where (sale_id = p_sale_id
@@ -1851,9 +1857,35 @@ create table if not exists public.package_share_invites (
 alter table public.package_share_invites enable row level security;
 revoke all on public.package_share_invites from anon, authenticated;
 
+-- Every share, in order (v0.22.4) — "where did my visit go?". Given /
+-- taken back (one-visit sharing), joined / removed (whole package), and
+-- given visits cancelled with the bill. Admins read it on Members › one
+-- member; written by the functions below and the server only.
+create table if not exists public.package_share_events (
+  id bigint generated always as identity primary key,
+  package_id uuid references public.member_packages(id) on delete cascade, -- the owner's package
+  piece_id uuid references public.member_packages(id) on delete set null,  -- the friend's visits (one-visit sharing)
+  owner_id uuid references auth.users(id) on delete set null,
+  friend_id uuid references auth.users(id) on delete set null,
+  action text not null check (action in ('give', 'take_back', 'join', 'remove', 'cancelled')),
+  visits integer,
+  via text check (via in ('qr', 'email')),
+  actor uuid references auth.users(id) on delete set null,
+  created_at timestamptz not null default now()
+);
+create index if not exists package_share_events_owner_idx on public.package_share_events (owner_id, created_at desc);
+create index if not exists package_share_events_friend_idx on public.package_share_events (friend_id, created_at desc);
+alter table public.package_share_events enable row level security;
+revoke all on public.package_share_events from anon, authenticated;
+grant select on public.package_share_events to authenticated;
+drop policy if exists "Share events: admins" on public.package_share_events;
+create policy "Share events: admins" on public.package_share_events for select to authenticated
+  using (public.is_admin());
+
 -- Hand one visit of p_package_id to p_friend (called by the server after
 -- it has checked the invite). Returns the friend's package.
-create or replace function public.package_share_split(p_package_id uuid, p_friend uuid)
+drop function if exists public.package_share_split(uuid, uuid);
+create or replace function public.package_share_split(p_package_id uuid, p_friend uuid, p_via text default null)
 returns uuid
 language plpgsql
 security definer
@@ -1914,14 +1946,17 @@ begin
     ) returning id into v_piece;
   end if;
   update public.member_packages set visits_given = visits_given + 1 where id = p_package_id;
+  insert into public.package_share_events (package_id, piece_id, owner_id, friend_id, action, visits, via, actor)
+  values (p_package_id, v_piece, v_owner, p_friend, 'give', 1, p_via, p_friend);
   return v_piece;
 end;
 $$;
-revoke execute on function public.package_share_split(uuid, uuid) from public, anon, authenticated;
-grant execute on function public.package_share_split(uuid, uuid) to service_role;
+revoke execute on function public.package_share_split(uuid, uuid, text) from public, anon, authenticated;
+grant execute on function public.package_share_split(uuid, uuid, text) to service_role;
 
 -- The owner takes back the visits a friend hasn't used. Returns how many.
-create or replace function public.package_share_revoke(p_piece_id uuid)
+drop function if exists public.package_share_revoke(uuid);
+create or replace function public.package_share_revoke(p_piece_id uuid, p_actor uuid default null)
 returns int
 language plpgsql
 security definer
@@ -1929,11 +1964,12 @@ set search_path = public
 as $$
 declare
   v_from uuid;
+  v_friend uuid;
   v_total int;
   v_used int;
   v_back int;
 begin
-  select shared_from, visits_total, visits_used into v_from, v_total, v_used
+  select shared_from, member_id, visits_total, visits_used into v_from, v_friend, v_total, v_used
   from public.member_packages where id = p_piece_id and cancelled_at is null for update;
   if not found or v_from is null then
     raise exception 'not_found';
@@ -1950,11 +1986,14 @@ begin
   else
     update public.member_packages set visits_total = v_used where id = p_piece_id;
   end if;
+  insert into public.package_share_events (package_id, piece_id, owner_id, friend_id, action, visits, actor)
+  select v_from, p_piece_id, member_id, v_friend, 'take_back', v_back, p_actor
+  from public.member_packages where id = v_from;
   return v_back;
 end;
 $$;
-revoke execute on function public.package_share_revoke(uuid) from public, anon, authenticated;
-grant execute on function public.package_share_revoke(uuid) to service_role;
+revoke execute on function public.package_share_revoke(uuid, uuid) from public, anon, authenticated;
+grant execute on function public.package_share_revoke(uuid, uuid) to service_role;
 
 -- One member's packages for display: their own (including visits a friend
 -- handed them) and whole packages shared with them, with the owner's first

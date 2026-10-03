@@ -194,13 +194,15 @@ export async function mergeWithPassword(rawEmail: string, password: string): Pro
     const probe = createSupabaseClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!, {
       auth: { persistSession: false, autoRefreshToken: false },
     })
-    const { error: pwError } = await probe.auth.signInWithPassword({ email: existing.email, password })
+    const { data: probeData, error: pwError } = await probe.auth.signInWithPassword({ email: existing.email, password })
     if (pwError) {
       await logEvent(targetId, 'wrong_code')
       return { ok: false, reason: 'wrong_password' }
     }
-    // Don't leave that check's session lying around.
-    await probe.auth.signOut().catch(() => {})
+    // Don't leave that check's session lying around — end just that one
+    // session ('local'); the default would sign the account out everywhere.
+    const probeToken = probeData.session?.access_token
+    if (probeToken) await admin.auth.admin.signOut(probeToken, 'local').catch(() => {})
 
     return await switchToExistingMember(supabase, user, targetId)
   } catch (err) {

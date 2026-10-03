@@ -37,7 +37,7 @@ export async function confirmGoogleLinkCode(code: string): Promise<GoogleLinkRes
     })
     if (error) throw error
     const supabase = await createClient()
-    await supabase.auth.signOut()
+    await supabase.auth.signOut({ scope: 'local' })
     await signInAs(supabase, account.email)
   } catch (err) {
     console.error('google link: sign-in after code failed', err)

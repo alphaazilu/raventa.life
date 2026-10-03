@@ -36,7 +36,7 @@ export async function clockOut(): Promise<TimeResult> {
     action: 'clock_out',
     detail: { device_id: device.id, device: device.name, entry_id: open.id },
   })
-  await supabase.auth.signOut()
+  await supabase.auth.signOut({ scope: 'local' })
   redirect(CONSOLE_PATH)
 }
 

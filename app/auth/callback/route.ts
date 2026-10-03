@@ -125,6 +125,6 @@ async function refusedGoogleAutoLink(supabase: Supabase, user: AuthUser): Promis
       await supabase.auth.unlinkIdentity(google)
     }
   }
-  await supabase.auth.signOut()
+  await supabase.auth.signOut({ scope: 'local' })
   return true
 }

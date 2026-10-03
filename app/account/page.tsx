@@ -6,12 +6,14 @@ import { AccountHome } from '@/components/account/account-home'
 import { deskAllowed } from '@/lib/console/settings'
 import { createClient } from '@/lib/supabase/server'
 import { resolveAvatarUrl } from '@/lib/supabase/avatar'
-import { loadMemberPackages } from '@/lib/packages'
+import { isGift, loadMemberPackages, packageAlive } from '@/lib/packages'
 import { bangkokToday } from '@/lib/check-in/day'
 
 export const metadata: Metadata = {
   title: 'My Account | RAVENTA Wellness Retreat',
 }
+
+const GIFT_KEEP_DAYS = 60
 
 export default async function AccountPage({
   searchParams,
@@ -51,7 +53,13 @@ export default async function AccountPage({
   const stamps = stampRow
     ? { progress: Number(stampRow.progress), rewardsAvailable: Number(stampRow.rewards_available) }
     : null
-  const packages = await loadMemberPackages(supabase, user.id, bangkokToday())
+  // Gifts (visits a friend handed over, §23) get their own vouchers; used or
+  // expired ones stay a while, faded, so a gift doesn't just vanish.
+  const today = bangkokToday()
+  const allPackages = await loadMemberPackages(supabase, user.id, today, true)
+  const packages = allPackages.filter((k) => !isGift(k) && packageAlive(k, today))
+  const recent = new Date(Date.now() - GIFT_KEEP_DAYS * 86_400_000).toISOString()
+  const gifts = allPackages.filter((k) => isGift(k) && !k.cancelled && (packageAlive(k, today) || k.createdAt >= recent))
   const fullName = [profile?.first_name, profile?.last_name].filter(Boolean).join(' ')
   // Staff see the front-desk link only when an admin allowed it on their
   // phone (Back Office › Settings); otherwise they use the counter tablet.
@@ -71,6 +79,7 @@ export default async function AccountPage({
           showDeskLink={showDeskLink}
           role={profile?.role ?? 'customer'}
           packages={packages}
+          gifts={gifts}
           // /account?card=1 (the LINE rich menu's member card button) opens
           // the check-in QR straight away.
           openCardOnLoad={params.card === '1'}

@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
-import { Mail, QrCode, Share2, X } from 'lucide-react'
+import { Gift, Mail, QrCode, Share2, X } from 'lucide-react'
 import { useLanguage } from '@/components/language-provider'
 import { QrSvg } from '@/components/ui/qr-svg'
 import { Spinner } from '@/components/ui/spinner'
@@ -12,16 +12,18 @@ import { bangkokToday } from '@/lib/check-in/day'
 import { cn } from '@/lib/utils'
 
 const t = {
-  share: { th: 'แบ่งให้เพื่อน', en: 'Give a friend a visit' },
-  how: { th: '1 ลิงก์ = แบ่งให้เพื่อน 1 ครั้ง ให้เพื่อนสแกน QR หรือส่งลิงก์ทางอีเมล — เพื่อนต้องเป็นสมาชิก (สมัครฟรีได้จากลิงก์)', en: 'Each link gives a friend 1 visit. Let them scan the QR, or email the link — they sign in or join for free' },
+  share: { th: 'ส่งเป็นของขวัญ', en: 'Send as a gift' },
+  how: { th: 'ส่ง Day Pass 1 ครั้งเป็นของขวัญ ให้เพื่อนสแกน QR หรือส่งลิงก์ทางอีเมล — เพื่อนจะได้บัตร Gift Voucher ในบัญชีของเขา (ต้องเป็นสมาชิก สมัครฟรีได้จากลิงก์)', en: 'Gift a friend one Day Pass. Let them scan the QR or email the link — they get a gift voucher in their account (sign in or join for free)' },
   none: { th: 'ไม่มีครั้งเหลือให้แบ่งแล้ว', en: 'No visits left to give' },
   qr: { th: 'แสดง QR', en: 'Show QR' },
   qrNote: { th: 'ใช้ได้ {n} นาที ครั้งเดียว', en: 'Valid {n} min, once' },
   email: { th: 'อีเมลเพื่อน', en: 'Friend’s email' },
   send: { th: 'ส่ง', en: 'Send' },
   sent: { th: 'ส่งแล้ว — ลิงก์ใช้ได้ 7 วัน', en: 'Sent — the link works for 7 days' },
-  friends: { th: 'แบ่งให้แล้ว', en: 'Given to' },
-  pieceLeft: { th: 'เหลือ {n}/{t} ครั้ง', en: '{n} of {t} left' },
+  friends: { th: 'ส่งให้แล้ว', en: 'Sent to' },
+  pieceLeft: { th: 'ยังไม่ใช้ {n}/{t}', en: '{n} of {t} unused' },
+  pieceUsed: { th: 'ใช้แล้ว', en: 'Used' },
+  pieceExpired: { th: 'หมดอายุ', en: 'Expired' },
   remove: { th: 'ดึงคืน', en: 'Take back' },
   close: { th: 'ปิด', en: 'Close' },
   note: { th: 'หักจากแพ็กเกจของคุณเมื่อเพื่อนกดรับ · ดึงคืนได้ถ้าเพื่อนยังไม่ได้ใช้ · แสตมป์เฉพาะคุณ', en: 'Taken off your package when your friend accepts · take back unused visits any time · stamps go to you only' },
@@ -58,12 +60,15 @@ export function PackageShare({ pkg }: { pkg: MemberPackage }) {
   const copy = pkg.shareWhole ? { ...t, ...w } : t
   const left = packageLeft(pkg)
   const canShare = left === null ? pkg.shareWhole : left > 0
-  const friends = pkg.sharedWith.filter((f) => pieceOpen(f, bangkokToday()))
+  // Everyone it was shared with; gifts already used or expired stay listed
+  // (no take-back button) so the owner sees where each visit went.
+  const today = bangkokToday()
+  const friends = pkg.sharedWith
 
   if (!open) {
     return (
       <button type="button" onClick={() => setOpen(true)} className="mt-2 inline-flex items-center gap-1.5 rounded-full border border-primary/40 px-3 py-1.5 text-xs font-semibold text-primary">
-        <Share2 className="h-3.5 w-3.5" aria-hidden="true" />
+        {pkg.shareWhole ? <Share2 className="h-3.5 w-3.5" aria-hidden="true" /> : <Gift className="h-3.5 w-3.5" aria-hidden="true" />}
         {tr(copy.share)}
       </button>
     )
@@ -150,12 +155,15 @@ export function PackageShare({ pkg }: { pkg: MemberPackage }) {
                   {f.name}
                   {f.kind === 'piece' && (
                     <span className="ml-2 text-xs text-muted-foreground">
-                      {tr(t.pieceLeft)
-                        .replace('{n}', String((f.total ?? 0) - (f.used ?? 0)))
-                        .replace('{t}', String(f.total ?? 0))}
+                      {pieceOpen(f, today)
+                        ? tr(t.pieceLeft)
+                            .replace('{n}', String((f.total ?? 0) - (f.used ?? 0)))
+                            .replace('{t}', String(f.total ?? 0))
+                        : tr((f.used ?? 0) >= (f.total ?? 0) ? t.pieceUsed : t.pieceExpired)}
                     </span>
                   )}
                 </span>
+                {pieceOpen(f, today) && (
                 <button
                   type="button"
                   disabled={pending}
@@ -171,6 +179,7 @@ export function PackageShare({ pkg }: { pkg: MemberPackage }) {
                 >
                   {tr(copy.remove)}
                 </button>
+                )}
               </li>
             ))}
           </ul>

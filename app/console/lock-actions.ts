@@ -36,7 +36,7 @@ export async function signInWithCard(rawToken: string): Promise<CardSignIn> {
   try {
     const supabase = await createClient()
     // Whoever was signed in before is replaced.
-    await supabase.auth.signOut()
+    await supabase.auth.signOut({ scope: 'local' })
     await signInAs(supabase, email)
   } catch (err) {
     console.error('signInWithCard failed', err)
@@ -66,6 +66,6 @@ export async function lockConsole(reason: 'manual' | 'idle' = 'manual'): Promise
       .from('staff_actions')
       .insert({ actor_id: user.id, action: 'console_lock', detail: { device_id: device.id, device: device.name, reason } })
   }
-  await supabase.auth.signOut()
+  await supabase.auth.signOut({ scope: 'local' })
   redirect(CONSOLE_PATH)
 }
