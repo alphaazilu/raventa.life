@@ -1,7 +1,7 @@
 'use client'
 
-import { useCallback, useEffect, useRef, useState, useTransition } from 'react'
-import { Gift, Lock, LogOut, RotateCcw, Search, ShoppingBag, Undo2 } from 'lucide-react'
+import { useCallback, useEffect, useState, useTransition } from 'react'
+import { Gift, Lock, LogOut, RotateCcw, Search, ShoppingBag, Undo2, X } from 'lucide-react'
 import { useLanguage } from '@/components/language-provider'
 import { AvatarCircle } from '@/components/account/avatar-circle'
 import { QrScanner } from '@/components/admin/qr-scanner'
@@ -38,7 +38,6 @@ type Panel =
   | { kind: 'empty' }
   | { kind: 'hits'; hits: MemberHit[] }
   | { kind: 'member'; member: DeskMember }
-  | { kind: 'sell' }
 
 const FLOOR_REFRESH_MS = 30_000
 
@@ -66,6 +65,9 @@ export function CheckInDesk({
   const [catalog, setCatalog] = useState<DeskCatalog>(initialCatalog)
   // Bumped after each sale so a fresh, empty bill is shown.
   const [billKey, setBillKey] = useState(0)
+  const [searchOpen, setSearchOpen] = useState(false)
+  // 'floor' = who's in today (and check-outs), so the sale screen fits one screen.
+  const [view, setView] = useState<'desk' | 'floor'>('desk')
 
   const errText = (code: string) => tr(deskErrors[code] ?? deskErrors.failed)
 
@@ -94,13 +96,15 @@ export function CheckInDesk({
     })
   }
 
-  const panelRef = useRef<HTMLElement>(null)
-  const showMember = (member: DeskMember) => {
+    const showMember = (member: DeskMember) => {
     setPanel({ kind: 'member', member })
-    // On a phone the panel sits below the scanner — bring it into view.
-    if (window.matchMedia('(max-width: 767px)').matches) {
-      requestAnimationFrame(() => panelRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }))
-    }
+    setSearchOpen(false)
+    setQuery('')
+  }
+
+  const closeSearch = () => {
+    setSearchOpen(false)
+    setQuery('')
   }
 
   const handleCode = (text: string) => {
@@ -127,7 +131,10 @@ export function CheckInDesk({
       () => searchMembers(q),
       (hits) => {
         if (hits.length === 1) run(() => getMember(hits[0].id), showMember)
-        else setPanel({ kind: 'hits', hits })
+        else {
+          setPanel({ kind: 'hits', hits })
+          setSearchOpen(false)
+        }
       },
     )
   }
@@ -135,7 +142,7 @@ export function CheckInDesk({
   const reset = () => {
     setPanel({ kind: 'empty' })
     setError(null)
-    setQuery('')
+    closeSearch()
   }
 
   const reloadMember = (id: string) => run(() => getMember(id), showMember)
@@ -162,167 +169,209 @@ export function CheckInDesk({
     )
 
   const member = panel.kind === 'member' ? panel.member : null
+  const inside = floor?.visits.filter((v) => !v.checkedOutAt).length ?? 0
+  // Right side: the member's bill (Day Pass + items) when they can check in;
+  // otherwise items only — for a walk-up, or a member already in today.
+  const memberBill = member && !member.isSelf && !member.today
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-3 md:py-4">
       {/* The console bar shows the tab name and who is working. */}
       <h1 className="sr-only">{tr(deskCopy.title)}</h1>
 
+      <div className="mb-3 inline-flex rounded-full bg-secondary p-1 text-sm font-semibold">
+        <button
+          type="button"
+          onClick={() => setView('desk')}
+          className={cn('rounded-full px-4 py-1.5', view === 'desk' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground')}
+        >
+          {tr(deskCopy.tabDesk)}
+        </button>
+        <button
+          type="button"
+          onClick={() => setView('floor')}
+          className={cn('rounded-full px-4 py-1.5', view === 'floor' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground')}
+        >
+          {tr(deskCopy.tabFloor)} ({inside}/{FLOOR_CAPACITY})
+        </button>
+      </div>
+
       {notice && (
-        <div role="status" className="mt-4 rounded-2xl bg-accent/15 px-4 py-3 text-sm font-semibold text-accent">
+        <div role="status" className="mb-3 rounded-2xl bg-accent/15 px-4 py-3 text-sm font-semibold text-accent">
           {notice}
         </div>
       )}
       {error && (
-        <div role="alert" className="mt-4 rounded-2xl bg-destructive/10 px-4 py-3 text-sm font-semibold text-destructive">
+        <div role="alert" className="mb-3 rounded-2xl bg-destructive/10 px-4 py-3 text-sm font-semibold text-destructive">
           {errText(error)}
         </div>
       )}
 
-      <div className="grid gap-4 md:grid-cols-[minmax(0,5fr)_minmax(0,7fr)]">
-        <section className="rounded-2xl border border-border bg-card p-4">
-          <h2 className="mb-3 text-base font-semibold text-card-foreground">{tr(deskCopy.scanHeading)}</h2>
-          <QrScanner
-            onCode={handleCode}
-            paused={busy || member !== null}
-            pausedText={tr(member !== null ? deskCopy.scanPausedMember : deskCopy.scanChecking)}
-          />
-
-          <form onSubmit={handleSearch} className="mt-4 flex gap-2">
-            <SearchInput
-              value={query}
-              onChange={setQuery}
-              placeholder={tr(deskCopy.searchPlaceholder)}
-              clearLabel={tr(deskCopy.clearSearch)}
-              className="min-w-0 flex-1"
-            />
-            <button
-              type="submit"
-              disabled={busy || !query.trim()}
-              className="inline-flex h-11 items-center gap-1.5 rounded-full bg-foreground px-4 text-sm font-semibold text-background disabled:opacity-40"
-            >
-              <Search className="h-4 w-4" aria-hidden="true" />
-              {tr(deskCopy.searchButton)}
-            </button>
-          </form>
-        </section>
-
-        <section
-          ref={panelRef}
-          className="relative min-h-[320px] scroll-mt-4 rounded-2xl border border-border bg-card p-4 md:p-5"
-        >
-          {busy && (
-            <div className="absolute inset-0 z-10 flex items-center justify-center rounded-2xl bg-card/60">
-              <Spinner className="h-6 w-6 text-primary" />
-            </div>
-          )}
-          {panel.kind === 'empty' && (
-            <div className="flex h-full min-h-[280px] flex-col items-center justify-center gap-4 text-center text-sm text-muted-foreground">
-              {tr(deskCopy.emptyPanel)}
-              {/* Nothing to sell yet: say why instead of hiding the button. */}
-              {(!catalog || catalog.items.length === 0) && (
-                <p className="max-w-xs rounded-xl bg-secondary px-3 py-2 text-xs text-secondary-foreground">
-                  <ShoppingBag className="mr-1 inline h-3.5 w-3.5 align-[-2px]" aria-hidden="true" />
-                  {tr(catalog ? deskCopy.noItems : deskCopy.catalogNotSetUp)}
-                </p>
-              )}
-              {catalog && catalog.items.length > 0 && (
-                <button
-                  type="button"
-                  onClick={() => setPanel({ kind: 'sell' })}
-                  className="inline-flex items-center gap-2 rounded-full border border-border px-4 py-2 text-sm font-semibold text-foreground hover:border-primary/40"
+      {view === 'floor' ? (
+        <FloorPanel
+          floor={floor}
+          showTakings={showTakings}
+          busy={busy}
+          onRefresh={() => startBusy(refreshFloor)}
+          onOpen={(id) => {
+            setView('desk')
+            run(() => getMember(id), showMember)
+          }}
+          onCheckOut={(v) =>
+            run(
+              () => checkOut(v.id),
+              () => {
+                setNotice(`${tr(deskCopy.doneCheckOut)} · ${v.name}`)
+                void refreshFloor()
+                if (member && member.id === v.memberId) reloadMember(member.id)
+              },
+            )
+          }
+        />
+      ) : (
+        <div className="grid items-start gap-4 md:grid-cols-[17rem_minmax(0,1fr)] lg:grid-cols-[19rem_minmax(0,1fr)]">
+          {/* Left: who — round camera, or the guest's photo once scanned. */}
+          <section className="relative rounded-2xl border border-border bg-card p-4">
+            <div className="relative mx-auto w-full max-w-[15rem]">
+              <QrScanner
+                round
+                hint={null}
+                onCode={handleCode}
+                paused={busy || member !== null || searchOpen}
+                pausedText={tr(deskCopy.scanChecking)}
+                cover={
+                  member ? (
+                    <AvatarCircle src={member.avatarUrl} name={member.name} className="h-full w-full text-6xl" />
+                  ) : undefined
+                }
+                corner={
+                  member ? (
+                    <CornerButton label={tr(deskCopy.nextGuest)} onClick={reset}>
+                      <RotateCcw className="h-5 w-5" aria-hidden="true" />
+                    </CornerButton>
+                  ) : (
+                    <CornerButton label={tr(deskCopy.searchButton)} onClick={() => setSearchOpen(true)}>
+                      <Search className="h-5 w-5" aria-hidden="true" />
+                    </CornerButton>
+                  )
+                }
+              />
+              {searchOpen && !member && (
+                <form
+                  onSubmit={handleSearch}
+                  className="absolute inset-x-[-0.5rem] top-[35%] z-20 rounded-2xl border border-border bg-card p-3 shadow-xl"
                 >
-                  <ShoppingBag className="h-4 w-4" aria-hidden="true" />
-                  {tr(deskCopy.sellOnly)}
-                </button>
+                  <div className="mb-2 flex items-center justify-between">
+                    <span className="text-xs font-semibold text-muted-foreground">{tr(deskCopy.searchHeading)}</span>
+                    <button type="button" onClick={closeSearch} aria-label={tr(deskCopy.searchClose)} className="text-muted-foreground">
+                      <X className="h-4 w-4" aria-hidden="true" />
+                    </button>
+                  </div>
+                  <SearchInput
+                    value={query}
+                    onChange={setQuery}
+                    placeholder={tr(deskCopy.searchPlaceholder)}
+                    clearLabel={tr(deskCopy.clearSearch)}
+                    autoFocus
+                  />
+                  <button
+                    type="submit"
+                    disabled={busy || !query.trim()}
+                    className="mt-2 inline-flex h-10 w-full items-center justify-center gap-1.5 rounded-full bg-foreground text-sm font-semibold text-background disabled:opacity-40"
+                  >
+                    <Search className="h-4 w-4" aria-hidden="true" />
+                    {tr(deskCopy.searchButton)}
+                  </button>
+                </form>
               )}
             </div>
-          )}
-          {panel.kind === 'sell' && (
-            <div>
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <h2 className="font-display text-xl font-bold text-card-foreground">{tr(deskCopy.sellOnlyHeading)}</h2>
-                  <p className="mt-0.5 text-xs text-muted-foreground">{tr(deskCopy.sellOnlyHint)}</p>
-                </div>
-                <button
-                  type="button"
-                  onClick={reset}
-                  className="inline-flex shrink-0 items-center gap-1 rounded-full border border-border px-3 py-1.5 text-sm font-semibold text-foreground hover:border-primary/40"
-                >
-                  <RotateCcw className="h-3.5 w-3.5" aria-hidden="true" />
-                  {tr(deskCopy.nextGuest)}
-                </button>
+
+            <div className="mt-4">
+              {member ? (
+                <MemberInfo
+                  member={member}
+                  busy={busy}
+                  onCheckOut={(visitId) =>
+                    run(
+                      () => checkOut(visitId),
+                      () => {
+                        setNotice(`${tr(deskCopy.doneCheckOut)} · ${member.name}`)
+                        reloadMember(member.id)
+                        void refreshFloor()
+                      },
+                    )
+                  }
+                  onCancel={(visit, reason) =>
+                    run(
+                      () => (visit.saleId ? voidSale(visit.saleId, reason) : cancelVisit(visit.id, reason)),
+                      () => {
+                        setNotice(`${tr(visit.saleId ? deskCopy.doneVoid : deskCopy.doneCancel)} · ${member.name}`)
+                        reloadMember(member.id)
+                        afterChange()
+                      },
+                    )
+                  }
+                />
+              ) : panel.kind === 'hits' ? (
+                <HitList hits={panel.hits} onPick={(id) => run(() => getMember(id), showMember)} onBack={reset} />
+              ) : (
+                <p className="text-center text-sm text-muted-foreground">{tr(deskCopy.emptyPanel)}</p>
+              )}
+            </div>
+            {busy && (
+              <div className="absolute inset-0 z-30 flex items-center justify-center rounded-2xl bg-card/50">
+                <Spinner className="h-6 w-6 text-primary" />
               </div>
+            )}
+          </section>
+
+          {/* Right: the bill. */}
+          <section className="scroll-mt-4 rounded-2xl border border-border bg-card p-4 md:p-5">
+            <h2 className="font-display text-xl font-bold text-card-foreground">
+              {memberBill ? tr(deskCopy.billHeading) : tr(deskCopy.sellOnlyHeading)}
+            </h2>
+            <p className="mt-0.5 text-xs text-muted-foreground">
+              {memberBill
+                ? member.name
+                : member && !member.isSelf
+                  ? tr(deskCopy.sellToMemberHint)
+                  : tr(deskCopy.sellOnlyHint)}
+            </p>
+            {!catalog || (catalog.items.length === 0 && !memberBill) ? (
+              <p className="mt-4 rounded-xl bg-secondary px-3 py-2 text-xs text-secondary-foreground">
+                <ShoppingBag className="mr-1 inline h-3.5 w-3.5 align-[-2px]" aria-hidden="true" />
+                {tr(catalog ? deskCopy.noItems : deskCopy.catalogNotSetUp)}
+              </p>
+            ) : null}
+            {(catalog || memberBill) && (
               <BillBuilder
-                key={`sell-${billKey}`}
-                memberId={null}
-                withDayPass={false}
-                rewardReady={false}
+                key={`${memberBill ? member.id : member && !member.isSelf ? `items-${member.id}` : 'walkup'}-${billKey}`}
+                memberId={member && !member.isSelf ? member.id : null}
+                withDayPass={Boolean(memberBill)}
+                rewardReady={(member?.stamps?.rewardsAvailable ?? 0) > 0}
                 catalog={catalog}
                 busy={busy}
-                onPay={(bill) => pay(null, bill)}
+                onPay={(bill) => pay(member && !member.isSelf ? member.id : null, bill)}
               />
-            </div>
-          )}
-          {panel.kind === 'hits' && (
-            <HitList
-              hits={panel.hits}
-              onPick={(id) => run(() => getMember(id), showMember)}
-              onBack={reset}
-            />
-          )}
-          {member && (
-            <MemberPanel
-              member={member}
-              busy={busy}
-              catalog={catalog}
-              billKey={billKey}
-              onNext={reset}
-              onPay={(bill) => pay(member.id, bill)}
-              onCheckOut={(visitId) =>
-                run(
-                  () => checkOut(visitId),
-                  () => {
-                    setNotice(`${tr(deskCopy.doneCheckOut)} · ${member.name}`)
-                    reloadMember(member.id)
-                    void refreshFloor()
-                  },
-                )
-              }
-              onCancel={(visit, reason) =>
-                run(
-                  () => (visit.saleId ? voidSale(visit.saleId, reason) : cancelVisit(visit.id, reason)),
-                  () => {
-                    setNotice(`${tr(visit.saleId ? deskCopy.doneVoid : deskCopy.doneCancel)} · ${member.name}`)
-                    reloadMember(member.id)
-                    afterChange()
-                  },
-                )
-              }
-            />
-          )}
-        </section>
-      </div>
-
-      <FloorPanel
-        floor={floor}
-        showTakings={showTakings}
-        busy={busy}
-        onRefresh={() => startBusy(refreshFloor)}
-        onOpen={(id) => run(() => getMember(id), showMember)}
-        onCheckOut={(v) =>
-          run(
-            () => checkOut(v.id),
-            () => {
-              setNotice(`${tr(deskCopy.doneCheckOut)} · ${v.name}`)
-              void refreshFloor()
-              if (member && member.id === v.memberId) reloadMember(member.id)
-            },
-          )
-        }
-      />
+            )}
+          </section>
+        </div>
+      )}
     </div>
+  )
+}
+
+function CornerButton({ label, onClick, children }: { label: string; onClick: () => void; children: React.ReactNode }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-label={label}
+      title={label}
+      className="flex h-12 w-12 items-center justify-center rounded-full border-4 border-card bg-primary text-primary-foreground shadow-md"
+    >
+      {children}
+    </button>
   )
 }
 
@@ -370,22 +419,14 @@ function maskPhone(phone: string): string {
   return phone.length > 4 ? `•••${phone.slice(-4)}` : phone
 }
 
-function MemberPanel({
+function MemberInfo({
   member,
   busy,
-  catalog,
-  billKey,
-  onNext,
-  onPay,
   onCheckOut,
   onCancel,
 }: {
   member: DeskMember
   busy: boolean
-  catalog: DeskCatalog
-  billKey: number
-  onNext: () => void
-  onPay: (bill: Omit<BillInput, 'memberId'> & { paymentMethod: PaymentMethod | null; wristband: string }) => void
   onCheckOut: (visitId: string) => void
   onCancel: (visit: NonNullable<DeskMember['today']>, reason: string) => void
 }) {
@@ -405,128 +446,103 @@ function MemberPanel({
 
   return (
     <div>
-      <div className="flex items-start gap-4">
-        <AvatarCircle src={member.avatarUrl} name={member.name} className="h-20 w-20 text-2xl md:h-24 md:w-24" />
-        <div className="min-w-0 flex-1">
-          <p className="truncate font-display text-xl font-bold text-card-foreground md:text-2xl">{member.name}</p>
-          <p className="mt-0.5 font-mono text-sm tracking-wider text-primary">{formatMemberNo(member.memberNo)}</p>
-          {since && (
-            <p className="mt-0.5 text-xs text-muted-foreground">
-              {tr(deskCopy.memberSince)} {since}
-            </p>
-          )}
-          <p className="mt-0.5 text-xs font-semibold text-secondary-foreground">
-            {member.history.count === 0
-              ? tr(deskCopy.historyFirst)
-              : `${tr(deskCopy.historyCount).replace('{n}', String(member.history.count))} · ${tr(deskCopy.historyLast)} ${formatMemberDate(member.history.last, lang, true) ?? '—'}`}
+      <div className="text-center">
+        <p className="font-display text-xl font-bold leading-tight text-card-foreground">{member.name}</p>
+        <p className="mt-0.5 font-mono text-sm tracking-wider text-primary">{formatMemberNo(member.memberNo)}</p>
+        {since && (
+          <p className="mt-0.5 text-xs text-muted-foreground">
+            {tr(deskCopy.memberSince)} {since}
           </p>
-          {member.role !== 'customer' && (
-            <span className="mt-1.5 inline-block rounded-full bg-secondary px-2.5 py-0.5 text-xs font-semibold text-secondary-foreground">
-              {tr(member.role === 'admin' ? deskCopy.roleAdmin : deskCopy.roleStaff)}
-            </span>
-          )}
-        </div>
-        <button
-          type="button"
-          onClick={onNext}
-          className="inline-flex shrink-0 items-center gap-1 rounded-full border border-border px-3 py-1.5 text-sm font-semibold text-foreground hover:border-primary/40"
-        >
-          <RotateCcw className="h-3.5 w-3.5" aria-hidden="true" />
-          {tr(deskCopy.nextGuest)}
-        </button>
+        )}
+        <p className="mt-0.5 text-xs font-semibold text-secondary-foreground">
+          {member.history.count === 0
+            ? tr(deskCopy.historyFirst)
+            : `${tr(deskCopy.historyCount).replace('{n}', String(member.history.count))} · ${tr(deskCopy.historyLast)} ${formatMemberDate(member.history.last, lang, true) ?? '—'}`}
+        </p>
+        {member.role !== 'customer' && (
+          <span className="mt-1.5 inline-block rounded-full bg-secondary px-2.5 py-0.5 text-xs font-semibold text-secondary-foreground">
+            {tr(member.role === 'admin' ? deskCopy.roleAdmin : deskCopy.roleStaff)}
+          </span>
+        )}
       </div>
 
       {member.stamps && <StampRow progress={member.stamps.progress} rewardReady={rewardReady} />}
 
       {member.isSelf ? (
-        <p className="mt-5 rounded-2xl bg-amber-500/15 px-4 py-3 text-sm font-semibold text-amber-800 dark:text-amber-300">
+        <p className="mt-4 rounded-2xl bg-amber-500/15 px-4 py-3 text-sm font-semibold text-amber-800 dark:text-amber-300">
           {tr(deskCopy.selfWarning)}
         </p>
-      ) : visit ? (
-        <div className="mt-5">
-          <div
-            className={cn(
-              'rounded-2xl px-4 py-3 text-sm',
-              visit.checkedOutAt ? 'bg-secondary text-secondary-foreground' : 'bg-accent/15 text-card-foreground',
-            )}
-          >
-            <p className="font-semibold">
-              {visit.checkedOutAt ? tr(deskCopy.visitedToday) : tr(deskCopy.inStoreNow)}
-            </p>
-            <p className="mt-1 text-muted-foreground">
-              {tr(deskCopy.checkedInAt)} {bangkokTime(visit.checkedInAt)}
-              {visit.checkedOutAt && ` · ${tr(deskCopy.checkedOutAt)} ${bangkokTime(visit.checkedOutAt)}`}
-              {visit.wristband && ` · ${tr(deskCopy.wristband)} ${visit.wristband}`}
-              {' · '}
-              {visit.entryType === 'reward'
-                ? tr(deskCopy.free)
-                : `${visit.price.toLocaleString()} ${tr(deskCopy.baht)} (${tr(deskCopy[visit.paymentMethod ?? 'cash'])})`}
-            </p>
-          </div>
+      ) : (
+        visit && (
+          <div className="mt-4">
+            <div
+              className={cn(
+                'rounded-2xl px-4 py-3 text-sm',
+                visit.checkedOutAt ? 'bg-secondary text-secondary-foreground' : 'bg-accent/15 text-card-foreground',
+              )}
+            >
+              <p className="font-semibold">{visit.checkedOutAt ? tr(deskCopy.visitedToday) : tr(deskCopy.inStoreNow)}</p>
+              <p className="mt-1 text-muted-foreground">
+                {tr(deskCopy.checkedInAt)} {bangkokTime(visit.checkedInAt)}
+                {visit.checkedOutAt && ` · ${tr(deskCopy.checkedOutAt)} ${bangkokTime(visit.checkedOutAt)}`}
+                {visit.wristband && ` · ${tr(deskCopy.wristband)} ${visit.wristband}`}
+                {' · '}
+                {visit.entryType === 'reward'
+                  ? tr(deskCopy.free)
+                  : `${visit.price.toLocaleString()} ${tr(deskCopy.baht)} (${tr(deskCopy[visit.paymentMethod ?? 'cash'])})`}
+              </p>
+            </div>
 
-          {cancelling ? (
-            <div className="mt-3 rounded-2xl border border-destructive/30 p-3">
-              <input
-                value={reason}
-                onChange={(e) => setReason(e.target.value)}
-                placeholder={tr(deskCopy.cancelReason)}
-                aria-label={tr(deskCopy.cancelReason)}
-                autoFocus
-                className="h-11 w-full rounded-full border border-border bg-background px-4 text-sm outline-none focus:border-destructive"
-              />
-              <p className="mt-2 text-xs text-muted-foreground">{tr(visit.saleId ? deskCopy.voidHint : deskCopy.cancelHint)}</p>
-              <div className="mt-3 flex gap-2">
+            {cancelling ? (
+              <div className="mt-3 rounded-2xl border border-destructive/30 p-3">
+                <input
+                  value={reason}
+                  onChange={(e) => setReason(e.target.value)}
+                  placeholder={tr(deskCopy.cancelReason)}
+                  aria-label={tr(deskCopy.cancelReason)}
+                  autoFocus
+                  className="h-11 w-full rounded-full border border-border bg-background px-4 text-sm outline-none focus:border-destructive"
+                />
+                <p className="mt-2 text-xs text-muted-foreground">{tr(visit.saleId ? deskCopy.voidHint : deskCopy.cancelHint)}</p>
+                <div className="mt-3 flex gap-2">
+                  <button
+                    type="button"
+                    disabled={busy || !reason.trim()}
+                    onClick={() => onCancel(visit, reason)}
+                    className="h-11 flex-1 rounded-full bg-destructive text-sm font-semibold text-white disabled:opacity-40"
+                  >
+                    {tr(deskCopy.cancelConfirm)}
+                  </button>
+                  <button type="button" onClick={() => setCancelling(false)} className="h-11 flex-1 rounded-full border border-border text-sm font-semibold">
+                    {tr(deskCopy.cancelBack)}
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="mt-3 flex flex-wrap gap-2">
+                {!visit.checkedOutAt && (
+                  <button
+                    type="button"
+                    disabled={busy}
+                    onClick={() => onCheckOut(visit.id)}
+                    className="inline-flex h-11 flex-1 items-center justify-center gap-2 rounded-full bg-foreground px-4 text-sm font-semibold text-background disabled:opacity-40"
+                  >
+                    <LogOut className="h-4 w-4" aria-hidden="true" />
+                    {tr(deskCopy.checkOut)}
+                  </button>
+                )}
                 <button
                   type="button"
-                  disabled={busy || !reason.trim()}
-                  onClick={() => onCancel(visit, reason)}
-                  className="h-11 flex-1 rounded-full bg-destructive text-sm font-semibold text-white disabled:opacity-40"
+                  onClick={() => setCancelling(true)}
+                  className="inline-flex h-11 flex-1 items-center justify-center gap-2 rounded-full border border-border px-4 text-sm font-semibold text-muted-foreground hover:text-destructive"
                 >
-                  {tr(deskCopy.cancelConfirm)}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setCancelling(false)}
-                  className="h-11 flex-1 rounded-full border border-border text-sm font-semibold"
-                >
-                  {tr(deskCopy.cancelBack)}
+                  <Undo2 className="h-4 w-4" aria-hidden="true" />
+                  {tr(visit.saleId ? deskCopy.voidBill : deskCopy.cancelVisit)}
                 </button>
               </div>
-            </div>
-          ) : (
-            <div className="mt-3 flex flex-wrap gap-2">
-              {!visit.checkedOutAt && (
-                <button
-                  type="button"
-                  disabled={busy}
-                  onClick={() => onCheckOut(visit.id)}
-                  className="inline-flex h-12 flex-1 items-center justify-center gap-2 rounded-full bg-foreground px-5 text-sm font-semibold text-background disabled:opacity-40"
-                >
-                  <LogOut className="h-4 w-4" aria-hidden="true" />
-                  {tr(deskCopy.checkOut)}
-                </button>
-              )}
-              <button
-                type="button"
-                onClick={() => setCancelling(true)}
-                className="inline-flex h-12 items-center justify-center gap-2 rounded-full border border-border px-5 text-sm font-semibold text-muted-foreground hover:text-destructive"
-              >
-                <Undo2 className="h-4 w-4" aria-hidden="true" />
-                {tr(visit.saleId ? deskCopy.voidBill : deskCopy.cancelVisit)}
-              </button>
-            </div>
-          )}
-        </div>
-      ) : (
-        <BillBuilder
-          key={`${member.id}-${billKey}`}
-          memberId={member.id}
-          withDayPass
-          rewardReady={rewardReady}
-          catalog={catalog}
-          busy={busy}
-          onPay={onPay}
-        />
+            )}
+          </div>
+        )
       )}
     </div>
   )
@@ -535,13 +551,13 @@ function MemberPanel({
 function StampRow({ progress, rewardReady }: { progress: number; rewardReady: boolean }) {
   const { tr } = useLanguage()
   return (
-    <div className="mt-4 flex flex-wrap items-center gap-x-3 gap-y-2">
+    <div className="mt-3 flex flex-wrap items-center justify-center gap-x-3 gap-y-2">
       <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{tr(deskCopy.stamps)}</span>
       <span className="flex gap-1" aria-label={`${progress}/10`}>
         {Array.from({ length: 10 }, (_, i) => (
           <span
             key={i}
-            className={cn('h-3.5 w-3.5 rounded-full', i < progress ? 'bg-primary' : 'border border-border bg-background')}
+            className={cn('h-3 w-3 rounded-full', i < progress ? 'bg-primary' : 'border border-border bg-background')}
           />
         ))}
       </span>
@@ -581,7 +597,7 @@ function FloorPanel({
   const pct = Math.min(100, Math.round((inside.length / FLOOR_CAPACITY) * 100))
 
   return (
-    <section className="mt-4 rounded-2xl border border-border bg-card p-4 md:p-5">
+    <section className="rounded-2xl border border-border bg-card p-4 md:p-5">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h2 className="text-base font-semibold text-card-foreground">{tr(deskCopy.floorHeading)}</h2>

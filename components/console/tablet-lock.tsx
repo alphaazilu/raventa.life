@@ -147,7 +147,6 @@ export function TabletLock({
         <span className="flex items-center gap-2 text-sm text-muted-foreground">
           <Tablet className="h-4 w-4" aria-hidden="true" />
           {deviceName}
-          {clock && <b className="font-semibold text-foreground">· {clock}</b>}
         </span>
       </header>
 
@@ -190,35 +189,39 @@ export function TabletLock({
           {error && <p className="text-sm font-semibold text-destructive">{tr(lockErrors[error] ?? lockErrors.failed)}</p>}
         </div>
       ) : (
-        <div className="mx-auto flex w-full max-w-xl flex-1 flex-col items-center justify-center py-6">
-          <span
-            className={cn(
-              'inline-flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-sm font-bold text-white',
-              mode === 'clock' ? 'bg-primary' : 'bg-foreground',
-            )}
-          >
-            {mode === 'clock' ? <Clock className="h-4 w-4" aria-hidden="true" /> : <LockOpen className="h-4 w-4" aria-hidden="true" />}
-            {tr(mode === 'clock' ? c.lkClock : c.lkOpen)}
-          </span>
-          <h1 className="mt-3 text-center font-display text-2xl font-extrabold text-foreground md:text-3xl">
-            {tr(mode === 'clock' ? c.lkClockTitle : c.lkOpenTitle)}
-          </h1>
-          <p className="mt-1.5 text-center text-sm text-muted-foreground">{tr(mode === 'clock' ? c.lkClockHint : c.lkOpenHint)}</p>
-          <div className="relative mt-5 w-full">
+        // Fits one screen: side by side when the tablet is landscape; in
+        // portrait the camera is sized from the screen height, not its width.
+        <div className="mx-auto grid w-full max-w-5xl flex-1 content-center items-center gap-6 py-4 md:landscape:grid-cols-[minmax(0,5fr)_minmax(0,6fr)]">
+          <div className="flex flex-col items-center text-center md:landscape:items-start md:landscape:text-left">
+            <span
+              className={cn(
+                'inline-flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-sm font-bold text-white',
+                mode === 'clock' ? 'bg-primary' : 'bg-foreground',
+              )}
+            >
+              {mode === 'clock' ? <Clock className="h-4 w-4" aria-hidden="true" /> : <LockOpen className="h-4 w-4" aria-hidden="true" />}
+              {tr(mode === 'clock' ? c.lkClock : c.lkOpen)}
+            </span>
+            <h1 className="mt-3 font-display text-2xl font-extrabold text-foreground md:text-3xl">
+              {tr(mode === 'clock' ? c.lkClockTitle : c.lkOpenTitle)}
+            </h1>
+            <p className="mt-1.5 text-sm text-muted-foreground">{tr(mode === 'clock' ? c.lkClockHint : c.lkOpenHint)}</p>
+            <div className="mt-3 min-h-6" aria-live="polite">
+              {error && <p className="text-sm font-semibold text-destructive">{tr(lockErrors[error] ?? lockErrors.failed)}</p>}
+              {opening && (
+                <p className="flex items-center gap-1.5 text-sm font-semibold text-accent">
+                  <Check className="h-4 w-4" aria-hidden="true" /> {tr(c.lockWelcome)}
+                </p>
+              )}
+            </div>
+            <button type="button" onClick={home} className="mt-2 inline-flex h-11 items-center gap-2 rounded-full border border-border px-5 text-sm font-semibold">
+              <ArrowLeft className="h-4 w-4" aria-hidden="true" /> {tr(c.lkBack)}
+            </button>
+            <p className="mt-3 text-xs text-muted-foreground">{tr(c.lkIdleHint)}</p>
+          </div>
+          <div className="mx-auto w-full max-w-[min(36rem,calc((100dvh-22rem)*4/3))] md:landscape:max-w-[min(36rem,calc((100dvh-9rem)*4/3))]">
             <QrScanner autoStart onCode={onCode} paused={busy || opening} pausedText={tr(opening ? c.lockWelcome : c.lockChecking)} hint={null} />
           </div>
-          <div className="mt-3 min-h-6 text-center" aria-live="polite">
-            {error && <p className="text-sm font-semibold text-destructive">{tr(lockErrors[error] ?? lockErrors.failed)}</p>}
-            {opening && (
-              <p className="flex items-center justify-center gap-1.5 text-sm font-semibold text-accent">
-                <Check className="h-4 w-4" aria-hidden="true" /> {tr(c.lockWelcome)}
-              </p>
-            )}
-          </div>
-          <button type="button" onClick={home} className="mt-2 inline-flex h-11 items-center gap-2 rounded-full border border-border px-5 text-sm font-semibold">
-            <ArrowLeft className="h-4 w-4" aria-hidden="true" /> {tr(c.lkBack)}
-          </button>
-          <p className="mt-3 text-xs text-muted-foreground">{tr(c.lkIdleHint)}</p>
         </div>
       )}
 

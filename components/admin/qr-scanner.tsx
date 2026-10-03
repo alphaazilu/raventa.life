@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { Camera, CameraOff, Pause, SwitchCamera } from 'lucide-react'
 import { useLanguage } from '@/components/language-provider'
 import { deskCopy } from '@/lib/check-in/copy'
+import { cn } from '@/lib/utils'
 
 // Camera QR reader for the counter tablet. Pure JS (jsQR) so it works the
 // same on iPad Safari and Android Chrome — no extra hardware, no app.
@@ -29,6 +30,9 @@ export function QrScanner({
   pausedText,
   hint,
   autoStart = false,
+  round = false,
+  cover,
+  corner,
 }: {
   onCode: (text: string) => void
   paused: boolean
@@ -38,6 +42,13 @@ export function QrScanner({
   autoStart?: boolean
   // Shown over the camera while paused, e.g. "Paused — tap Next guest".
   pausedText?: string
+  // Front desk: a small round viewfinder instead of the 4:3 box.
+  round?: boolean
+  // Laid over the viewfinder (e.g. the guest's photo once scanned). The
+  // camera keeps running underneath, so going back needs no new permission.
+  cover?: React.ReactNode
+  // A round button at the viewfinder's bottom-right (search / next guest).
+  corner?: React.ReactNode
 }) {
   const { tr } = useLanguage()
   const videoRef = useRef<HTMLVideoElement>(null)
@@ -161,7 +172,8 @@ export function QrScanner({
 
   return (
     <div>
-      <div className="relative aspect-[4/3] overflow-hidden rounded-2xl bg-foreground/90">
+      <div className="relative">
+      <div className={cn('relative overflow-hidden bg-foreground/90', round ? 'aspect-square rounded-full' : 'aspect-[4/3] rounded-2xl')}>
         <video
           ref={videoRef}
           playsInline
@@ -170,12 +182,18 @@ export function QrScanner({
         />
         {on && (
           <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
-            <div className={`h-3/5 aspect-square rounded-2xl border-4 ${paused ? 'border-white/25' : 'border-white/80'}`} />
+            <div
+              className={cn(
+                'aspect-square rounded-2xl',
+                round ? 'h-1/2 border-[3px]' : 'h-3/5 border-4',
+                paused ? 'border-white/25' : 'border-white/80',
+              )}
+            />
           </div>
         )}
-        {on && paused && pausedText && (
+        {on && paused && pausedText && !cover && (
           <div className="pointer-events-none absolute inset-0 flex items-center justify-center bg-black/55 p-6">
-            <p className="flex items-center gap-2 rounded-full bg-background/95 px-4 py-2 text-center text-sm font-semibold text-foreground shadow">
+            <p className={cn('flex items-center gap-2 rounded-full bg-background/95 text-center font-semibold text-foreground shadow', round ? 'px-3 py-1.5 text-xs' : 'px-4 py-2 text-sm')}>
               <Pause className="h-4 w-4 shrink-0" aria-hidden="true" />
               {pausedText}
             </p>
@@ -185,15 +203,15 @@ export function QrScanner({
           <button
             type="button"
             onClick={() => start(facing)}
-            className="absolute inset-0 flex flex-col items-center justify-center gap-3 p-6 text-center text-sm text-background/85"
+            className={cn('absolute inset-0 flex flex-col items-center justify-center gap-3 text-center text-sm text-background/85', round ? 'p-8' : 'p-6')}
           >
             <Camera className="h-9 w-9" aria-hidden="true" />
-            <span className="font-semibold">{tr(deskCopy.cameraIdleOff)}</span>
+            {!round && <span className="font-semibold">{tr(deskCopy.cameraIdleOff)}</span>}
             <span className="rounded-full bg-background px-5 py-2.5 font-semibold text-foreground">{tr(deskCopy.cameraTapToStart)}</span>
           </button>
         )}
         {!on && state !== 'idle' && (
-          <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 p-6 text-center text-sm text-background/80">
+          <div className={cn('absolute inset-0 flex flex-col items-center justify-center gap-3 text-center text-sm text-background/80', round ? 'p-8 text-xs' : 'p-6')}>
             <CameraOff className="h-8 w-8" aria-hidden="true" />
             {state === 'denied' && <p>{tr(deskCopy.cameraDenied)}</p>}
             {state === 'unavailable' && <p>{tr(deskCopy.cameraUnavailable)}</p>}
@@ -207,11 +225,14 @@ export function QrScanner({
             </button>
           </div>
         )}
+        {cover && <div className="absolute inset-0">{cover}</div>}
+      </div>
+      {corner && <div className="absolute right-0 bottom-0 z-10">{corner}</div>}
       </div>
 
-      <div className="mt-2 flex items-center justify-between gap-2">
-        <p className="text-xs leading-relaxed text-muted-foreground">{hint === undefined ? tr(deskCopy.cameraHint) : hint}</p>
-        {on && (
+      <div className={cn('mt-2 flex items-center gap-2', round ? 'justify-center' : 'justify-between')}>
+        {hint !== null && <p className="text-xs leading-relaxed text-muted-foreground">{hint === undefined ? tr(deskCopy.cameraHint) : hint}</p>}
+        {on && !cover && (
           <span className="flex shrink-0 gap-1">
             <button
               type="button"

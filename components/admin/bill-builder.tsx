@@ -47,7 +47,7 @@ export function BillBuilder({
   const { tr, lang } = useLanguage()
   const [dayPass, setDayPass] = useState<DayPassMode>(withDayPass ? 'paid' : 'none')
   const [lines, setLines] = useState<BillLine[]>([])
-  const [showItems, setShowItems] = useState(!withDayPass)
+  const [showItems, setShowItems] = useState(true)
   const [codeInput, setCodeInput] = useState('')
   const [code, setCode] = useState('')
   const [method, setMethod] = useState<PaymentMethod | null>(null)
@@ -208,7 +208,9 @@ export function BillBuilder({
             (items.length === 0 ? (
               <p className="mt-2 text-xs text-muted-foreground">{tr(deskCopy.noItems)}</p>
             ) : (
-              <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-3">
+              // Many products scroll inside this box, so the total and the
+              // pay button stay on screen.
+              <div className="mt-2 grid max-h-[38dvh] grid-cols-2 gap-2 overflow-y-auto pr-1 sm:grid-cols-3">
                 {items.map((item) => {
                   const stock = item.variants.length > 0 ? item.variants.reduce((n, v) => n + v.stock, 0) : item.stock
                   const out = item.trackStock && stock <= 0
