@@ -288,11 +288,13 @@ function StockSetter({ productId, variantId, current }: { productId: string; var
       </span>
     )
   return (
-    <div className="mt-2 rounded-xl border border-border p-3">
+    // Full width on its own line — inside a variant row it would otherwise
+    // squeeze in beside the size name and cover it.
+    <div className="order-last mt-2 w-full basis-full rounded-xl border border-border p-3">
       <p className="text-xs text-muted-foreground">{tr(c.stockHint)}</p>
       <div className="mt-2 flex gap-2">
-        <input className={cn(input, 'w-20')} inputMode="numeric" value={value} onChange={(e) => setValue(e.target.value.replace(/\D/g, ''))} aria-label={tr(c.stock)} />
-        <input className={input} value={reason} onChange={(e) => setReason(e.target.value)} placeholder={tr(c.stockReason)} aria-label={tr(c.stockReason)} maxLength={200} />
+        <input className={cn(input, 'w-20 shrink-0')} inputMode="numeric" value={value} onChange={(e) => setValue(e.target.value.replace(/\D/g, ''))} aria-label={tr(c.stock)} />
+        <input className={cn(input, 'min-w-0 flex-1')} value={reason} onChange={(e) => setReason(e.target.value)} placeholder={tr(c.stockReason)} aria-label={tr(c.stockReason)} maxLength={200} />
       </div>
       <div className="mt-2 flex items-center gap-2">
         <button
