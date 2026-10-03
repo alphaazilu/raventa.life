@@ -10,6 +10,7 @@ export type AppSettings = {
   staffMembersOnTablet: boolean
   staffIdleMinutes: number
   adminIdleMinutes: number
+  vatRegistered: boolean // reports split out 7% VAT (prices include it)
 }
 
 const DEFAULT_APP_SETTINGS: AppSettings = {
@@ -17,6 +18,7 @@ const DEFAULT_APP_SETTINGS: AppSettings = {
   staffMembersOnTablet: true,
   staffIdleMinutes: 10,
   adminIdleMinutes: 5,
+  vatRegistered: false,
 }
 
 export const getAppSettings = cache(async (): Promise<AppSettings> => {
@@ -31,6 +33,7 @@ export const getAppSettings = cache(async (): Promise<AppSettings> => {
     staffMembersOnTablet: Boolean(data.staff_members_on_tablet),
     staffIdleMinutes: Number(data.staff_idle_minutes) || DEFAULT_APP_SETTINGS.staffIdleMinutes,
     adminIdleMinutes: Number(data.admin_idle_minutes) || DEFAULT_APP_SETTINGS.adminIdleMinutes,
+    vatRegistered: Boolean(data.vat_registered),
   }
 })
 

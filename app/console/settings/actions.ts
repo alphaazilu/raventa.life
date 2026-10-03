@@ -18,6 +18,7 @@ export async function saveAccessSettings(input: {
   staffMembersOnTablet: boolean
   staffIdleMinutes: number
   adminIdleMinutes: number
+  vatRegistered: boolean
 }): Promise<SettingsResult> {
   const ctx = await requireAdmin()
   if ('error' in ctx) return { ok: false, error: ctx.error }
@@ -30,6 +31,7 @@ export async function saveAccessSettings(input: {
     staff_members_on_tablet: Boolean(input.staffMembersOnTablet),
     staff_idle_minutes: staffIdle,
     admin_idle_minutes: adminIdle,
+    vat_registered: Boolean(input.vatRegistered),
     updated_by: ctx.userId,
     updated_at: new Date().toISOString(),
   }

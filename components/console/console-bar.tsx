@@ -7,7 +7,7 @@ import { useEffect, useRef, useState } from 'react'
 import { ChevronDown, Expand, Globe, Lock, LogOut, Settings, ShieldAlert, Shrink } from 'lucide-react'
 import { useLanguage } from '@/components/language-provider'
 import { consoleCopy } from '@/lib/console/copy'
-import { CATALOG_PATH, SETTINGS_PATH, CONSOLE_PATH, DESK_PATH, DEVICES_PATH, MEMBERS_PATH, TIME_PATH } from '@/lib/auth/roles'
+import { CATALOG_PATH, SETTINGS_PATH, CONSOLE_PATH, DESK_PATH, DEVICES_PATH, MEMBERS_PATH, REPORTS_PATH, TIME_PATH } from '@/lib/auth/roles'
 import { cn } from '@/lib/utils'
 import { AppVersion } from '@/components/console/app-version'
 
@@ -29,7 +29,7 @@ const TABS: Tab[] = [
   { key: 'members', label: consoleCopy.tabMembers, href: MEMBERS_PATH, adminOnly: true, staffOnTablet: true },
   { key: 'time', label: consoleCopy.tabTime, href: TIME_PATH, adminOnly: true, staffOnTablet: true },
   { key: 'catalog', label: consoleCopy.tabCatalog, href: CATALOG_PATH, adminOnly: true, notOnTablet: true },
-  { key: 'reports', label: consoleCopy.tabReports, adminOnly: true },
+  { key: 'reports', label: consoleCopy.tabReports, href: REPORTS_PATH, adminOnly: true },
   { key: 'devices', label: consoleCopy.tabDevices, href: DEVICES_PATH, adminOnly: true, notOnTablet: true },
   { key: 'settings', label: consoleCopy.tabSettings, href: SETTINGS_PATH, adminOnly: true, notOnTablet: true },
 ]

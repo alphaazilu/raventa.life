@@ -2069,3 +2069,10 @@ begin
 end;
 $$;
 
+
+
+-- 24. Sales report (v0.23). Back Office › Reports reads the bills, visits
+-- and packages already stored here (service role, admins only). The only
+-- new setting: whether the business is VAT registered — prices include 7%
+-- VAT and the report splits it out (amount × 7/107).
+alter table public.app_settings add column if not exists vat_registered boolean not null default false;

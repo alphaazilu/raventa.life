@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useState, useTransition } from 'react'
-import { ChevronRight, Lock, Smartphone, Users } from 'lucide-react'
+import { ChevronRight, Lock, Receipt, Smartphone, Users } from 'lucide-react'
 import { useLanguage } from '@/components/language-provider'
 import { Spinner } from '@/components/ui/spinner'
 import { settingsCopy as c, settingsErrors } from '@/lib/console/copy'
@@ -115,6 +115,13 @@ export function SettingsView({
           </label>
         </div>
         <p className="mt-1 text-xs text-muted-foreground">{tr(c.lockHint)}</p>
+
+        <h3 className="mt-5 flex items-center gap-2 text-sm font-bold">
+          <Receipt className="h-4 w-4" aria-hidden="true" /> {tr(c.accountingHeading)}
+        </h3>
+        <div className="mt-1 divide-y divide-border">
+          <Toggle on={form.vatRegistered} onChange={(v) => setForm({ ...form, vatRegistered: v })} label={tr(c.vatRegistered)} hint={tr(c.vatRegisteredHint)} />
+        </div>
 
         <div className="mt-4 flex items-center gap-3">
           <button
