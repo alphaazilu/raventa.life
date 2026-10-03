@@ -13,6 +13,7 @@ import {
   promoActiveOn,
   stockOf,
   type Catalog,
+  type PackageRules,
   type Product,
   type ProductKind,
   type Promotion,
@@ -107,7 +108,7 @@ function Products({ catalog }: { catalog: Catalog }) {
   const [fresh, setFresh] = useState(0)
   const product = catalog.products.find((p) => p.id === selected) ?? null
   const fmt = (p: Product) =>
-    [p.priceWeekday, p.priceWeekend ?? '—', p.priceHoliday ?? '—'].map((v) => (typeof v === 'number' ? v.toLocaleString() : v)).join(' / ')
+    p.pkg ? p.priceWeekday.toLocaleString() : [p.priceWeekday, p.priceWeekend ?? '—', p.priceHoliday ?? '—'].map((v) => (typeof v === 'number' ? v.toLocaleString() : v)).join(' / ')
 
   return (
     <div className="mt-5 grid gap-5 lg:grid-cols-[minmax(0,1fr)_420px]">
@@ -130,6 +131,7 @@ function Products({ catalog }: { catalog: Catalog }) {
                   <span className="block truncate font-semibold">{lang === 'en' && p.nameEn ? p.nameEn : p.nameTh}</span>
                   <span className="block text-xs text-muted-foreground">
                     {tr(c[`kind_${p.kind}`])}
+                    {p.pkg && ` · ${pkgSummary(p.pkg, tr)}`}
                     {p.variants.length > 0 && ` · ${p.variants.filter((v) => v.active).length} ${tr(c.variants).split(' ')[0]}`}
                   </span>
                 </span>
@@ -154,7 +156,7 @@ function Products({ catalog }: { catalog: Catalog }) {
       </section>
       <section className="rounded-2xl border border-border bg-card p-5">
         <ProductForm key={product?.id ?? `new-${fresh}`} product={product} onCreated={() => setFresh((n) => n + 1)} />
-        {product && product.kind !== 'day_pass' && <Variants key={`v-${product.id}`} product={product} />}
+        {product && product.kind !== 'day_pass' && product.kind !== 'package' && <Variants key={`v-${product.id}`} product={product} />}
       </section>
     </div>
   )
@@ -173,6 +175,18 @@ function ProductForm({ product, onCreated }: { product: Product | null; onCreate
   const [track, setTrack] = useState(product?.trackStock ?? false)
   const [active, setActive] = useState(product?.active ?? true)
   const [sort, setSort] = useState(String(product?.sort ?? 0))
+  const isPkg = kind === 'package'
+  const pk = product?.pkg
+  const [pkgUnlimited, setPkgUnlimited] = useState(pk ? pk.visits === null : false)
+  const [pkgVisits, setPkgVisits] = useState(String(pk?.visits ?? 10))
+  const monthly = pk ? pk.days % 30 === 0 : true
+  const [pkgUnit, setPkgUnit] = useState<'days' | 'months'>(monthly ? 'months' : 'days')
+  const [pkgLen, setPkgLen] = useState(String(pk ? (monthly ? pk.days / 30 : pk.days) : 3))
+  const [pkgStart, setPkgStart] = useState<'purchase' | 'first_use'>(pk?.start ?? 'purchase')
+  const [pkgActivate, setPkgActivate] = useState(String(pk?.activateDays ?? 90))
+  const [pkgWeekday, setPkgWeekday] = useState(pk?.weekdayOnly ?? false)
+  const [pkgStamp, setPkgStamp] = useState(pk?.earnsStamp ?? false)
+  const chipCls = (on: boolean) => cn('rounded-full px-3 py-1.5 text-xs font-semibold', on ? 'bg-foreground text-background' : 'border border-border')
 
   return (
     <form
@@ -191,6 +205,16 @@ function ProductForm({ product, onCreated }: { product: Product | null; onCreate
               trackStock: track,
               active,
               sort: Number(sort),
+              pkg: isPkg
+                ? {
+                    visits: pkgUnlimited ? null : Number(pkgVisits),
+                    days: Number(pkgLen) * (pkgUnit === 'months' ? 30 : 1),
+                    start: pkgStart,
+                    activateDays: Number(pkgActivate),
+                    weekdayOnly: pkgWeekday,
+                    earnsStamp: pkgStamp,
+                  }
+                : null,
             }),
           product ? undefined : onCreated,
         )
@@ -204,7 +228,7 @@ function ProductForm({ product, onCreated }: { product: Product | null; onCreate
         <div>
           <span className={label}>{tr(c.colKind)}</span>
           <div className="mt-1 flex flex-wrap gap-1.5">
-            {PRODUCT_KINDS.filter((k) => k !== 'day_pass').map((k) => (
+            {PRODUCT_KINDS.filter((k) => k !== 'day_pass' && (!product || (k === 'package') === (product.kind === 'package'))).map((k) => (
               <button
                 key={k}
                 type="button"
@@ -227,6 +251,66 @@ function ProductForm({ product, onCreated }: { product: Product | null; onCreate
           <input className={cn(input, 'mt-1')} value={nameEn} onChange={(e) => setNameEn(e.target.value)} maxLength={60} />
         </label>
       </div>
+      {isPkg ? (
+        <>
+          <label className="block max-w-[12rem]">
+            <span className={label}>{tr(c.pkgPrice)}</span>
+            <input className={cn(input, 'mt-1')} inputMode="numeric" value={wd} onChange={(e) => setWd(e.target.value.replace(/\D/g, ''))} required />
+          </label>
+          <p className="text-xs text-muted-foreground">{tr(c.pkgPriceNote)}</p>
+          <fieldset className="space-y-3 rounded-xl border border-primary/30 bg-primary/5 p-3">
+            <legend className="px-1 text-xs font-bold text-primary">{tr(c.pkgHeading)}</legend>
+            <div>
+              <span className={label}>{tr(c.pkgType)}</span>
+              <div className="mt-1 flex flex-wrap gap-1.5">
+                <button type="button" onClick={() => setPkgUnlimited(false)} className={chipCls(!pkgUnlimited)}>{tr(c.pkgCount)}</button>
+                <button type="button" onClick={() => setPkgUnlimited(true)} className={chipCls(pkgUnlimited)}>{tr(c.pkgUnlimited)}</button>
+              </div>
+            </div>
+            <div className="flex flex-wrap items-end gap-3">
+              {!pkgUnlimited && (
+                <label>
+                  <span className={label}>{tr(c.pkgVisits)}</span>
+                  <input className={cn(input, 'mt-1 w-24')} inputMode="numeric" value={pkgVisits} onChange={(e) => setPkgVisits(e.target.value.replace(/\D/g, ''))} required />
+                </label>
+              )}
+              <label>
+                <span className={label}>{tr(c.pkgValid)}</span>
+                <input className={cn(input, 'mt-1 w-20')} inputMode="numeric" value={pkgLen} onChange={(e) => setPkgLen(e.target.value.replace(/\D/g, ''))} required />
+              </label>
+              <div className="flex gap-1.5 pb-1">
+                <button type="button" onClick={() => setPkgUnit('days')} className={chipCls(pkgUnit === 'days')}>{tr(c.pkgDays)}</button>
+                <button type="button" onClick={() => setPkgUnit('months')} className={chipCls(pkgUnit === 'months')}>{tr(c.pkgMonths)}</button>
+              </div>
+            </div>
+            <div>
+              <span className={label}>{tr(c.pkgStart)}</span>
+              <div className="mt-1 flex flex-wrap items-center gap-1.5">
+                <button type="button" onClick={() => setPkgStart('purchase')} className={chipCls(pkgStart === 'purchase')}>{tr(c.pkgStartPurchase)}</button>
+                <button type="button" onClick={() => setPkgStart('first_use')} className={chipCls(pkgStart === 'first_use')}>{tr(c.pkgStartFirstUse)}</button>
+              </div>
+              {pkgStart === 'first_use' && (
+                <label className="mt-2 flex items-center gap-2 text-sm">
+                  {tr(c.pkgActivate)}
+                  <input className={cn(input, 'w-20 py-1')} inputMode="numeric" value={pkgActivate} onChange={(e) => setPkgActivate(e.target.value.replace(/\D/g, ''))} required />
+                </label>
+              )}
+            </div>
+            <div>
+              <span className={label}>{tr(c.pkgDaysAllowed)}</span>
+              <div className="mt-1 flex flex-wrap gap-1.5">
+                <button type="button" onClick={() => setPkgWeekday(false)} className={chipCls(!pkgWeekday)}>{tr(c.pkgAnyDay)}</button>
+                <button type="button" onClick={() => setPkgWeekday(true)} className={chipCls(pkgWeekday)}>{tr(c.pkgWeekdayOnly)}</button>
+              </div>
+            </div>
+            <label className="flex items-center gap-2 text-sm">
+              <input type="checkbox" checked={pkgStamp} onChange={(e) => setPkgStamp(e.target.checked)} className="h-4 w-4 accent-[var(--primary)]" />
+              {tr(c.pkgStamp)}
+            </label>
+          </fieldset>
+        </>
+      ) : (
+        <>
       <div className="grid grid-cols-3 gap-3">
         {(
           [
@@ -242,8 +326,10 @@ function ProductForm({ product, onCreated }: { product: Product | null; onCreate
         ))}
       </div>
       <p className="text-xs text-muted-foreground">{tr(c.priceBlankHint)}</p>
+        </>
+      )}
       <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-sm">
-        {!isPass && (
+        {!isPass && !isPkg && (
           <label className="flex items-center gap-2">
             <input type="checkbox" checked={track} onChange={(e) => setTrack(e.target.checked)} className="h-4 w-4 accent-[var(--primary)]" />
             {tr(c.trackStock)}
@@ -265,7 +351,7 @@ function ProductForm({ product, onCreated }: { product: Product | null; onCreate
         </button>
         <Status error={error} saved={saved} />
       </div>
-      {product && !isPass && product.variants.length === 0 && product.trackStock && <StockSetter productId={product.id} variantId={null} current={product.stock} />}
+      {product && !isPass && !isPkg && product.variants.length === 0 && product.trackStock && <StockSetter productId={product.id} variantId={null} current={product.stock} />}
     </form>
   )
 }
@@ -603,4 +689,9 @@ function PromotionForm({ promo, catalog, onCreated }: { promo: Promotion | null;
       </div>
     </form>
   )
+}
+
+function pkgSummary(p: PackageRules, tr: (v: { th: string; en: string }) => string): string {
+  const visits = p.visits === null ? tr(c.pkgSummaryUnlimited) : tr(c.pkgSummaryCount).replace('{n}', String(p.visits))
+  return `${visits} · ${tr(c.pkgSummaryDays).replace('{n}', String(p.days))}`
 }

@@ -7,6 +7,8 @@ import { LinkRow } from '@/components/account/account-view'
 import { DESK_PATH } from '@/lib/auth/roles'
 import { cn } from '@/lib/utils'
 import { Gift } from 'lucide-react'
+import { PackageList } from '@/components/package-list'
+import type { MemberPackage } from '@/lib/packages'
 
 // The member page people open at the counter: just the card (and its
 // check-in QR). Phone, email and the rest sit one tap away on the settings
@@ -20,6 +22,7 @@ export function AccountHome({
   stamps,
   showDeskLink,
   role,
+  packages,
 }: {
   name: string
   memberNo: string | null
@@ -29,6 +32,7 @@ export function AccountHome({
   stamps: { progress: number; rewardsAvailable: number } | null
   showDeskLink: boolean
   role: string
+  packages: MemberPackage[]
 }) {
   const { tr } = useLanguage()
   return (
@@ -42,6 +46,13 @@ export function AccountHome({
       </div>
 
       {stamps && <StampCard progress={stamps.progress} rewardsAvailable={stamps.rewardsAvailable} />}
+
+      {packages.length > 0 && (
+        <section className="mt-6">
+          <h2 className="mb-2 text-base font-semibold text-card-foreground">{tr(authCopy.myPackages)}</h2>
+          <PackageList packages={packages} />
+        </section>
+      )}
 
       <nav className="mt-8 overflow-hidden rounded-2xl border border-border bg-card">
         {/* Staff allowed to sell from their phone (Back Office › Settings);

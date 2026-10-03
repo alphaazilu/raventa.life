@@ -102,7 +102,7 @@ export function ConsoleDashboard({ firstName, data }: { firstName: string | null
                     <span className="ml-2 hidden font-mono text-xs text-muted-foreground sm:inline">{formatMemberNo(v.memberNo)}</span>
                   </span>
                   <span className="hidden shrink-0 text-xs text-muted-foreground sm:inline">
-                    {v.entryType === 'reward' ? tr(consoleCopy.free) : tr(consoleCopy[v.paymentMethod ?? 'cash'])}
+                    {v.entryType === 'reward' ? tr(consoleCopy.free) : v.entryType === 'package' ? tr(consoleCopy.packageVisit) : tr(consoleCopy[v.paymentMethod ?? 'cash'])}
                   </span>
                   <span
                     className={cn(

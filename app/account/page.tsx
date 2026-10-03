@@ -6,6 +6,8 @@ import { AccountHome } from '@/components/account/account-home'
 import { deskAllowed } from '@/lib/console/settings'
 import { createClient } from '@/lib/supabase/server'
 import { resolveAvatarUrl } from '@/lib/supabase/avatar'
+import { loadMemberPackages } from '@/lib/packages'
+import { bangkokToday } from '@/lib/check-in/day'
 
 export const metadata: Metadata = {
   title: 'My Account | RAVENTA Wellness Retreat',
@@ -49,6 +51,7 @@ export default async function AccountPage({
   const stamps = stampRow
     ? { progress: Number(stampRow.progress), rewardsAvailable: Number(stampRow.rewards_available) }
     : null
+  const packages = await loadMemberPackages(supabase, user.id, bangkokToday())
   const fullName = [profile?.first_name, profile?.last_name].filter(Boolean).join(' ')
   // Staff see the front-desk link only when an admin allowed it on their
   // phone (Back Office › Settings); otherwise they use the counter tablet.
@@ -67,6 +70,7 @@ export default async function AccountPage({
           stamps={stamps}
           showDeskLink={showDeskLink}
           role={profile?.role ?? 'customer'}
+          packages={packages}
           // /account?card=1 (the LINE rich menu's member card button) opens
           // the check-in QR straight away.
           openCardOnLoad={params.card === '1'}

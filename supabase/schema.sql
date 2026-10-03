@@ -1251,6 +1251,7 @@ declare
   v_best public.promotions;
   v_disc integer := 0;
   v_d integer;
+  v_pkg uuid;
 begin
   if not public.is_staff() then
     raise exception 'not_staff';
@@ -1258,7 +1259,7 @@ begin
   if p_member_id is not null and p_member_id = auth.uid() then
     raise exception 'self_service';
   end if;
-  if coalesce(p_day_pass, 'none') not in ('none', 'paid', 'reward') then
+  if coalesce(p_day_pass, 'none') not in ('none', 'paid', 'reward', 'package') then
     raise exception 'bad_entry_type';
   end if;
 
@@ -1288,13 +1289,21 @@ begin
         raise exception 'no_reward';
       end if;
       v_price := 0;
+    elsif p_day_pass = 'package' then
+      -- §21: the member's usable package that runs out soonest.
+      v_pkg := public.usable_package(p_member_id, v_today);
+      if v_pkg is null then
+        raise exception 'no_package';
+      end if;
+      v_price := 0;
     else
       v_price := public.product_price(v_dp, v_today);
     end if;
     v_lines := v_lines || jsonb_build_object(
       'product_id', v_dp.id, 'variant_id', null, 'kind', 'day_pass',
       'name', v_dp.name_th, 'name_en', v_dp.name_en, 'qty', 1,
-      'unit_price', v_price, 'line_total', v_price, 'reward', p_day_pass = 'reward'
+      'unit_price', v_price, 'line_total', v_price, 'reward', p_day_pass = 'reward',
+      'package_id', v_pkg
     );
     v_sub := v_sub + v_price;
   end if;
@@ -1308,6 +1317,10 @@ begin
     where id = nullif(v_item->>'product_id', '')::uuid and is_active and kind <> 'day_pass';
     if not found then
       raise exception 'product_unavailable';
+    end if;
+    -- A package (§21) belongs to someone: no walk-up sales.
+    if v_p.kind = 'package' and p_member_id is null then
+      raise exception 'package_needs_member';
     end if;
     v_vid := nullif(v_item->>'variant_id', '')::uuid;
     v_name := v_p.name_th;
@@ -1404,6 +1417,11 @@ declare
   v_line_id bigint;
   v_visit uuid;
   v_track boolean;
+  v_entry text;
+  v_pkg_id uuid;
+  v_pkg_stamp boolean;
+  v_prod public.products;
+  v_today date := public.bkk_today();
 begin
   if v_total > 0 or p_day_pass = 'paid' then
     if p_payment_method is null or p_payment_method not in ('cash', 'transfer', 'card') then
@@ -1432,22 +1450,51 @@ begin
     returning id into v_line_id;
 
     if v_line->>'kind' = 'day_pass' then
+      v_entry := case
+        when (v_line->>'reward')::boolean then 'reward'
+        when v_line->>'package_id' is not null then 'package'
+        else 'paid' end;
+      if v_entry = 'package' then
+        -- Use one visit; a "starts on first use" package starts today.
+        update public.member_packages
+        set visits_used = visits_used + 1,
+            starts_on = coalesce(starts_on, v_today),
+            expires_on = coalesce(expires_on, v_today + valid_days - 1)
+        where id = (v_line->>'package_id')::uuid
+        returning id, earns_stamp into v_pkg_id, v_pkg_stamp;
+      end if;
       insert into public.visits (
-        member_id, member_no, entry_type, price, payment_method, earns_stamp, wristband, checked_in_by, sale_id
+        member_id, member_no, entry_type, price, payment_method, earns_stamp, wristband, checked_in_by, sale_id, package_id
       ) values (
-        p_member_id, v_member_no,
-        case when (v_line->>'reward')::boolean then 'reward' else 'paid' end,
+        p_member_id, v_member_no, v_entry,
         (v_line->>'unit_price')::int,
-        case when (v_line->>'reward')::boolean then null else p_payment_method end,
-        not (v_line->>'reward')::boolean,
-        nullif(btrim(coalesce(p_wristband, '')), ''), auth.uid(), v_sale.id
+        case when v_entry = 'paid' then p_payment_method end,
+        case v_entry when 'paid' then true when 'package' then coalesce(v_pkg_stamp, false) else false end,
+        nullif(btrim(coalesce(p_wristband, '')), ''), auth.uid(), v_sale.id,
+        case when v_entry = 'package' then v_pkg_id end
       )
       returning id into v_visit;
       update public.sale_lines set visit_id = v_visit where id = v_line_id;
       insert into public.staff_actions (actor_id, member_id, visit_id, action, detail)
       values (auth.uid(), p_member_id, v_visit, 'check_in',
-        jsonb_build_object('entry_type', case when (v_line->>'reward')::boolean then 'reward' else 'paid' end,
+        jsonb_build_object('entry_type', v_entry, 'package_id', v_pkg_id,
           'price', (v_line->>'unit_price')::int, 'payment_method', p_payment_method, 'receipt_no', v_sale.receipt_no));
+    elsif v_line->>'kind' = 'package' then
+      -- Sold a package (§21): one per unit, with the product's rules copied
+      -- so later edits to the product don't change what was bought.
+      select * into v_prod from public.products where id = (v_line->>'product_id')::uuid;
+      for i in 1..(v_line->>'qty')::int loop
+        insert into public.member_packages (
+          member_id, product_id, sale_id, sale_line_id, name, visits_total, valid_days,
+          weekday_only, earns_stamp, starts_on, expires_on, activate_by
+        ) values (
+          p_member_id, v_prod.id, v_sale.id, v_line_id, v_prod.name_th, v_prod.pkg_visits, v_prod.pkg_days,
+          v_prod.pkg_weekday_only, v_prod.pkg_earns_stamp,
+          case when v_prod.pkg_start = 'purchase' then v_today end,
+          case when v_prod.pkg_start = 'purchase' then v_today + v_prod.pkg_days - 1 end,
+          case when v_prod.pkg_start = 'first_use' then v_today + v_prod.pkg_activate_days - 1 end
+        );
+      end loop;
     else
       select track_stock into v_track from public.products where id = (v_line->>'product_id')::uuid;
       if v_track then
@@ -1502,7 +1549,23 @@ begin
     raise exception 'cancel_window_passed';
   end if;
 
+  -- Packages bought on this bill (§21). Once used, only an admin may void.
+  if exists (select 1 from public.member_packages where sale_id = p_sale_id and visits_used > 0 and cancelled_at is null)
+     and not public.is_admin() then
+    raise exception 'package_used';
+  end if;
+
   update public.sales set voided_at = now(), voided_by = auth.uid(), void_reason = btrim(p_reason) where id = p_sale_id;
+
+  update public.member_packages
+  set cancelled_at = now(), cancelled_by = auth.uid(), cancel_reason = btrim(p_reason)
+  where sale_id = p_sale_id and cancelled_at is null;
+
+  -- A check-in made with a package gives that visit back.
+  update public.member_packages mp
+  set visits_used = greatest(mp.visits_used - 1, 0)
+  from public.visits vi
+  where vi.sale_id = p_sale_id and vi.cancelled_at is null and vi.package_id = mp.id;
 
   for l in
     select sl.qty, sl.product_id, sl.variant_id from public.sale_lines sl
@@ -1612,3 +1675,78 @@ create policy "Admins read" on public.sale_lines for select to authenticated usi
 -- 20. Clock out by card on the tablet lock screen (v0.21).
 alter table public.time_entries drop constraint if exists time_entries_out_method_check;
 alter table public.time_entries add constraint time_entries_out_method_check check (out_method in ('button', 'admin', 'card'));
+
+-- 21. Packages (v0.22). A product of kind 'package' sells a bundle of visits
+-- (e.g. 10 visits in 90 days) or unlimited visits for a number of days
+-- (1 month = 30 days). Every rule is set per package by an admin in
+-- Products & prices. Each sale copies the rules into member_packages, so a
+-- later edit never changes what someone already bought. Checking in with a
+-- package is a Day Pass at 0 THB that uses one visit.
+alter table public.products drop constraint if exists products_kind_check;
+alter table public.products add constraint products_kind_check
+  check (kind in ('day_pass', 'addon', 'merch', 'souvenir', 'package'));
+alter table public.products add column if not exists pkg_visits integer check (pkg_visits between 1 and 1000); -- null = unlimited
+alter table public.products add column if not exists pkg_days integer check (pkg_days between 1 and 3650);
+alter table public.products add column if not exists pkg_start text not null default 'purchase' check (pkg_start in ('purchase', 'first_use'));
+alter table public.products add column if not exists pkg_activate_days integer not null default 90 check (pkg_activate_days between 1 and 3650);
+alter table public.products add column if not exists pkg_weekday_only boolean not null default false;
+alter table public.products add column if not exists pkg_earns_stamp boolean not null default false;
+alter table public.products drop constraint if exists products_package_days;
+alter table public.products add constraint products_package_days check (kind <> 'package' or pkg_days is not null);
+
+create table if not exists public.member_packages (
+  id uuid primary key default gen_random_uuid(),
+  member_id uuid not null references auth.users(id) on delete cascade,
+  product_id uuid references public.products(id) on delete set null,
+  sale_id uuid references public.sales(id) on delete set null,
+  sale_line_id bigint references public.sale_lines(id) on delete set null,
+  name text not null,
+  visits_total integer check (visits_total >= 1),        -- null = unlimited
+  visits_used integer not null default 0 check (visits_used >= 0),
+  valid_days integer not null check (valid_days >= 1),
+  weekday_only boolean not null default false,
+  earns_stamp boolean not null default false,
+  starts_on date,                                         -- null until first use ("first_use" packages)
+  expires_on date,
+  activate_by date,                                       -- first_use: must start by this day
+  created_at timestamptz not null default now(),
+  cancelled_at timestamptz,
+  cancelled_by uuid references auth.users(id) on delete set null,
+  cancel_reason text
+);
+create index if not exists member_packages_member_idx on public.member_packages (member_id);
+
+alter table public.member_packages enable row level security;
+revoke insert, update, delete on public.member_packages from anon, authenticated;
+drop policy if exists "Packages: own or staff" on public.member_packages;
+create policy "Packages: own or staff" on public.member_packages for select to authenticated
+  using (member_id = auth.uid() or public.is_staff());
+
+alter table public.visits drop constraint if exists visits_entry_type_check;
+alter table public.visits add constraint visits_entry_type_check check (entry_type in ('paid', 'reward', 'package'));
+alter table public.visits add column if not exists package_id uuid references public.member_packages(id) on delete set null;
+
+-- The package a check-in on p_date would use: still has visits, in date,
+-- allowed on that kind of day. One already running before one that would
+-- start now; then the one that runs out soonest.
+create or replace function public.usable_package(p_member_id uuid, p_date date)
+returns uuid
+language sql
+security definer
+set search_path = public
+stable
+as $$
+  select id from public.member_packages
+  where member_id = p_member_id
+    and cancelled_at is null
+    and (visits_total is null or visits_used < visits_total)
+    and (starts_on is null or starts_on <= p_date)
+    and (expires_on is null or expires_on >= p_date)
+    and (activate_by is null or starts_on is not null or activate_by >= p_date)
+    and (not weekday_only or public.day_type(p_date) = 'weekday')
+  order by starts_on is null, coalesce(expires_on, activate_by), created_at
+  limit 1;
+$$;
+revoke execute on function public.usable_package(uuid, date) from public, anon;
+grant execute on function public.usable_package(uuid, date) to authenticated;
+

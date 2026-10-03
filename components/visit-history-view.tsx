@@ -24,6 +24,7 @@ const t = {
   tabBills: { th: 'บิล', en: 'Bills' },
   paid: { th: 'Day Pass', en: 'Day Pass' },
   free: { th: 'สิทธิ์ฟรี', en: 'Free pass' },
+  pkg: { th: 'แพ็กเกจ', en: 'Package' },
   stillIn: { th: 'ยังอยู่ในร้าน', en: 'Still in' },
   cancelled: { th: 'ยกเลิก', en: 'Cancelled' },
   voided: { th: 'ยกเลิกบิล', en: 'Voided' },
@@ -161,10 +162,10 @@ function VisitRow({ v, admin, tr, date }: { v: HistoryVisit; admin: boolean; tr:
         <span
           className={cn(
             'inline-block rounded-full px-2.5 py-0.5 text-xs font-semibold',
-            v.entryType === 'reward' ? 'bg-accent/15 text-accent' : 'bg-secondary text-secondary-foreground',
+            v.entryType === 'paid' ? 'bg-secondary text-secondary-foreground' : 'bg-accent/15 text-accent',
           )}
         >
-          {tr(v.entryType === 'reward' ? t.free : t.paid)}
+          {tr(v.entryType === 'reward' ? t.free : v.entryType === 'package' ? t.pkg : t.paid)}
         </span>
         {admin && v.entryType === 'paid' && (
           <p className="mt-1 text-xs text-muted-foreground">

@@ -5,7 +5,7 @@ import { isMissingTable } from '@/lib/console/db-errors'
 // service-role client, the desk passes the staff member's own session
 // (RLS lets staff read these tables).
 
-export type ProductKind = 'day_pass' | 'addon' | 'merch' | 'souvenir'
+export type ProductKind = 'day_pass' | 'addon' | 'merch' | 'souvenir' | 'package'
 export type DayType = 'weekday' | 'weekend' | 'holiday'
 
 export type Variant = {
@@ -29,6 +29,17 @@ export type Product = {
   active: boolean
   sort: number
   variants: Variant[]
+  // Package rules (§21); null for other kinds.
+  pkg: PackageRules | null
+}
+
+export type PackageRules = {
+  visits: number | null // null = unlimited
+  days: number
+  start: 'purchase' | 'first_use'
+  activateDays: number // first_use: must start within this many days
+  weekdayOnly: boolean
+  earnsStamp: boolean
 }
 
 export type Promotion = {
@@ -48,7 +59,7 @@ export type Holiday = { day: string; name: string }
 
 export type Catalog = { products: Product[]; promotions: Promotion[]; holidays: Holiday[] }
 
-export const PRODUCT_KINDS: ProductKind[] = ['day_pass', 'addon', 'merch', 'souvenir']
+export const PRODUCT_KINDS: ProductKind[] = ['day_pass', 'package', 'addon', 'merch', 'souvenir']
 
 type Row = Record<string, unknown>
 // Minimal surface of a Supabase client used here.
@@ -99,6 +110,17 @@ export async function loadCatalog(client: Client): Promise<Catalog | null> {
         active: Boolean(r.is_active),
         sort: Number(r.sort ?? 0),
         variants: byProduct.get(r.id as string) ?? [],
+        pkg:
+          r.kind === 'package'
+            ? {
+                visits: r.pkg_visits == null ? null : Number(r.pkg_visits),
+                days: Number(r.pkg_days ?? 30),
+                start: r.pkg_start === 'first_use' ? 'first_use' : 'purchase',
+                activateDays: Number(r.pkg_activate_days ?? 90),
+                weekdayOnly: Boolean(r.pkg_weekday_only),
+                earnsStamp: Boolean(r.pkg_earns_stamp),
+              }
+            : null,
       }),
     )
     .sort((a, b) => kindOrder(a.kind) - kindOrder(b.kind) || a.sort - b.sort)

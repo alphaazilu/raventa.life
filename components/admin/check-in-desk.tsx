@@ -6,6 +6,7 @@ import { useLanguage } from '@/components/language-provider'
 import { AvatarCircle } from '@/components/account/avatar-circle'
 import { QrScanner } from '@/components/admin/qr-scanner'
 import { BillBuilder } from '@/components/admin/bill-builder'
+import { PackageList } from '@/components/package-list'
 import { SearchInput } from '@/components/ui/search-input'
 import { Spinner } from '@/components/ui/spinner'
 import { deskCopy, deskErrors } from '@/lib/check-in/copy'
@@ -343,6 +344,7 @@ export function CheckInDesk({
                 memberId={member && !member.isSelf ? member.id : null}
                 withDayPass={Boolean(memberBill)}
                 rewardReady={(member?.stamps?.rewardsAvailable ?? 0) > 0}
+                packageReady={Boolean(memberBill && member.packageToday)}
                 catalog={catalog}
                 busy={busy}
               onPay={(bill) => pay(member && !member.isSelf ? member.id : null, bill)}
@@ -468,6 +470,7 @@ function MemberInfo({
       </div>
 
       {member.stamps && <StampRow progress={member.stamps.progress} rewardReady={rewardReady} />}
+      <PackageList packages={member.packages} useToday={member.today ? null : member.packageToday} className="mt-3" />
 
       {member.isSelf ? (
         <p className="mt-4 rounded-2xl bg-amber-500/15 px-4 py-3 text-sm font-semibold text-amber-800 dark:text-amber-300">
@@ -490,7 +493,9 @@ function MemberInfo({
                 {' · '}
                 {visit.entryType === 'reward'
                   ? tr(deskCopy.free)
-                  : `${visit.price.toLocaleString()} ${tr(deskCopy.baht)} (${tr(deskCopy[visit.paymentMethod ?? 'cash'])})`}
+                  : visit.entryType === 'package'
+                    ? tr(deskCopy.packageLabel)
+                    : `${visit.price.toLocaleString()} ${tr(deskCopy.baht)} (${tr(deskCopy[visit.paymentMethod ?? 'cash'])})`}
               </p>
             </div>
 
@@ -688,7 +693,7 @@ function FloorRow({
       </button>
       {v.wristband && <span className="hidden shrink-0 text-xs sm:inline">#{v.wristband}</span>}
       <span className="hidden shrink-0 text-xs sm:inline">
-        {v.entryType === 'reward' ? tr(deskCopy.free) : tr(deskCopy[v.paymentMethod ?? 'cash'])}
+        {v.entryType === 'reward' ? tr(deskCopy.free) : v.entryType === 'package' ? tr(deskCopy.packageLabel) : tr(deskCopy[v.paymentMethod ?? 'cash'])}
       </span>
       {v.checkedOutAt ? (
         <span className="w-24 shrink-0 text-right font-mono text-xs">→ {bangkokTime(v.checkedOutAt)}</span>

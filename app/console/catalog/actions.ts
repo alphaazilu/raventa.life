@@ -4,7 +4,7 @@ import { isMissingTable, requireAdmin } from '@/lib/console/guard'
 import { revalidatePath } from 'next/cache'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { CATALOG_PATH, DESK_PATH } from '@/lib/auth/roles'
-import type { ProductKind } from '@/lib/console/catalog'
+import type { PackageRules, ProductKind } from '@/lib/console/catalog'
 
 // Admin: products, variants, stock, public holidays, promotions (§18).
 // Written with the service role after an admin check, like the shifts
@@ -13,7 +13,7 @@ import type { ProductKind } from '@/lib/console/catalog'
 export type CatalogResult = { ok: true } | { ok: false; error: string }
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/
-const SELLABLE: ProductKind[] = ['addon', 'merch', 'souvenir']
+const SELLABLE: ProductKind[] = ['addon', 'merch', 'souvenir', 'package']
 
 function dbError(error: { code?: string; message?: string } | null, unique?: string): string {
   if (!error) return 'failed'
@@ -45,10 +45,31 @@ export async function saveProduct(input: {
   trackStock: boolean
   active: boolean
   sort: number
+  pkg?: PackageRules | null
 }): Promise<CatalogResult> {
   const ctx = await requireAdmin()
   if ('error' in ctx) return { ok: false, error: ctx.error }
   const nameTh = input.nameTh.trim().slice(0, 60)
+  // Package rules (§21): checked here and again by the database.
+  let pkgCols = {}
+  if (input.kind === 'package') {
+    const r = input.pkg
+    const int = (v: unknown, lo: number, hi: number) => Number.isInteger(v) && (v as number) >= lo && (v as number) <= hi
+    if (!r || !int(r.days, 1, 3650) || !(r.visits === null || int(r.visits, 1, 1000)) || !int(r.activateDays, 1, 3650)) {
+      return { ok: false, error: 'bad_package' }
+    }
+    pkgCols = {
+      pkg_visits: r.visits,
+      pkg_days: r.days,
+      pkg_start: r.start === 'first_use' ? 'first_use' : 'purchase',
+      pkg_activate_days: r.activateDays,
+      pkg_weekday_only: Boolean(r.weekdayOnly),
+      pkg_earns_stamp: Boolean(r.earnsStamp),
+      price_weekend: null,
+      price_holiday: null,
+      track_stock: false,
+    }
+  }
   if (!nameTh) return { ok: false, error: 'need_name' }
   const wd = price(input.priceWeekday)
   const we = price(input.priceWeekend)
@@ -65,23 +86,29 @@ export async function saveProduct(input: {
     is_active: input.active,
     sort: Math.round(Number(input.sort) || 0),
     updated_at: new Date().toISOString(),
+    ...pkgCols,
   }
   if (input.id) {
     const { data: existing } = await admin.from('products').select('kind').eq('id', input.id).maybeSingle()
     if (!existing) return { ok: false, error: 'failed' }
     // The Day Pass keeps its type and never tracks stock; others may change type.
+    // A package stays a package (people own copies of it); nothing becomes one.
     const extra =
       existing.kind === 'day_pass'
         ? {}
-        : SELLABLE.includes(input.kind)
-          ? { kind: input.kind, track_stock: input.trackStock }
-          : null
+        : (existing.kind === 'package') !== (input.kind === 'package')
+          ? null
+          : input.kind === 'package'
+            ? {}
+            : SELLABLE.includes(input.kind)
+              ? { kind: input.kind, track_stock: input.trackStock }
+              : null
     if (extra === null) return { ok: false, error: 'bad_kind' }
     const { error } = await admin.from('products').update({ ...row, ...extra }).eq('id', input.id)
     if (error) return { ok: false, error: dbError(error) }
   } else {
     if (!SELLABLE.includes(input.kind)) return { ok: false, error: 'bad_kind' }
-    const { error } = await admin.from('products').insert({ ...row, kind: input.kind, track_stock: input.trackStock })
+    const { error } = await admin.from('products').insert({ track_stock: input.trackStock, ...row, kind: input.kind })
     if (error) return { ok: false, error: dbError(error) }
   }
   return done()

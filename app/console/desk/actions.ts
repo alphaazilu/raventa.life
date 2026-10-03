@@ -11,6 +11,7 @@ import { deskAllowed } from '@/lib/console/settings'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { bangkokToday, isWeekend } from '@/lib/check-in/day'
 import { dayTypeOf, loadCatalog, priceOn, type DayType } from '@/lib/console/catalog'
+import { loadMemberPackages, type MemberPackage } from '@/lib/packages'
 
 // Front-desk actions. Every write is a database function (see
 // supabase/schema.sql §13) called with the staff member's own session, so
@@ -20,7 +21,7 @@ import { dayTypeOf, loadCatalog, priceOn, type DayType } from '@/lib/console/cat
 type Supabase = Awaited<ReturnType<typeof createClient>>
 
 export type PaymentMethod = 'cash' | 'transfer' | 'card'
-export type EntryType = 'paid' | 'reward'
+export type EntryType = 'paid' | 'reward' | 'package'
 
 export type TodayVisit = {
   id: string
@@ -45,6 +46,9 @@ export type DeskMember = {
   stamps: { stamps: number; rewardsAvailable: number; progress: number } | null
   // Visits before today (not cancelled) and the latest one — no money here.
   history: { count: number; last: string | null }
+  // Packages still alive (§21), and the one a check-in today would use.
+  packages: MemberPackage[]
+  packageToday: string | null
   today: TodayVisit | null
   priceToday: number
   weekend: boolean
@@ -112,7 +116,7 @@ async function selectVisits<T>(run: (columns: string) => PromiseLike<{ data: T; 
 
 async function loadMember(supabase: Supabase, userId: string, memberId: string): Promise<DeskResult<DeskMember>> {
   const today = bangkokToday()
-  const [{ data: p, error: pErr }, visitRes, stampRes, priceRes, pastRes] = await Promise.all([
+  const [{ data: p, error: pErr }, visitRes, stampRes, priceRes, pastRes, pkgRes, pkgNowRes] = await Promise.all([
     supabase
       .from('profiles')
       .select('id, first_name, last_name, email, member_no, role, created_at, avatar_path, provider_avatar_url')
@@ -131,6 +135,8 @@ async function loadMember(supabase: Supabase, userId: string, memberId: string):
       .is('cancelled_at', null)
       .order('visit_date', { ascending: false })
       .limit(1),
+    loadMemberPackages(supabase, memberId, today),
+    supabase.rpc('usable_package', { p_member_id: memberId, p_date: today }),
   ])
   if (pErr) return { ok: false, error: errorCode(pErr) }
   if (!p) return { ok: false, error: 'member_not_found' }
@@ -149,6 +155,8 @@ async function loadMember(supabase: Supabase, userId: string, memberId: string):
       role: p.role ?? 'customer',
       isSelf: p.id === userId,
       stamps: s ? { stamps: s.stamps, rewardsAvailable: s.rewards_available, progress: s.progress } : null,
+      packages: pkgRes,
+      packageToday: pkgNowRes.error ? null : ((pkgNowRes.data as string | null) ?? null),
       history: { count: pastRes.count ?? 0, last: (pastRes.data?.[0]?.visit_date as string | undefined) ?? null },
       today: visitRes.data ? toVisit(visitRes.data as unknown as Record<string, unknown>) : null,
       priceToday: Number(priceRes.data),
@@ -282,12 +290,14 @@ export type DeskItem = {
   trackStock: boolean
   stock: number
   variants: { id: string; label: string; stock: number }[]
+  // Packages: what one buys (§21).
+  pkg: { visits: number | null; days: number } | null
 }
 
 export type DeskCatalog = { items: DeskItem[]; dayType: DayType } | null
 
 export type BillLine = { productId: string; variantId: string | null; qty: number }
-export type DayPassMode = 'none' | 'paid' | 'reward'
+export type DayPassMode = 'none' | 'paid' | 'reward' | 'package'
 
 export type BillInput = {
   memberId: string | null
@@ -324,6 +334,7 @@ export async function getDeskCatalog(): Promise<DeskResult<DeskCatalog>> {
         trackStock: p.trackStock,
         stock: p.stock,
         variants: p.variants.filter((v) => v.active).map((v) => ({ id: v.id, label: v.label, stock: v.stock })),
+        pkg: p.pkg ? { visits: p.pkg.visits, days: p.pkg.days } : null,
       }))
     return { ok: true, data: { items, dayType } }
   } catch {
@@ -344,7 +355,7 @@ function rpcArgs(input: BillInput) {
 
 // Before §18 is run the desk still sells a plain Day Pass the old way.
 function legacyOnly(input: BillInput) {
-  return input.dayPass !== 'none' && input.items.length === 0 && !input.code.trim()
+  return (input.dayPass === 'paid' || input.dayPass === 'reward') && input.items.length === 0 && !input.code.trim()
 }
 
 export async function quoteBill(input: BillInput): Promise<DeskResult<Quote>> {

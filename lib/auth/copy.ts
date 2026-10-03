@@ -188,6 +188,7 @@ export const authCopy: Record<string, Bilingual> = {
   memberNoFieldLabel: { th: 'หมายเลขสมาชิก', en: 'Member No.' },
   memberSince: { th: 'สมาชิกตั้งแต่', en: 'Member since' },
   joinedFieldLabel: { th: 'วันที่สมัคร', en: 'Joined' },
+  myPackages: { th: 'แพ็กเกจของฉัน', en: 'My packages' },
   historyLink: { th: 'ประวัติการใช้บริการ', en: 'My visits' },
   settingsLink: { th: 'ข้อมูลส่วนตัวและการตั้งค่า', en: 'Personal details & settings' },
   settingsHeading: { th: 'ข้อมูลส่วนตัวและการตั้งค่า', en: 'Personal Details & Settings' },

@@ -82,6 +82,16 @@ export const deskCopy = {
   // Bill (v0.20)
   holiday: { th: 'วันหยุดนักขัตฤกษ์', en: 'public holiday' },
   payForPass: { th: 'เช็คอิน', en: 'Check in' },
+  usePackage: { th: 'ใช้แพ็กเกจ', en: 'Use package' },
+  packageLabel: { th: 'แพ็กเกจ', en: 'Package' },
+  packages: { th: 'แพ็กเกจ', en: 'Packages' },
+  pkgLeft: { th: 'เหลือ {n} ครั้ง', en: '{n} left' },
+  pkgUnlimited: { th: 'ไม่จำกัดครั้ง', en: 'Unlimited' },
+  pkgUntil: { th: 'ถึง {d}', en: 'until {d}' },
+  pkgNotStarted: { th: 'เริ่มนับเมื่อใช้ครั้งแรก (ภายใน {d})', en: 'Starts on first visit (by {d})' },
+  pkgWeekdayOnly: { th: 'วันธรรมดา', en: 'Weekdays' },
+  pkgMemberOnly: { th: 'สแกนสมาชิกก่อน', en: 'Member only' },
+  pkgItem: { th: '{v} · {d} วัน', en: '{v} · {d} days' },
   addItems: { th: 'เพิ่มสินค้า / ส่วนเสริม', en: 'Add items / extras' },
   hideItems: { th: 'ซ่อนรายการสินค้า', en: 'Hide items' },
   catalogNotSetUp: {
@@ -126,6 +136,9 @@ export const deskCopy = {
 // Database / server error codes → what staff see.
 export const deskErrors: Record<string, Bilingual> = {
   not_staff: { th: 'บัญชีนี้ไม่มีสิทธิ์ใช้หน้าเช็คอิน', en: 'This account can’t use the front desk' },
+  no_package: { th: 'ไม่มีแพ็กเกจที่ใช้ได้วันนี้ (หมดครั้ง หมดอายุ หรือใช้ได้เฉพาะวันธรรมดา)', en: 'No package usable today (used up, expired or weekdays only)' },
+  package_needs_member: { th: 'แพ็กเกจขายได้เฉพาะสมาชิก — สแกนบัตรหรือค้นหาสมาชิกก่อน', en: 'Packages are for members — scan or find the member first' },
+  package_used: { th: 'แพ็กเกจในบิลนี้ถูกใช้ไปแล้ว — ให้แอดมินเป็นคนยกเลิกบิล', en: 'A package on this bill has been used — an admin must void it' },
   not_set_up: { th: 'ระบบเช็คอินยังไม่พร้อม — ต้องรัน supabase/schema.sql เวอร์ชันล่าสุดก่อน', en: 'Check-in isn’t set up yet — run the latest supabase/schema.sql first' },
   self_service: { th: 'เช็คอิน / ให้แต้ม / ใช้สิทธิ์ให้ตัวเองไม่ได้ — ให้พนักงานคนอื่นทำ', en: 'You can’t serve yourself — ask another staff member' },
   member_not_found: { th: 'ไม่พบสมาชิก', en: 'Member not found' },

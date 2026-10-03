@@ -8,7 +8,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 export type HistoryVisit = {
   id: string
   date: string
-  entryType: 'paid' | 'reward'
+  entryType: 'paid' | 'reward' | 'package'
   price: number
   paymentMethod: string | null
   wristband: string | null
@@ -51,7 +51,7 @@ const VISIT_COLUMNS =
 type VisitRow = {
   id: string
   visit_date: string
-  entry_type: 'paid' | 'reward'
+  entry_type: 'paid' | 'reward' | 'package'
   price: number
   payment_method: string | null
   wristband: string | null

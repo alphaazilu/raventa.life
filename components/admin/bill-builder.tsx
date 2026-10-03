@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Ban, Gift, Minus, Plus, ShoppingBag, Tag, Trash2, X } from 'lucide-react'
+import { Ban, Gift, Minus, Package as PackageIcon, Plus, ShoppingBag, Tag, Trash2, X } from 'lucide-react'
 import { useLanguage } from '@/components/language-provider'
 import { Spinner } from '@/components/ui/spinner'
 import { deskCopy, deskErrors, fill } from '@/lib/check-in/copy'
@@ -25,6 +25,7 @@ export function BillBuilder({
   memberId,
   withDayPass,
   rewardReady,
+  packageReady = false,
   catalog,
   busy,
   onPay,
@@ -38,6 +39,8 @@ export function BillBuilder({
   // false = walk-up sale (no member, no check-in)
   withDayPass: boolean
   rewardReady: boolean
+  // The member has a package usable today (§21): check in with it by default.
+  packageReady?: boolean
   catalog: DeskCatalog
   busy: boolean
   onPay: (bill: {
@@ -53,7 +56,8 @@ export function BillBuilder({
   quoteFn?: typeof quoteBill
 }) {
   const { tr, lang } = useLanguage()
-  const [dayPass, setDayPass] = useState<DayPassMode>(withDayPass ? 'paid' : 'none')
+  const startMode: DayPassMode = withDayPass ? (packageReady ? 'package' : 'paid') : 'none'
+  const [dayPass, setDayPass] = useState<DayPassMode>(startMode)
   const [lines, setLines] = useState<BillLine[]>([])
   const [showItems, setShowItems] = useState(true)
   const [codeInput, setCodeInput] = useState('')
@@ -109,7 +113,7 @@ export function BillBuilder({
 
   // "Clear bill": back to how it opened.
   const clear = () => {
-    setDayPass(withDayPass ? 'paid' : 'none')
+    setDayPass(startMode)
     setLines([])
     setCode('')
     setCodeInput('')
@@ -117,7 +121,7 @@ export function BillBuilder({
     setWristband('')
     setPicking(null)
   }
-  const dirty = lines.length > 0 || code !== '' || codeInput !== '' || method !== null || wristband !== '' || dayPass !== (withDayPass ? 'paid' : 'none')
+  const dirty = lines.length > 0 || code !== '' || codeInput !== '' || method !== null || wristband !== '' || dayPass !== startMode
   const hasBill = dayPass !== 'none' || lines.length > 0
   const count = lines.reduce((n, l) => n + l.qty, 0) + (dayPass !== 'none' ? 1 : 0)
 
@@ -150,7 +154,12 @@ export function BillBuilder({
         ? tr(deskCopy.checkInFree)
         : fill(tr(dayPass === 'none' ? deskCopy.payOnly : deskCopy.payAndCheckIn), { price: total.toLocaleString() })
 
-  const passModes: DayPassMode[] = rewardReady ? ['paid', 'reward', 'none'] : ['paid', 'none']
+  const passModes: DayPassMode[] = [
+    ...(packageReady ? (['package'] as const) : []),
+    'paid',
+    ...(rewardReady ? (['reward'] as const) : []),
+    'none',
+  ]
 
   return (
     <div className="flex flex-1 flex-col">
@@ -203,6 +212,8 @@ export function BillBuilder({
               <span className="font-display text-2xl font-extrabold text-foreground">
                 {dayPass === 'reward' ? (
                   tr(deskCopy.free)
+                ) : dayPass === 'package' ? (
+                  tr(deskCopy.packageLabel)
                 ) : (
                   <>
                     {passLine ? passLine.unitPrice.toLocaleString() : '…'} <span className="text-sm font-semibold">{tr(deskCopy.baht)}</span>
@@ -229,8 +240,9 @@ export function BillBuilder({
                 )}
               >
                 {m === 'reward' && <Gift className="h-3.5 w-3.5" aria-hidden="true" />}
+                {m === 'package' && <PackageIcon className="h-3.5 w-3.5" aria-hidden="true" />}
                 {m === 'none' && <Ban className="h-3.5 w-3.5" aria-hidden="true" />}
-                {tr(m === 'paid' ? deskCopy.payForPass : m === 'reward' ? deskCopy.useReward : deskCopy.noCheckIn)}
+                {tr(m === 'paid' ? deskCopy.payForPass : m === 'reward' ? deskCopy.useReward : m === 'package' ? deskCopy.usePackage : deskCopy.noCheckIn)}
               </button>
             ))}
           </div>
@@ -287,7 +299,8 @@ export function BillBuilder({
               <div className="mt-2 grid max-h-[38dvh] grid-cols-2 gap-2 overflow-y-auto pr-1 sm:grid-cols-3">
                 {items.map((item) => {
                   const stock = item.variants.length > 0 ? item.variants.reduce((n, v) => n + v.stock, 0) : item.stock
-                  const out = item.trackStock && stock <= 0
+                  const memberOnly = item.pkg !== null && !memberId
+                  const out = (item.trackStock && stock <= 0) || memberOnly
                   return (
                     <button
                       key={item.id}
@@ -305,10 +318,20 @@ export function BillBuilder({
                         {item.price.toLocaleString()} {tr(deskCopy.baht)}
                         {item.trackStock && (
                           <span className={cn('ml-1', stock < 5 ? 'text-destructive' : 'text-muted-foreground')}>
-                            · {out ? tr(deskCopy.soldOut) : `${tr(deskCopy.left)} ${stock}`}
+                            · {stock <= 0 ? tr(deskCopy.soldOut) : `${tr(deskCopy.left)} ${stock}`}
                           </span>
                         )}
                       </span>
+                      {item.pkg && (
+                        <span className="block text-[11px] text-muted-foreground">
+                          {memberOnly
+                            ? tr(deskCopy.pkgMemberOnly)
+                            : fill(tr(deskCopy.pkgItem), {
+                                v: item.pkg.visits === null ? tr(deskCopy.pkgUnlimited) : `${item.pkg.visits}×`,
+                                d: item.pkg.days,
+                              })}
+                        </span>
+                      )}
                     </button>
                   )
                 })}
