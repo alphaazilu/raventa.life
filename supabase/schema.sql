@@ -2123,3 +2123,21 @@ on conflict (id) do update set
   public = excluded.public,
   file_size_limit = excluded.file_size_limit,
   allowed_mime_types = excluded.allowed_mime_types;
+
+
+-- 26. Monthly roster (v0.25). Back Office › Time › Roster shows a whole
+-- month: each shift as a short code on its own colour, and a warning on days
+-- with fewer people working than the minimum below (0 = no warning).
+alter table public.shift_templates add column if not exists short_code text check (short_code is null or char_length(btrim(short_code)) between 1 and 3);
+alter table public.shift_templates add column if not exists color text check (color is null or color ~ '^#[0-9A-Fa-f]{6}$');
+alter table public.time_settings add column if not exists min_staff_per_day integer not null default 0 check (min_staff_per_day between 0 and 50);
+
+
+-- 27. Several shifts a day (v0.26). A person may be on more than one shift
+-- on the same day (e.g. morning and evening); still one row per shift, and
+-- a day off is a single row of its own (the server keeps the two apart).
+-- Clock-ins are matched to the shift that starts nearest to them.
+alter table public.shift_assignments drop constraint if exists shift_assignments_one_per_day;
+create unique index if not exists shift_assignments_one_per_shift
+  on public.shift_assignments (staff_id, work_date, coalesce(template_id, '00000000-0000-0000-0000-000000000000'::uuid));
+create index if not exists shift_assignments_staff_date_idx on public.shift_assignments (staff_id, work_date);

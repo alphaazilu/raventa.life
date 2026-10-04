@@ -40,7 +40,13 @@ export async function decideLeave(id: string, approve: boolean, note?: string): 
       updated_by: ctx.userId,
       updated_at: now,
     }))
-    const { error: rosterErr } = await db.from('shift_assignments').upsert(rows, { onConflict: 'staff_id,work_date' })
+    // Every shift planned on those days goes; each day becomes a day off.
+    const { error: delErr } = await db
+      .from('shift_assignments')
+      .delete()
+      .eq('staff_id', req.staff_id)
+      .in('work_date', rows.map((r) => r.work_date))
+    const { error: rosterErr } = delErr ? { error: delErr } : await db.from('shift_assignments').insert(rows)
     if (rosterErr) console.error('leave approve: roster update failed', rosterErr.message)
   }
   await db.from('staff_actions').insert({

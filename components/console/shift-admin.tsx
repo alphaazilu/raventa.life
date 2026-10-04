@@ -6,7 +6,7 @@ import { Copy, Plus } from 'lucide-react'
 import { useLanguage } from '@/components/language-provider'
 import { Spinner } from '@/components/ui/spinner'
 import { shiftErrors, timeCopy } from '@/lib/console/copy'
-import { shiftLengthMinutes, type ShiftAssignment, type ShiftTemplate, type TimeSettings } from '@/lib/console/shift-math'
+import { autoShortCode, groupAssignments, SHIFT_COLORS, shiftLengthMinutes, type ShiftAssignment, type ShiftTemplate, type TimeSettings } from '@/lib/console/shift-math'
 import { copyPreviousWeek, saveTemplate, saveTimeSettings, setAssignment } from '@/app/console/time/shift-actions'
 import { cn } from '@/lib/utils'
 import { RangePlanner } from '@/components/console/range-planner'
@@ -44,7 +44,13 @@ export function RosterGrid({
   const [busyCell, setBusyCell] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const days = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i))
-  const value = new Map(assignments.map((a) => [`${a.staffId}|${a.date}`, a.dayOff ? 'off' : (a.templateId ?? '')]))
+  // A day with several shifts (v0.26) shows as one combined, read-only
+  // choice ("multi:…"); picking anything else makes the day just that.
+  const value = new Map<string, string>()
+  for (const [k, list] of groupAssignments(assignments)) {
+    const ids = list.filter((a) => a.templateId).map((a) => a.templateId as string)
+    value.set(k, ids.length > 1 ? `multi:${ids.join(',')}` : ids[0] ?? (list.some((a) => a.dayOff) ? 'off' : ''))
+  }
   const active = templates.filter((t) => t.active)
 
   const change = (staffId: string, date: string, v: string) =>
@@ -114,7 +120,7 @@ export function RosterGrid({
                           aria-label={`${p.name} ${d}`}
                           value={v}
                           disabled={busyCell === key}
-                          onChange={(e) => change(p.id, d, e.target.value)}
+                          onChange={(e) => !e.target.value.startsWith('multi:') && change(p.id, d, e.target.value)}
                           className={cn(
                             'w-full rounded-lg border px-2 py-1.5 text-xs font-semibold outline-none focus:border-primary',
                             v === 'off' ? 'border-border bg-muted text-muted-foreground' : v ? 'border-accent/40 bg-secondary text-foreground' : 'border-dashed border-border bg-background text-muted-foreground',
@@ -126,7 +132,16 @@ export function RosterGrid({
                               {t.name} {t.start}–{t.end}
                             </option>
                           ))}
-                          {v && v !== 'off' && !active.some((t) => t.id === v) && <option value={v}>{templates.find((t) => t.id === v)?.name ?? '?'}</option>}
+                          {v.startsWith('multi:') && (
+                            <option value={v}>
+                              {v
+                                .slice(6)
+                                .split(',')
+                                .map((id) => templates.find((t) => t.id === id)?.shortCode ?? '?')
+                                .join(' + ')}
+                            </option>
+                          )}
+                          {v && v !== 'off' && !v.startsWith('multi:') && !active.some((t) => t.id === v) && <option value={v}>{templates.find((t) => t.id === v)?.name ?? '?'}</option>}
                           <option value="off">{tr(timeCopy.dayOff)}</option>
                         </select>
                         {busyCell === key && <Spinner className="absolute right-6 top-2 h-3.5 w-3.5" />}
@@ -171,11 +186,22 @@ function TemplateRow({ t }: { t: ShiftTemplate | null }) {
   const [endT, setEnd] = useState(t?.end ?? '')
   const [brk, setBrk] = useState(String(t?.breakMinutes ?? 60))
   const [active, setActive] = useState(t?.active ?? true)
+  const [code, setCode] = useState(t?.shortCode ?? '')
+  const [color, setColor] = useState(t?.color ?? '')
   const [error, setError] = useState<string | null>(null)
   const [saved, setSaved] = useState(false)
   const [pending, start] = useTransition()
   const idp = t ? `t-${t.id}` : 't-new'
-  const dirty = !t || name !== t.name || startT !== t.start || endT !== t.end || brk !== String(t.breakMinutes) || active !== t.active
+  const dirty =
+    !t ||
+    name !== t.name ||
+    startT !== t.start ||
+    endT !== t.end ||
+    brk !== String(t.breakMinutes) ||
+    active !== t.active ||
+    code !== t.shortCode ||
+    color !== t.color
+  const shownCode = code.trim() || (name ? autoShortCode(name) : '?')
   const len = /^\d\d:\d\d$/.test(startT) && /^\d\d:\d\d$/.test(endT) && startT !== endT ? shiftLengthMinutes({ start: startT, end: endT }) : null
   const paid = len !== null ? Math.max(0, len - (Number(brk) || 0)) : null
 
@@ -186,7 +212,7 @@ function TemplateRow({ t }: { t: ShiftTemplate | null }) {
         start(async () => {
           setError(null)
           setSaved(false)
-          const r = await saveTemplate({ id: t?.id, name, start: startT, end: endT, breakMinutes: Number(brk), active })
+          const r = await saveTemplate({ id: t?.id, name, start: startT, end: endT, breakMinutes: Number(brk), active, shortCode: code, color })
           if (!r.ok) {
             setError(r.error)
             return
@@ -196,6 +222,8 @@ function TemplateRow({ t }: { t: ShiftTemplate | null }) {
             setStart('')
             setEnd('')
             setBrk('60')
+            setCode('')
+            setColor('')
           } else setSaved(true)
           router.refresh()
         })
@@ -226,6 +254,36 @@ function TemplateRow({ t }: { t: ShiftTemplate | null }) {
         {pending ? <Spinner className="h-4 w-4" /> : !t && <Plus className="h-4 w-4" aria-hidden="true" />}
         {t ? tr(timeCopy.save) : tr(timeCopy.addShift)}
       </button>
+      {/* Code and colour on the monthly roster (§26). */}
+      <div className="flex flex-wrap items-center gap-3 md:col-span-6">
+        <label className="flex items-center gap-2 text-xs font-semibold text-muted-foreground" htmlFor={`${idp}-code`}>
+          {tr(timeCopy.shiftCode)}
+          <input
+            id={`${idp}-code`}
+            maxLength={3}
+            value={code}
+            onChange={(e) => setCode(e.target.value)}
+            placeholder={name ? autoShortCode(name) : ''}
+            className={cn(inputClass, 'w-16 text-center')}
+          />
+        </label>
+        <span className="text-xs font-semibold text-muted-foreground">{tr(timeCopy.shiftColor)}</span>
+        <div className="flex flex-wrap gap-1.5">
+          {SHIFT_COLORS.map((c) => (
+            <button
+              key={c}
+              type="button"
+              aria-label={c}
+              aria-pressed={color === c}
+              onClick={() => setColor(c)}
+              className={cn('h-7 w-7 rounded-md text-[11px] font-bold text-white ring-offset-2', color === c && 'ring-2 ring-foreground')}
+              style={{ backgroundColor: c }}
+            >
+              {color === c ? shownCode : ''}
+            </button>
+          ))}
+        </div>
+      </div>
       <p className="text-xs text-muted-foreground md:col-span-6">
         {paid !== null && (
           <>
@@ -245,6 +303,7 @@ function RulesForm({ settings }: { settings: TimeSettings }) {
   const router = useRouter()
   const [grace, setGrace] = useState(String(settings.lateGraceMinutes))
   const [ot, setOt] = useState(String(settings.otMinMinutes))
+  const [minStaff, setMinStaff] = useState(String(settings.minStaffPerDay))
   const [error, setError] = useState<string | null>(null)
   const [saved, setSaved] = useState(false)
   const [pending, start] = useTransition()
@@ -257,13 +316,13 @@ function RulesForm({ settings }: { settings: TimeSettings }) {
           start(async () => {
             setError(null)
             setSaved(false)
-            const r = await saveTimeSettings(Number(grace), Number(ot))
+            const r = await saveTimeSettings(Number(grace), Number(ot), Number(minStaff))
             if (!r.ok) setError(r.error)
             else setSaved(true)
             router.refresh()
           })
         }}
-        className="mt-3 grid gap-4 md:grid-cols-[1fr_1fr_auto] md:items-end"
+        className="mt-3 grid gap-4 md:grid-cols-[1fr_1fr_1fr_auto] md:items-end"
       >
         <label className="flex flex-col gap-1 text-xs font-semibold text-muted-foreground" htmlFor="rule-grace">
           {tr(timeCopy.ruleGrace)}
@@ -275,12 +334,17 @@ function RulesForm({ settings }: { settings: TimeSettings }) {
           <input id="rule-ot" type="number" min={0} max={240} value={ot} onChange={(e) => setOt(e.target.value)} className={inputClass} />
           <span className="font-normal">{tr(timeCopy.ruleOtHint)}</span>
         </label>
+        <label className="flex flex-col gap-1 text-xs font-semibold text-muted-foreground" htmlFor="rule-min-staff">
+          {tr(timeCopy.ruleMinStaff)}
+          <input id="rule-min-staff" type="number" min={0} max={50} value={minStaff} onChange={(e) => setMinStaff(e.target.value)} className={inputClass} />
+          <span className="font-normal">{tr(timeCopy.ruleMinStaffHint)}</span>
+        </label>
         <button type="submit" disabled={pending} className={cn(btn, 'bg-primary text-primary-foreground hover:opacity-90')}>
           {pending && <Spinner className="h-4 w-4" />}
           {tr(timeCopy.save)}
         </button>
         {(saved || error) && (
-          <p className="text-sm md:col-span-3">
+          <p className="text-sm md:col-span-4">
             {saved && <span className="font-semibold text-accent">✓ {tr(timeCopy.saved)}</span>}
             {error && <span className="font-semibold text-destructive">{tr(shiftErrors[error] ?? shiftErrors.failed)}</span>}
           </p>

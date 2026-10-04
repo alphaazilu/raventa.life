@@ -111,6 +111,18 @@ export async function approvedLeaveBetween(from: string, to: string): Promise<{ 
   return (data ?? []).map((r) => ({ staffId: r.staff_id, start: r.start_date, end: r.end_date, kind: r.kind as LeaveKind }))
 }
 
+// Requests still waiting that overlap a date range (monthly roster).
+export async function pendingLeaveBetween(from: string, to: string): Promise<{ staffId: string; start: string; end: string; kind: LeaveKind }[]> {
+  const { data, error } = await createAdminClient()
+    .from('leave_requests')
+    .select('staff_id, start_date, end_date, kind')
+    .eq('status', 'pending')
+    .lte('start_date', to)
+    .gte('end_date', from)
+  if (error) return []
+  return (data ?? []).map((r) => ({ staffId: r.staff_id, start: r.start_date, end: r.end_date, kind: r.kind as LeaveKind }))
+}
+
 // Admin view of one waiting request: per day, the shift they were down for,
 // how many others are working, and who else is off.
 export type LeaveDayCheck = { date: string; myShift: string | null; working: number; othersOff: string[] }
@@ -135,14 +147,14 @@ export async function checkLeaveDays(
     const list: LeaveDayCheck[] = []
     for (let d = r.start; d <= r.end && list.length < 60; d = new Date(Date.parse(`${d}T00:00:00Z`) + 86_400_000).toISOString().slice(0, 10)) {
       const day = (rows ?? []).filter((a) => a.work_date === d)
-      const mine = day.find((a) => a.staff_id === r.staffId)
+      const mine = day.filter((a) => a.staff_id === r.staffId && a.template_id)
       const off = new Set<string>()
       for (const a of day) if (a.staff_id !== r.staffId && a.day_off) off.add(a.staff_id)
       for (const l of offLeave) if (l.staffId !== r.staffId && l.start <= d && l.end >= d) off.add(l.staffId)
       list.push({
         date: d,
-        myShift: mine?.template_id ? (tName.get(mine.template_id) ?? null) : null,
-        working: day.filter((a) => a.staff_id !== r.staffId && a.template_id && !off.has(a.staff_id)).length,
+        myShift: mine.length ? mine.map((a) => tName.get(a.template_id) ?? '?').join(' + ') : null,
+        working: new Set(day.filter((a) => a.staff_id !== r.staffId && a.template_id && !off.has(a.staff_id)).map((a) => a.staff_id)).size,
         othersOff: [...off].map((id) => nameOf.get(id) ?? '—'),
       })
     }

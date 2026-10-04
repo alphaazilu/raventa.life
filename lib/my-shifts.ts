@@ -8,9 +8,12 @@ import type { LeaveBalance, LeaveRequest, LeaveRules } from '@/lib/leave'
 // My account › My shifts (staff only): this week and next on the roster,
 // who else works today, and the person's leave requests (§17, §25).
 
+export type MyShift = { name: string; start: string; end: string; color: number; hex: string }
+
 export type MyShiftDay = {
   date: string
-  shift: { name: string; start: string; end: string; color: number } | null
+  shift: MyShift | null // the first (earliest) of the day
+  shifts: MyShift[] // all of the day's shifts, earliest first (v0.26)
   dayOff: boolean
 }
 
@@ -36,19 +39,18 @@ export async function loadMyShifts(staffId: string, today: string): Promise<MySh
       getAppSettings(),
     ])
     const tIndex = new Map(templates.map((t, i) => [t.id, { t, i }]))
-    const byDate = new Map(mine.map((a) => [a.date, a]))
     const days: MyShiftDay[] = Array.from({ length: 14 }, (_, i) => {
       const date = addDays(from, i)
-      const a = byDate.get(date)
-      const hit = a?.templateId ? tIndex.get(a.templateId) : undefined
-      return {
-        date,
-        shift: hit ? { name: hit.t.name, start: hit.t.start, end: hit.t.end, color: hit.i } : null,
-        dayOff: Boolean(a?.dayOff),
-      }
+      const list = mine.filter((a) => a.date === date)
+      const shifts = list
+        .map((a) => (a.templateId ? tIndex.get(a.templateId) : undefined))
+        .filter((h): h is NonNullable<typeof h> => Boolean(h))
+        .map((h) => ({ name: h.t.name, start: h.t.start, end: h.t.end, color: h.i, hex: h.t.color }))
+        .sort((x, y) => x.start.localeCompare(y.start))
+      return { date, shift: shifts[0] ?? null, shifts, dayOff: list.some((a) => a.dayOff) }
     })
 
-    const others = everyoneToday.filter((a) => a.staffId !== staffId && a.templateId).map((a) => a.staffId)
+    const others = [...new Set(everyoneToday.filter((a) => a.staffId !== staffId && a.templateId).map((a) => a.staffId))]
     let todayWith: string[] = []
     if (others.length) {
       const { data } = await createAdminClient().from('profiles').select('id, first_name').in('id', others)

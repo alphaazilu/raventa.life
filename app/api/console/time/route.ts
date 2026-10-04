@@ -3,7 +3,7 @@ import { getConsoleSession } from '@/lib/console/session'
 import { addDays, isoToBangkokLocal, listEntries, minutesOf, isForgotten, weekStart } from '@/lib/console/time'
 import { bangkokToday } from '@/lib/check-in/day'
 import { isAdmin } from '@/lib/auth/roles'
-import { DEFAULT_SETTINGS, entryStats, getTimeSettings, listAssignments, listTemplates } from '@/lib/console/shifts'
+import { DEFAULT_SETTINGS, entryStats, getTimeSettings, groupAssignments, listAssignments, listTemplates } from '@/lib/console/shifts'
 
 export const dynamic = 'force-dynamic'
 
@@ -23,7 +23,7 @@ export async function GET(request: NextRequest) {
     getTimeSettings().catch(() => DEFAULT_SETTINGS),
   ])
   const tmap = new Map(templates.map((t) => [t.id, t]))
-  const amap = new Map(assignments.map((a) => [`${a.staffId}|${a.date}`, a]))
+  const amap = groupAssignments(assignments)
   const now = Date.now()
 
   const cell = (v: string | number) => {

@@ -4,7 +4,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { verifyMemberQrToken } from '@/lib/member-card'
 import { getCurrentDevice } from '@/lib/console/device'
 import { addDays, getOpenEntry, minutesOf } from '@/lib/console/time'
-import { entryStats, getTimeSettings, listAssignments, listTemplates } from '@/lib/console/shifts'
+import { entryStats, getTimeSettings, listAssignments, listTemplates, pickAssignment } from '@/lib/console/shifts'
 import { bangkokToday } from '@/lib/check-in/day'
 
 // Tablet lock screen › "Clock in/out" (v0.21): scan your member card to
@@ -30,15 +30,17 @@ export type ClockResult =
 
 const JUST_IN_MS = 5 * 60 * 1000
 
-async function shiftFor(staffId: string, date: string) {
+async function shiftFor(staffId: string, date: string, at = new Date().toISOString()) {
   const [templates, assignments, rules] = await Promise.all([
     listTemplates().catch(() => []),
     listAssignments(date, addDays(date, 1), staffId).catch(() => []),
     getTimeSettings(),
   ])
-  const a = assignments.find((x) => x.date === date)
+  // Several shifts a day (v0.26): the one starting nearest to now.
   const tmap = new Map(templates.map((t) => [t.id, t]))
-  const t = a?.templateId ? tmap.get(a.templateId) : undefined
+  const a = assignments.filter((x) => x.date === date)
+  const near = pickAssignment(a, at, date, tmap)
+  const t = near?.templateId ? tmap.get(near.templateId) : undefined
   return { a, tmap, rules, shift: t ? { name: t.name, start: t.start, end: t.end } : null }
 }
 
@@ -71,7 +73,7 @@ export async function clockByCard(rawToken: string, confirmOut: boolean): Promis
   }
 
   const inDate = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Bangkok' }).format(new Date(open.clockIn))
-  const s = await shiftFor(check.userId, inDate)
+  const s = await shiftFor(check.userId, inDate, open.clockIn)
 
   if (!confirmOut) {
     const worked = minutesOf(open)

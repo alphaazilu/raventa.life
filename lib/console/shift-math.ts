@@ -7,6 +7,24 @@ export type ShiftTemplate = {
   end: string // "17:00" — earlier than start means the next day
   breakMinutes: number
   active: boolean
+  shortCode: string // 1–3 letters on the monthly roster (§26); auto when not set
+  color: string // #RRGGBB (§26); auto when not set
+}
+
+// Colours for shifts on the roster (white text on each), in order.
+export const SHIFT_COLORS = ['#2E4636', '#B5763A', '#3F6C9C', '#7D4E8F', '#2F8072', '#A3485A', '#5B6470', '#8A7A2E']
+
+// "กะเช้า" → "ช", "Morning" → "M": the first letter after a leading "กะ",
+// skipping Thai leading vowels.
+export function autoShortCode(name: string): string {
+  const s = name.replace(/^กะ\s*/, '').trim() || name.trim()
+  const ch = [...s].find((c) => !'เแโใไ'.includes(c))
+  return (ch ?? s[0] ?? '?').toUpperCase()
+}
+
+// Paid minutes of one shift (length minus break).
+export function paidMinutes(t: Pick<ShiftTemplate, 'start' | 'end' | 'breakMinutes'>): number {
+  return Math.max(0, shiftLengthMinutes(t) - t.breakMinutes)
 }
 
 export type ShiftAssignment = {
@@ -16,9 +34,9 @@ export type ShiftAssignment = {
   dayOff: boolean
 }
 
-export type TimeSettings = { lateGraceMinutes: number; otMinMinutes: number }
+export type TimeSettings = { lateGraceMinutes: number; otMinMinutes: number; minStaffPerDay: number }
 
-export const DEFAULT_SETTINGS: TimeSettings = { lateGraceMinutes: 5, otMinMinutes: 30 }
+export const DEFAULT_SETTINGS: TimeSettings = { lateGraceMinutes: 5, otMinMinutes: 30, minStaffPerDay: 0 }
 
 // ---- pure helpers (also used in the browser) ----
 
@@ -44,16 +62,54 @@ export type EntryStats = {
   paidMinutes: number // worked minus the shift's unpaid break
 }
 
-// Compare one clock entry with the person's shift that day. Open entries
-// only get "late" (the rest isn't known yet).
+// Everyone's plan grouped by "staffId|date" — a person may have several
+// shifts in a day (v0.26).
+export function groupAssignments(list: ShiftAssignment[]): Map<string, ShiftAssignment[]> {
+  const out = new Map<string, ShiftAssignment[]>()
+  for (const a of list) {
+    const k = `${a.staffId}|${a.date}`
+    const l = out.get(k)
+    if (l) l.push(a)
+    else out.set(k, [a])
+  }
+  return out
+}
+
+// Of a day's shifts, the one a clock-in belongs to: the shift whose start
+// is nearest to it. A day off comes back as itself.
+export function pickAssignment(
+  list: ShiftAssignment[] | ShiftAssignment | undefined,
+  clockIn: string,
+  date: string,
+  templates: Map<string, ShiftTemplate>,
+): ShiftAssignment | undefined {
+  const all = Array.isArray(list) ? list : list ? [list] : []
+  const shifts = all.filter((a) => a.templateId && templates.has(a.templateId))
+  if (shifts.length === 0) return all[0]
+  const at = Date.parse(clockIn)
+  let best = shifts[0]
+  let gap = Infinity
+  for (const a of shifts) {
+    const d = Math.abs(shiftWindow(date, templates.get(a.templateId as string)!).start - at)
+    if (d < gap) {
+      gap = d
+      best = a
+    }
+  }
+  return best
+}
+
+// Compare one clock entry with the person's shift that day (the nearest
+// one when there are several). Open entries only get "late".
 export function entryStats(
   e: { clockIn: string; clockOut: string | null },
   workedMinutes: number,
   date: string,
-  assignment: ShiftAssignment | undefined,
+  assignments: ShiftAssignment[] | ShiftAssignment | undefined,
   templates: Map<string, ShiftTemplate>,
   rules: TimeSettings,
 ): EntryStats {
+  const assignment = pickAssignment(assignments, e.clockIn, date, templates)
   const t = assignment?.templateId ? templates.get(assignment.templateId) : undefined
   if (!t) return { shiftName: assignment?.dayOff ? 'off' : null, scheduled: false, lateMinutes: 0, earlyMinutes: 0, otMinutes: 0, paidMinutes: workedMinutes }
   const w = shiftWindow(date, t)

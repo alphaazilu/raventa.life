@@ -9,11 +9,12 @@ import { Spinner } from '@/components/ui/spinner'
 import { timeCopy, timeErrors } from '@/lib/console/copy'
 import { TIME_PATH } from '@/lib/auth/roles'
 import type { TimeEntry } from '@/lib/console/time'
-import { entryStats, isForgotten, minutesOf, type ShiftAssignment, type ShiftTemplate, type TimeSettings } from '@/lib/console/shift-math'
+import { entryStats, groupAssignments, isForgotten, minutesOf, type ShiftAssignment, type ShiftTemplate, type TimeSettings } from '@/lib/console/shift-math'
 import { RosterGrid, ShiftSettings } from '@/components/console/shift-admin'
 import { addEntry, clockOut, editEntry } from '@/app/console/time/actions'
 import { cn } from '@/lib/utils'
 import { LeaveAdmin } from '@/components/console/leave-admin'
+import { RosterMonth, type LeaveMark } from '@/components/console/roster-month'
 import type { LeaveRequest } from '@/lib/leave'
 import type { LeaveDayCheck } from '@/lib/leave-server'
 
@@ -50,6 +51,7 @@ export function TimeView({
   settings,
   pendingLeave = 0,
   leave = null,
+  month = null,
 }: {
   admin: boolean
   onTablet: boolean
@@ -68,11 +70,19 @@ export function TimeView({
   settings: TimeSettings
   pendingLeave?: number
   leave?: { pending: LeaveRequest[]; decided: LeaveRequest[]; checks: Record<string, LeaveDayCheck[]> } | null
+  // Roster as a whole month (v0.25); null = the weekly roster.
+  month?: {
+    start: string
+    assignments: ShiftAssignment[]
+    approved: LeaveMark[]
+    pending: LeaveMark[]
+    holidays: { day: string; name: string }[]
+  } | null
 }) {
   const { tr, lang } = useLanguage()
   const router = useRouter()
   const tmap = useMemo(() => new Map(templates.map((t) => [t.id, t])), [templates])
-  const amap = useMemo(() => new Map(assignments.map((a) => [`${a.staffId}|${a.date}`, a])), [assignments])
+  const amap = useMemo(() => groupAssignments(assignments), [assignments])
   const statsOf = (e: TimeEntry, now: number) =>
     entryStats(e, minutesOf(e, now), toLocal(e.clockIn).slice(0, 10), amap.get(`${e.staffId}|${toLocal(e.clockIn).slice(0, 10)}`), tmap, settings)
   const locale = lang === 'th' ? 'th-TH' : 'en-GB'
@@ -88,12 +98,31 @@ export function TimeView({
   const fmtDur = (min: number) => `${Math.floor(min / 60)} ${tr(timeCopy.hoursShort)} ${String(min % 60).padStart(2, '0')} ${tr(timeCopy.minutesShort)}`
   const weekLabel = `${fmtDay(`${weekStart}T12:00:00+07:00`)} – ${fmtDay(`${addDays(weekStart, 6)}T12:00:00+07:00`)}`
   const isThisWeek = today >= weekStart && today < addDays(weekStart, 7)
+  const monthMode = admin && view === 'roster' && month !== null
 
   return (
     <div className="mx-auto flex max-w-7xl flex-col gap-6 px-4 py-6 md:px-6 md:py-8">
-      <div className="flex flex-wrap items-center justify-between gap-3">
+      <div className="flex flex-wrap items-center justify-between gap-3 print:hidden">
         <h1 className="font-display text-2xl font-extrabold text-foreground md:text-3xl">{tr(timeCopy.heading)}</h1>
-        <div className="flex flex-wrap items-center gap-2">
+        {admin && view === 'roster' && (
+          <div className="ml-auto inline-flex rounded-full bg-secondary p-1 text-sm font-semibold">
+            <Link
+              href={`${TIME_PATH}?view=roster&mode=week&week=${month ? (today.startsWith(month.start.slice(0, 7)) ? today : month.start) : weekStart}`}
+              aria-current={!monthMode ? 'page' : undefined}
+              className={cn('rounded-full px-4 py-1.5', !monthMode ? 'bg-background shadow-sm' : 'text-muted-foreground')}
+            >
+              {tr(timeCopy.modeWeek)}
+            </Link>
+            <Link
+              href={`${TIME_PATH}?view=roster&month=${(month?.start ?? weekStart).slice(0, 7)}`}
+              aria-current={monthMode ? 'page' : undefined}
+              className={cn('rounded-full px-4 py-1.5', monthMode ? 'bg-background shadow-sm' : 'text-muted-foreground')}
+            >
+              {tr(timeCopy.modeMonth)}
+            </Link>
+          </div>
+        )}
+        <div className={cn('flex flex-wrap items-center gap-2', monthMode && 'hidden')}>
           <Link href={`${TIME_PATH}?week=${addDays(weekStart, -7)}${view !== 'entries' ? `&view=${view}` : ''}`} aria-label={tr(timeCopy.prevWeek)} className="flex h-9 w-9 items-center justify-center rounded-full border border-border hover:border-primary/40">
             <ChevronLeft className="h-4 w-4" aria-hidden="true" />
           </Link>
@@ -125,11 +154,11 @@ export function TimeView({
       </div>
 
       {admin && (
-        <nav aria-label={tr(timeCopy.heading)} className="flex flex-wrap gap-2">
+        <nav aria-label={tr(timeCopy.heading)} className="flex flex-wrap gap-2 print:hidden">
           {(['entries', 'roster', 'shifts', 'leave'] as const).map((v) => (
             <Link
               key={v}
-              href={`${TIME_PATH}?week=${weekStart}${v === 'entries' ? '' : `&view=${v}`}`}
+              href={`${TIME_PATH}?week=${weekStart}${v === 'entries' ? '' : `&view=${v}`}${v === 'roster' && month ? `&month=${month.start.slice(0, 7)}` : ''}`}
               aria-current={view === v ? 'page' : undefined}
               className={cn(
                 'rounded-full px-4 py-2 text-sm font-semibold',
@@ -180,7 +209,20 @@ export function TimeView({
       {admin && view === 'entries' && (
         <AdminTime entries={entries} open={open} staff={staff} now={now} fmtDay={fmtDay} fmtTime={fmtTime} fmtDur={fmtDur} statsOf={statsOf} />
       )}
-      {admin && view === 'roster' && shiftsReady && (
+      {monthMode && shiftsReady && month && (
+        <RosterMonth
+          monthStart={month.start}
+          today={today}
+          staff={staff}
+          templates={templates}
+          assignments={month.assignments}
+          approved={month.approved}
+          pending={month.pending}
+          holidays={month.holidays}
+          minStaff={settings.minStaffPerDay}
+        />
+      )}
+      {admin && view === 'roster' && !monthMode && shiftsReady && (
         <RosterGrid weekStart={weekStart} today={today} staff={staff} templates={templates} assignments={assignments} fmtDay={fmtDay} />
       )}
       {admin && view === 'shifts' && shiftsReady && <ShiftSettings templates={templates} settings={settings} />}
@@ -585,20 +627,31 @@ function MySchedule({
   fmtDay: (iso: string) => string
 }) {
   const { tr } = useLanguage()
-  const byDate = new Map(assignments.map((a) => [a.date, a]))
   const days = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i))
   return (
     <section className="rounded-2xl border border-border bg-card p-5">
       <h2 className="text-base font-semibold">{tr(timeCopy.mySchedule)}</h2>
       <ul className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-7">
         {days.map((d) => {
-          const a = byDate.get(d)
-          const t = a?.templateId ? tmap.get(a.templateId) : undefined
+          const list = assignments.filter((a) => a.date === d)
+          const shifts = list
+            .map((a) => (a.templateId ? tmap.get(a.templateId) : undefined))
+            .filter((t): t is ShiftTemplate => Boolean(t))
+            .sort((x, y) => x.start.localeCompare(y.start))
           return (
             <li key={d} className={cn('rounded-xl border px-3 py-2.5', d === today ? 'border-primary' : 'border-border')}>
               <p className="text-xs text-muted-foreground">{fmtDay(`${d}T12:00:00+07:00`)}</p>
-              <p className="mt-0.5 text-sm font-semibold">{t ? t.name : a?.dayOff ? tr(timeCopy.dayOff) : '—'}</p>
-              {t && <p className="text-xs tabular-nums text-muted-foreground">{t.start}–{t.end}</p>}
+              {shifts.length === 0 && (
+                <p className="mt-0.5 text-sm font-semibold">{list.some((a) => a.dayOff) ? tr(timeCopy.dayOff) : '—'}</p>
+              )}
+              {shifts.map((t) => (
+                <div key={t.id}>
+                  <p className="mt-0.5 text-sm font-semibold">{t.name}</p>
+                  <p className="text-xs tabular-nums text-muted-foreground">
+                    {t.start}–{t.end}
+                  </p>
+                </div>
+              ))}
             </li>
           )
         })}

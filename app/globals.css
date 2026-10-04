@@ -142,3 +142,19 @@
     opacity: 0;
   }
 }
+
+/* Printing the monthly roster (Back Office › Time › Roster › Print). */
+.print-color {
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
+}
+@media print {
+  @page {
+    size: A4 landscape;
+    margin: 8mm;
+  }
+  html,
+  body {
+    background: #fff !important;
+  }
+}

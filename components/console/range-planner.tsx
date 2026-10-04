@@ -28,10 +28,13 @@ export function RangePlanner({
   staff,
   templates,
   today,
+  monthView = false,
 }: {
   staff: { id: string; name: string }[]
   templates: ShiftTemplate[]
   today: string
+  // On the monthly roster: show the month the plan starts in, no "next week".
+  monthView?: boolean
 }) {
   const { tr, lang } = useLanguage()
   const router = useRouter()
@@ -43,7 +46,7 @@ export function RangePlanner({
   const [who, setWho] = useState<Set<string>>(new Set())
   const [days, setDays] = useState<Set<number>>(new Set(WEEK))
   const [value, setValue] = useState(templates[0]?.id ?? 'off')
-  const [overwrite, setOverwrite] = useState(true)
+  const [mode, setMode] = useState<'replace' | 'empty' | 'add'>('replace')
   const [msg, setMsg] = useState<{ ok: boolean; text: string; nextWeek?: string } | null>(null)
 
   const dayName = (wd: number) =>
@@ -95,7 +98,7 @@ export function RangePlanner({
   const apply = () =>
     start(async () => {
       if (!from || !end) return
-      const r = await setAssignmentRange({ staffIds: [...who], from, to: end, weekdays: [...days], value, overwrite })
+      const r = await setAssignmentRange({ staffIds: [...who], from, to: end, weekdays: [...days], value, mode: mode === 'add' && (!value || value === 'off') ? 'replace' : mode })
       if (!r.ok) {
         setMsg({ ok: false, text: tr(shiftErrors[r.error] ?? shiftErrors.failed) })
         return
@@ -113,10 +116,10 @@ export function RangePlanner({
       setMsg({
         ok: true,
         text: fill(tr(who.size > 1 ? timeCopy.planSavedMany : timeCopy.planSaved), { n, range }),
-        nextWeek: end >= next ? next : undefined,
+        nextWeek: !monthView && end >= next ? next : undefined,
       })
-      // Show the week the plan starts in, so the saved shifts are on screen.
-      router.push(`${TIME_PATH}?week=${week}&view=roster`)
+      // Show the week (or month) the plan starts in, so the saved shifts are on screen.
+      router.push(monthView ? `${TIME_PATH}?view=roster&month=${from.slice(0, 7)}` : `${TIME_PATH}?week=${week}&view=roster&mode=week`)
       router.refresh()
     })
 
@@ -237,10 +240,23 @@ export function RangePlanner({
               <option value="">{tr(timeCopy.planClear)}</option>
             </select>
           </div>
-          <label className="flex items-center gap-2">
-            <input type="checkbox" checked={overwrite} onChange={(e) => setOverwrite(e.target.checked)} className="h-4 w-4 accent-primary" />
-            {tr(timeCopy.planOverwrite)}
-          </label>
+          {/* How it meets days already planned (v0.26: "add" = a second shift). */}
+          <div className="flex flex-wrap gap-1.5">
+            {(['replace', 'add', 'empty'] as const).map((m) => (
+              <button
+                key={m}
+                type="button"
+                disabled={m === 'add' && (!value || value === 'off')}
+                onClick={() => setMode(m)}
+                className={cn(
+                  'rounded-full border px-3 py-1.5 text-xs font-semibold disabled:opacity-40',
+                  mode === m ? 'border-primary bg-primary text-primary-foreground' : 'border-border bg-background hover:border-primary/40',
+                )}
+              >
+                {tr(m === 'replace' ? timeCopy.planModeReplace : m === 'add' ? timeCopy.planModeAdd : timeCopy.planModeEmpty)}
+              </button>
+            ))}
+          </div>
           <div className="flex flex-wrap items-center gap-3">
             <button
               type="button"

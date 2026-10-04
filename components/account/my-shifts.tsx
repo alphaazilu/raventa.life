@@ -41,7 +41,6 @@ const t = {
   noteFrom: { th: 'หมายเหตุจากแอดมิน: {n}', en: 'Admin’s note: {n}' },
 } satisfies Record<string, L>
 
-const BAR = ['bg-primary', 'bg-accent', 'bg-wood', 'bg-forest', 'bg-sand', 'bg-stone']
 
 const STATUS_CLS: Record<LeaveRequest['status'], string> = {
   pending: 'bg-amber-500/15 text-amber-800 dark:text-amber-300',
@@ -97,12 +96,14 @@ export function MyShifts({ data }: { data: Data }) {
             <StatusBadge status={todayLeave.status} className="ml-2 align-middle" />
           </p>
         ) : todayRow?.shift ? (
-          <p className="mt-1 font-display text-xl font-extrabold">
-            {todayRow.shift.name}
-            <span className="ml-2 text-base font-semibold tabular-nums text-muted-foreground">
-              {todayRow.shift.start}–{todayRow.shift.end}
-            </span>
-          </p>
+          todayRow.shifts.map((s) => (
+            <p key={`${s.name}${s.start}`} className="mt-1 font-display text-xl font-extrabold">
+              {s.name}
+              <span className="ml-2 text-base font-semibold tabular-nums text-muted-foreground">
+                {s.start}–{s.end}
+              </span>
+            </p>
+          ))
         ) : (
           <>
             <p className="mt-1 font-display text-lg font-extrabold">{tr(todayRow?.dayOff ? t.dayOffToday : t.noShiftToday)}</p>
@@ -185,16 +186,24 @@ function DayRow({
   const past = day.date < today
   const content = (
     <>
-      <span className={cn('h-8 w-1 shrink-0 rounded-full', day.shift ? BAR[day.shift.color % BAR.length] : 'bg-transparent')} aria-hidden="true" />
+      <span className="flex h-8 w-1 shrink-0 flex-col gap-0.5" aria-hidden="true">
+        {day.shifts.length ? (
+          day.shifts.map((s) => <span key={s.start} className="w-1 flex-1 rounded-full" style={{ backgroundColor: s.hex }} />)
+        ) : (
+          <span className="w-1 flex-1" />
+        )}
+      </span>
       <span className={cn('w-24 shrink-0 text-sm', day.date === today && 'font-bold text-primary')}>{label}</span>
       <span className="min-w-0 flex-1 text-sm">
-        {day.shift ? (
-          <>
-            <span className="font-semibold">{day.shift.name}</span>
-            <span className="ml-2 tabular-nums text-muted-foreground">
-              {day.shift.start}–{day.shift.end}
+        {day.shifts.length ? (
+          day.shifts.map((s) => (
+            <span key={s.start} className="block">
+              <span className="font-semibold">{s.name}</span>
+              <span className="ml-2 tabular-nums text-muted-foreground">
+                {s.start}–{s.end}
+              </span>
             </span>
-          </>
+          ))
         ) : day.dayOff ? (
           <span className="text-muted-foreground">{tr(t.off)}</span>
         ) : (
