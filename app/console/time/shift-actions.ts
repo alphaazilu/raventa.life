@@ -4,6 +4,7 @@ import { isMissingTable, requireAdmin } from '@/lib/console/guard'
 import { revalidatePath } from 'next/cache'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { TIME_PATH } from '@/lib/auth/roles'
+import { applyPlans, MAX_SHIFTS_A_DAY, readDays, withShift, type CellPlan } from '@/lib/console/roster-write'
 
 // Admin: shift templates, the weekly roster and the late/OT rules (§17).
 
@@ -76,26 +77,14 @@ export async function saveTimeSettings(lateGraceMinutes: number, otMinMinutes: n
   return { ok: true }
 }
 
-// One day of one person's plan, replaced as a whole (v0.26: a day may hold
-// several shifts). Delete then insert — the unique index is per shift.
-async function replaceDay(staffId: string, date: string, templateIds: string[], off: boolean, userId: string): Promise<ShiftResult> {
-  const admin = createAdminClient()
-  const { error } = await admin.from('shift_assignments').delete().eq('staff_id', staffId).eq('work_date', date)
-  if (error) return { ok: false, error: missing(error) ? 'not_set_up' : 'failed' }
-  const now = new Date().toISOString()
-  type Row = { staff_id: string; work_date: string; template_id: string | null; day_off: boolean; updated_by: string; updated_at: string }
-  const rows: Row[] = off
-    ? [{ staff_id: staffId, work_date: date, template_id: null, day_off: true, updated_by: userId, updated_at: now }]
-    : templateIds.map((id) => ({ staff_id: staffId, work_date: date, template_id: id, day_off: false, updated_by: userId, updated_at: now }))
-  if (rows.length) {
-    const { error: insErr } = await admin.from('shift_assignments').insert(rows)
-    if (insErr) return { ok: false, error: 'failed' }
-  }
-  return { ok: true }
-}
-
 const UUID_RE = /^[0-9a-f-]{36}$/i
-const MAX_SHIFTS_A_DAY = 3
+
+// One day of one person's plan, set as a whole — written safely (see
+// lib/console/roster-write: nothing is removed before the new rows exist).
+async function replaceDay(staffId: string, date: string, templateIds: string[], off: boolean, userId: string): Promise<ShiftResult> {
+  const r = await applyPlans([{ staffId, date, plan: off ? { off: true } : { shifts: templateIds } }], userId)
+  return r.ok ? { ok: true } : r
+}
 
 // value: a template id, 'off' (day off) or '' (nothing planned) — the day
 // becomes just that (the weekly grid's dropdown).
@@ -120,6 +109,41 @@ export async function setDayShifts(staffId: string, date: string, value: { off: 
   const r = await replaceDay(staffId, date, ids, 'off' in value, ctx.userId)
   if (r.ok) revalidatePath(TIME_PATH)
   return r
+}
+
+// Monthly roster, many cells at once (drag-select, v0.26.1): each chosen
+// day becomes a shift / a day off / nothing, or gets a shift added.
+export type BulkAction = { set: string } | { add: string } | { off: true } | { clear: true }
+
+export async function setCells(cells: { staffId: string; date: string }[], action: BulkAction): Promise<ShiftResult & { count?: number }> {
+  const ctx = await requireAdmin()
+  if ('error' in ctx) return { ok: false, error: ctx.error }
+  const uniq = [...new Map(cells.filter((c) => UUID_RE.test(c.staffId) && DATE_RE.test(c.date)).map((c) => [`${c.staffId}|${c.date}`, c])).values()]
+  if (uniq.length === 0) return { ok: false, error: 'bad_range' }
+  if (uniq.length > 600) return { ok: false, error: 'range_too_long' }
+  const tid = 'set' in action ? action.set : 'add' in action ? action.add : null
+  if (tid !== null && !UUID_RE.test(tid)) return { ok: false, error: 'bad_range' }
+  let existing
+  try {
+    existing = await readDays(uniq)
+  } catch {
+    return { ok: false, error: 'failed' }
+  }
+  const plans: CellPlan[] = uniq.map((c) => ({
+    ...c,
+    plan:
+      'off' in action
+        ? { off: true }
+        : 'clear' in action
+          ? { shifts: [] }
+          : 'set' in action
+            ? { shifts: [action.set] }
+            : withShift(existing.get(`${c.staffId}|${c.date}`) ?? [], action.add),
+  }))
+  const r = await applyPlans(plans, ctx.userId, existing)
+  if (!r.ok) return r
+  revalidatePath(TIME_PATH)
+  return { ok: true, count: r.changed }
 }
 
 // Copy last week's roster onto this week (only days still empty).
@@ -234,56 +258,28 @@ export async function setAssignmentRange(input: {
   }
   if (dates.length === 0) return { ok: false, error: 'bad_range' }
 
-  const admin = createAdminClient()
-  const { data: cur, error: curErr } = await admin
-    .from('shift_assignments')
-    .select('staff_id, work_date, template_id, day_off')
-    .in('staff_id', staffIds)
-    .gte('work_date', dates[0])
-    .lte('work_date', dates[dates.length - 1])
-  if (curErr) return { ok: false, error: missing(curErr) ? 'not_set_up' : 'failed' }
-  const byDay = new Map<string, { template_id: string | null; day_off: boolean }[]>()
-  for (const r of cur ?? []) {
-    const k = `${r.staff_id}|${r.work_date}`
-    byDay.set(k, [...(byDay.get(k) ?? []), r])
+  const cells = staffIds.flatMap((staffId) => dates.map((date) => ({ staffId, date })))
+  let existing
+  try {
+    existing = await readDays(cells)
+  } catch (err) {
+    return { ok: false, error: missing(err as { code?: string }) ? 'not_set_up' : 'failed' }
   }
-
-  let targets = staffIds.flatMap((staff_id) => dates.map((work_date) => ({ staff_id, work_date })))
-  if (mode === 'empty') targets = targets.filter((t) => !byDay.has(`${t.staff_id}|${t.work_date}`))
-  if (mode === 'add') {
-    targets = targets.filter((t) => {
-      const day = byDay.get(`${t.staff_id}|${t.work_date}`) ?? []
+  const plans: CellPlan[] = []
+  for (const c of cells) {
+    const day = existing.get(`${c.staffId}|${c.date}`) ?? []
+    if (mode === 'empty' && day.length) continue
+    if (mode === 'add') {
       const shifts = day.filter((a) => a.template_id)
-      return !shifts.some((a) => a.template_id === value) && shifts.length < MAX_SHIFTS_A_DAY
-    })
+      if (shifts.some((a) => a.template_id === value) || shifts.length >= MAX_SHIFTS_A_DAY) continue
+      plans.push({ ...c, plan: withShift(day, value) })
+      continue
+    }
+    plans.push({ ...c, plan: value === 'off' ? { off: true } : { shifts: value ? [value] : [] } })
   }
-  if (targets.length === 0) return { ok: true, count: 0 }
-
-  // Days being replaced (or a day off being turned into a shift) are
-  // cleared first, one delete per person.
-  for (const staffId of staffIds) {
-    const mine = targets
-      .filter((t) => t.staff_id === staffId)
-      .filter((t) => mode !== 'add' || (byDay.get(`${t.staff_id}|${t.work_date}`) ?? []).some((a) => a.day_off))
-      .map((t) => t.work_date)
-    if (mine.length === 0) continue
-    let q = admin.from('shift_assignments').delete().eq('staff_id', staffId).in('work_date', mine)
-    if (mode === 'add') q = q.eq('day_off', true)
-    const { error } = await q
-    if (error) return { ok: false, error: missing(error) ? 'not_set_up' : 'failed' }
-  }
-  if (value) {
-    const now = new Date().toISOString()
-    const rows = targets.map((t) => ({
-      ...t,
-      template_id: value === 'off' ? null : value,
-      day_off: value === 'off',
-      updated_by: ctx.userId,
-      updated_at: now,
-    }))
-    const { error } = await admin.from('shift_assignments').insert(rows)
-    if (error) return { ok: false, error: missing(error) ? 'not_set_up' : 'failed' }
-  }
+  if (plans.length === 0) return { ok: true, count: 0 }
+  const r = await applyPlans(plans, ctx.userId, existing)
+  if (!r.ok) return r
   revalidatePath(TIME_PATH)
-  return { ok: true, count: targets.length }
+  return { ok: true, count: plans.length }
 }

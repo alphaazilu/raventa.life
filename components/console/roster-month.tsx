@@ -2,14 +2,14 @@
 
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { useEffect, useMemo, useState, useTransition } from 'react'
+import { useEffect, useMemo, useRef, useState, useTransition } from 'react'
 import { Briefcase, Check, ChevronLeft, ChevronRight, Copy, Palmtree, Printer, Thermometer, X } from 'lucide-react'
 import { useLanguage } from '@/components/language-provider'
 import { Spinner } from '@/components/ui/spinner'
 import { shiftErrors, timeCopy } from '@/lib/console/copy'
 import { fill } from '@/lib/check-in/copy'
-import { groupAssignments, paidMinutes, type ShiftAssignment, type ShiftTemplate } from '@/lib/console/shift-math'
-import { copyMonthPattern, setDayShifts } from '@/app/console/time/shift-actions'
+import { groupAssignments, paidMinutes, shiftLengthMinutes, type ShiftAssignment, type ShiftTemplate } from '@/lib/console/shift-math'
+import { copyMonthPattern, setCells, setDayShifts, type BulkAction } from '@/app/console/time/shift-actions'
 import { TIME_PATH } from '@/lib/auth/roles'
 import { RangePlanner } from '@/components/console/range-planner'
 import type { LeaveKind } from '@/lib/leave'
@@ -158,6 +158,176 @@ export function RosterMonth({
     save(menu.staffId, menu.date, { off: false, shifts: next }, false)
   }
 
+  // ---- Selecting many cells (v0.26.1) ----------------------------------
+  // Mouse: drag a rectangle, Shift-click a range from the last cell,
+  // Cmd/Ctrl-click one more. Touch: press and hold a cell, then tap others.
+  // Click a name for the whole month, a date for everyone that day.
+  const [sel, setSel] = useState<Set<string>>(new Set())
+  const [anchor, setAnchor] = useState<string | null>(null)
+  const [touchSelect, setTouchSelect] = useState(false)
+  const [addMode, setAddMode] = useState(false)
+  const drag = useRef<{ start: string; moved: boolean } | null>(null)
+  const suppressClick = useRef(false)
+  const press = useRef<{ timer: ReturnType<typeof setTimeout>; x: number; y: number } | null>(null)
+  const staffIndex = useMemo(() => new Map(staff.map((p, i) => [p.id, i])), [staff])
+  const dayIndex = useMemo(() => new Map(days.map((d, i) => [d, i])), [days])
+  const split = (k: string) => {
+    const i = k.indexOf('|')
+    return [k.slice(0, i), k.slice(i + 1)] as const
+  }
+  const rect = (a: string, b: string) => {
+    const [sa, da] = split(a)
+    const [sb, db] = split(b)
+    const r0 = Math.min(staffIndex.get(sa) ?? 0, staffIndex.get(sb) ?? 0)
+    const r1 = Math.max(staffIndex.get(sa) ?? 0, staffIndex.get(sb) ?? 0)
+    const c0 = Math.min(dayIndex.get(da) ?? 0, dayIndex.get(db) ?? 0)
+    const c1 = Math.max(dayIndex.get(da) ?? 0, dayIndex.get(db) ?? 0)
+    const out = new Set<string>()
+    for (let r = r0; r <= r1; r++) for (let c = c0; c <= c1; c++) out.add(`${staff[r].id}|${days[c]}`)
+    return out
+  }
+  const clearSel = () => {
+    setSel(new Set())
+    setAnchor(null)
+    setTouchSelect(false)
+  }
+  const toggleSel = (k: string) =>
+    setSel((cur) => {
+      const n = new Set(cur)
+      if (n.has(k)) n.delete(k)
+      else n.add(k)
+      return n
+    })
+  useEffect(() => {
+    // A drag that ends on another cell fires no click on the first one, so
+    // the "ignore the next click" flag is dropped right after release.
+    const up = () => {
+      if (drag.current?.moved) setTimeout(() => (suppressClick.current = false), 0)
+      drag.current = null
+    }
+    const key = (e: KeyboardEvent) => e.key === 'Escape' && clearSel()
+    window.addEventListener('pointerup', up)
+    window.addEventListener('keydown', key)
+    return () => {
+      window.removeEventListener('pointerup', up)
+      window.removeEventListener('keydown', key)
+    }
+  }, [])
+
+  const onCellPointerDown = (e: React.PointerEvent<HTMLButtonElement>, k: string) => {
+    if (e.pointerType === 'mouse') {
+      if (e.button !== 0) return
+      if (e.shiftKey && anchor) {
+        setSel((cur) => new Set([...cur, ...rect(anchor, k)]))
+        suppressClick.current = true
+      } else if (e.metaKey || e.ctrlKey) {
+        toggleSel(k)
+        setAnchor(k)
+        suppressClick.current = true
+      } else {
+        drag.current = { start: k, moved: false }
+      }
+      return
+    }
+    // Touch / pen: press and hold to start selecting.
+    const { clientX: x, clientY: y } = e
+    press.current = {
+      x,
+      y,
+      timer: setTimeout(() => {
+        press.current = null
+        suppressClick.current = true
+        setTouchSelect(true)
+        setSel((cur) => new Set(cur).add(k))
+        setAnchor(k)
+        navigator.vibrate?.(30)
+      }, 450),
+    }
+  }
+  const onCellPointerMove = (e: React.PointerEvent<HTMLButtonElement>) => {
+    if (press.current && Math.hypot(e.clientX - press.current.x, e.clientY - press.current.y) > 8) {
+      clearTimeout(press.current.timer)
+      press.current = null
+    }
+  }
+  const onCellPointerEnd = () => {
+    if (press.current) {
+      clearTimeout(press.current.timer)
+      press.current = null
+    } else if (suppressClick.current) {
+      setTimeout(() => (suppressClick.current = false), 350)
+    }
+  }
+  const onCellPointerEnter = (e: React.PointerEvent<HTMLButtonElement>, k: string) => {
+    const d = drag.current
+    if (!d || e.pointerType !== 'mouse' || (e.buttons & 1) === 0) return
+    if (k !== d.start) d.moved = true
+    if (d.moved) {
+      suppressClick.current = true
+      setSel(rect(d.start, k))
+      setAnchor(d.start)
+      setMenu(null)
+    }
+  }
+  const onCellClick = (e: React.MouseEvent<HTMLButtonElement>, staffId: string, name: string, d: string) => {
+    const k = `${staffId}|${d}`
+    if (suppressClick.current) {
+      suppressClick.current = false
+      return
+    }
+    if (touchSelect) {
+      toggleSel(k)
+      setAnchor(k)
+      return
+    }
+    if (sel.size) clearSel()
+    setAnchor(k)
+    openMenu(e, staffId, name, d)
+  }
+  const selectRow = (staffId: string) => {
+    setMenu(null)
+    setSel(new Set(days.map((d) => `${staffId}|${d}`)))
+    setAnchor(`${staffId}|${days[0]}`)
+  }
+  const selectColumn = (d: string) => {
+    setMenu(null)
+    setSel(new Set(staff.map((p) => `${p.id}|${d}`)))
+    setAnchor(`${staff[0]?.id}|${d}`)
+  }
+  const applyBulk = (action: BulkAction) => {
+    const cells = [...sel].map((k) => {
+      const [staffId, date] = split(k)
+      return { staffId, date }
+    })
+    start(async () => {
+      setMsg(null)
+      setBusyCell('bulk')
+      const r = await setCells(cells, action)
+      setBusyCell(null)
+      if (r.ok) {
+        setMsg({ ok: true, text: fill(tr(timeCopy.bulkDone), { n: r.count ?? 0 }) })
+        clearSel()
+      } else setMsg({ ok: false, text: tr(shiftErrors[r.error] ?? shiftErrors.failed) })
+      router.refresh()
+    })
+  }
+
+  // Ticked shifts whose hours run into each other (allowed, but flagged).
+  const overlapping = (list: ShiftTemplate[]) => {
+    const span = (t: ShiftTemplate) => {
+      const [h, m] = t.start.split(':').map(Number)
+      const s0 = h * 60 + m
+      return [s0, s0 + shiftLengthMinutes(t)] as const
+    }
+    for (let i = 0; i < list.length; i++)
+      for (let j = i + 1; j < list.length; j++) {
+        const [a0, a1] = span(list[i])
+        const [b0, b1] = span(list[j])
+        if (a0 < b1 && b0 < a1) return true
+      }
+    return false
+  }
+
   const openMenu = (e: React.MouseEvent<HTMLButtonElement>, staffId: string, name: string, date: string) => {
     const r = e.currentTarget.getBoundingClientRect()
     const width = 240
@@ -257,7 +427,7 @@ export function RosterMonth({
 
       {/* The grid */}
       <div className="mt-3 overflow-x-auto print:overflow-visible">
-        <table className="border-separate border-spacing-0 text-center text-xs">
+        <table className="select-none border-separate border-spacing-0 text-center text-xs">
           <thead>
             <tr>
               <th className="sticky left-0 z-10 min-w-[7.5rem] bg-card py-1 pr-2 text-left font-semibold text-muted-foreground">{tr(timeCopy.colName)}</th>
@@ -274,10 +444,12 @@ export function RosterMonth({
                       d === today ? 'text-primary' : 'text-muted-foreground',
                     )}
                   >
-                    <span className={cn('block text-[13px] tabular-nums', d === today && 'mx-auto w-6 rounded-full bg-primary text-primary-foreground print-color')}>
-                      {Number(d.slice(8))}
-                    </span>
-                    <span className="block text-[10px] font-normal">{wd(d)}</span>
+                    <button type="button" onClick={() => selectColumn(d)} title={tr(timeCopy.selectDay)} className="w-full rounded hover:bg-background/70">
+                      <span className={cn('block text-[13px] tabular-nums', d === today && 'mx-auto w-6 rounded-full bg-primary text-primary-foreground print-color')}>
+                        {Number(d.slice(8))}
+                      </span>
+                      <span className="block text-[10px] font-normal">{wd(d)}</span>
+                    </button>
                   </th>
                 )
               })}
@@ -290,8 +462,10 @@ export function RosterMonth({
           <tbody>
             {staff.map((p, row) => (
               <tr key={p.id}>
-                <td className="sticky left-0 z-10 max-w-[9rem] truncate border-t border-border bg-card py-1 pr-2 text-left text-sm font-semibold">
-                  {p.name}
+                <td className="sticky left-0 z-10 max-w-[9rem] border-t border-border bg-card py-1 pr-2 text-left text-sm font-semibold">
+                  <button type="button" onClick={() => selectRow(p.id)} title={tr(timeCopy.selectPerson)} className="block w-full truncate text-left hover:text-primary">
+                    {p.name}
+                  </button>
                 </td>
                 {days.map((d) => {
                   const key = `${p.id}|${d}`
@@ -305,7 +479,13 @@ export function RosterMonth({
                     <td key={d} className={cn('border-t border-border p-[2px]', (isWeekend(d) || holidayOf.has(d)) && 'bg-secondary')}>
                       <button
                         type="button"
-                        onClick={(e) => openMenu(e, p.id, p.name, d)}
+                        onClick={(e) => onCellClick(e, p.id, p.name, d)}
+                        onPointerDown={(e) => onCellPointerDown(e, key)}
+                        onPointerEnter={(e) => onCellPointerEnter(e, key)}
+                        onPointerMove={onCellPointerMove}
+                        onPointerUp={onCellPointerEnd}
+                        onPointerCancel={onCellPointerEnd}
+                        onContextMenu={(e) => touchSelect && e.preventDefault()}
                         disabled={busyCell === key}
                         aria-label={`${p.name} ${d}`}
                         title={
@@ -315,7 +495,9 @@ export function RosterMonth({
                           'flex h-7 w-7 items-center justify-center overflow-hidden rounded text-[11px] font-bold transition-transform hover:scale-110 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary',
                           t && !leave ? 'text-white print-color' : 'text-muted-foreground',
                           !planned && !leave && 'border border-dashed border-border/70',
-                          waiting && 'ring-2 ring-amber-500 ring-offset-1',
+                          waiting && !sel.has(key) && 'ring-2 ring-amber-500 ring-offset-1',
+                          // A ring, not an outline: the clicked cell has focus (outline: none).
+                          sel.has(key) && 'ring-[3px] ring-primary ring-offset-1',
                         )}
                         style={t && !leave && shifts.length === 1 ? { backgroundColor: t.color } : undefined}
                       >
@@ -394,6 +576,48 @@ export function RosterMonth({
         </table>
       </div>
 
+      {/* Many cells chosen: one bar to set them all */}
+      {sel.size > 0 && (
+        <div className="fixed inset-x-0 bottom-4 z-40 flex justify-center px-4 print:hidden">
+          <div className="flex max-w-full flex-wrap items-center gap-2 rounded-2xl border border-border bg-popover px-3 py-2.5 text-sm shadow-xl">
+            <span className="font-semibold">{fill(tr(timeCopy.bulkSelected), { n: sel.size })}</span>
+            <span className="h-5 w-px bg-border" aria-hidden="true" />
+            {active.map((t) => (
+              <button
+                key={t.id}
+                type="button"
+                disabled={busy}
+                onClick={() => applyBulk(addMode ? { add: t.id } : { set: t.id })}
+                title={`${addMode ? '+ ' : ''}${t.name} ${t.start}–${t.end}`}
+                className="inline-flex h-8 min-w-8 items-center justify-center gap-1 rounded-lg px-2 text-xs font-bold text-white disabled:opacity-50"
+                style={{ backgroundColor: t.color }}
+              >
+                {addMode && '+'}
+                {t.shortCode}
+              </button>
+            ))}
+            <button
+              type="button"
+              onClick={() => setAddMode(!addMode)}
+              aria-pressed={addMode}
+              className={cn('rounded-full border px-3 py-1.5 text-xs font-semibold', addMode ? 'border-primary bg-primary text-primary-foreground' : 'border-border')}
+            >
+              {tr(timeCopy.planModeAdd)}
+            </button>
+            <button type="button" disabled={busy} onClick={() => applyBulk({ off: true })} className="rounded-full border border-border px-3 py-1.5 text-xs font-semibold disabled:opacity-50">
+              {tr(timeCopy.dayOff)}
+            </button>
+            <button type="button" disabled={busy} onClick={() => applyBulk({ clear: true })} className="rounded-full border border-border px-3 py-1.5 text-xs font-semibold text-muted-foreground disabled:opacity-50">
+              {tr(timeCopy.bulkClear)}
+            </button>
+            {busy && busyCell === 'bulk' && <Spinner className="h-4 w-4" />}
+            <button type="button" onClick={clearSel} aria-label={tr(timeCopy.bulkCancel)} className="ml-1 rounded-full p-1 text-muted-foreground hover:bg-secondary">
+              <X className="h-4 w-4" aria-hidden="true" />
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Pick a shift for one day */}
       {menu && (
         <>
@@ -440,6 +664,9 @@ export function RosterMonth({
                 </button>
               )
             })}
+            {overlapping(dayOf(menu.staffId, menu.date).shifts) && (
+              <p className="bg-amber-500/15 px-3 py-1.5 text-xs font-semibold text-amber-800 dark:text-amber-300">{tr(timeCopy.shiftsOverlap)}</p>
+            )}
             <button
               type="button"
               onClick={() => save(menu.staffId, menu.date, { off: true, shifts: [] }, true)}

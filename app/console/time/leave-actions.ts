@@ -5,6 +5,7 @@ import { requireAdmin } from '@/lib/console/guard'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { TIME_PATH } from '@/lib/auth/roles'
 import { datesOf } from '@/lib/leave'
+import { applyPlans } from '@/lib/console/roster-write'
 
 // Admin: decide leave requests (§25). Approving marks every day of the
 // request "day off" on the roster (replacing any shift planned there).
@@ -32,22 +33,13 @@ export async function decideLeave(id: string, approve: boolean, note?: string): 
   if (!req) return { ok: false, error: 'not_pending' }
 
   if (approve) {
-    const rows = datesOf(req.start_date, req.end_date).map((work_date) => ({
-      staff_id: req.staff_id,
-      work_date,
-      template_id: null,
-      day_off: true,
-      updated_by: ctx.userId,
-      updated_at: now,
-    }))
-    // Every shift planned on those days goes; each day becomes a day off.
-    const { error: delErr } = await db
-      .from('shift_assignments')
-      .delete()
-      .eq('staff_id', req.staff_id)
-      .in('work_date', rows.map((r) => r.work_date))
-    const { error: rosterErr } = delErr ? { error: delErr } : await db.from('shift_assignments').insert(rows)
-    if (rosterErr) console.error('leave approve: roster update failed', rosterErr.message)
+    // Each day becomes a day off (any shifts planned there go) — written
+    // safely, so a refused write never leaves the days empty.
+    const r = await applyPlans(
+      datesOf(req.start_date, req.end_date).map((date) => ({ staffId: req.staff_id as string, date, plan: { off: true as const } })),
+      ctx.userId,
+    )
+    if (!r.ok) console.error('leave approve: roster update failed', r.error)
   }
   await db.from('staff_actions').insert({
     actor_id: ctx.userId,
