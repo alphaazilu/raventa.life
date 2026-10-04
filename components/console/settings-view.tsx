@@ -3,7 +3,8 @@
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useState, useTransition } from 'react'
-import { ChevronRight, Lock, Receipt, Smartphone, Users } from 'lucide-react'
+import { CalendarOff, ChevronRight, Lock, Receipt, Smartphone, Users } from 'lucide-react'
+import { LEAVE_KINDS, leaveCopy } from '@/lib/leave'
 import { useLanguage } from '@/components/language-provider'
 import { Spinner } from '@/components/ui/spinner'
 import { settingsCopy as c, settingsErrors } from '@/lib/console/copy'
@@ -115,6 +116,48 @@ export function SettingsView({
           </label>
         </div>
         <p className="mt-1 text-xs text-muted-foreground">{tr(c.lockHint)}</p>
+
+        <h3 className="mt-5 flex items-center gap-2 text-sm font-bold">
+          <CalendarOff className="h-4 w-4" aria-hidden="true" /> {tr(c.leaveHeading)}
+        </h3>
+        <div className="mt-2 flex flex-wrap items-center gap-5 text-sm">
+          <label className="flex items-center gap-2">
+            {tr(c.leaveNotice)}
+            <input
+              className={input}
+              inputMode="numeric"
+              value={form.leave.noticeDays}
+              onChange={(e) => setForm({ ...form, leave: { ...form.leave, noticeDays: Number(e.target.value.replace(/\D/g, '')) || 0 } })}
+            />
+          </label>
+        </div>
+        <div className="mt-2 grid gap-2 sm:grid-cols-3">
+          {LEAVE_KINDS.map((k) => (
+            <div key={k} className="rounded-xl border border-border px-3 py-2 text-sm">
+              <label className="flex items-center gap-2 font-semibold">
+                <input
+                  type="checkbox"
+                  checked={form.leave.kinds[k]}
+                  onChange={(e) => setForm({ ...form, leave: { ...form.leave, kinds: { ...form.leave.kinds, [k]: e.target.checked } } })}
+                  className="h-4 w-4 accent-[var(--primary)]"
+                />
+                {tr(leaveCopy[k])}
+              </label>
+              <label className="mt-1 flex items-center gap-2 text-xs text-muted-foreground">
+                {tr(c.leaveQuota)}
+                <input
+                  className={cn(input, 'w-16')}
+                  inputMode="numeric"
+                  value={form.leave.quotas[k]}
+                  onChange={(e) =>
+                    setForm({ ...form, leave: { ...form.leave, quotas: { ...form.leave.quotas, [k]: Number(e.target.value.replace(/\D/g, '')) || 0 } } })
+                  }
+                />
+              </label>
+            </div>
+          ))}
+        </div>
+        <p className="mt-1 text-xs text-muted-foreground">{tr(c.leaveHint)}</p>
 
         <h3 className="mt-5 flex items-center gap-2 text-sm font-bold">
           <Receipt className="h-4 w-4" aria-hidden="true" /> {tr(c.accountingHeading)}

@@ -10,6 +10,8 @@ import { Gift } from 'lucide-react'
 import { PackageList } from '@/components/package-list'
 import { PackageShare } from '@/components/account/package-share'
 import { GiftVoucher } from '@/components/gift-voucher'
+import { MyShifts } from '@/components/account/my-shifts'
+import type { MyShifts as MyShiftsData } from '@/lib/my-shifts'
 import { packageAlive, packageLeft, type MemberPackage } from '@/lib/packages'
 import { bangkokToday } from '@/lib/check-in/day'
 
@@ -27,6 +29,7 @@ export function AccountHome({
   role,
   packages,
   gifts = [],
+  myShifts = null,
 }: {
   name: string
   memberNo: string | null
@@ -38,6 +41,7 @@ export function AccountHome({
   role: string
   packages: MemberPackage[]
   gifts?: MemberPackage[]
+  myShifts?: MyShiftsData | null
 }) {
   const { tr } = useLanguage()
   return (
@@ -49,6 +53,8 @@ export function AccountHome({
       <div className="mt-8">
         <MemberCard name={name} memberNo={memberNo} avatarUrl={avatarUrl} joinedAt={joinedAt} role={role} autoOpen={openCardOnLoad} />
       </div>
+
+      {myShifts && <MyShifts data={myShifts} />}
 
       {stamps && <StampCard progress={stamps.progress} rewardsAvailable={stamps.rewardsAvailable} />}
 

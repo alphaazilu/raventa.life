@@ -1,6 +1,7 @@
 import { cache } from 'react'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { isMissingTable } from '@/lib/console/db-errors'
+import { DEFAULT_LEAVE_RULES, type LeaveRules } from '@/lib/leave'
 
 // Back Office › Settings (schema.sql §19). Read on the server with the
 // service role; until §19 is run the defaults below apply.
@@ -11,6 +12,7 @@ export type AppSettings = {
   staffIdleMinutes: number
   adminIdleMinutes: number
   vatRegistered: boolean // reports split out 7% VAT (prices include it)
+  leave: LeaveRules // §25
 }
 
 const DEFAULT_APP_SETTINGS: AppSettings = {
@@ -19,6 +21,7 @@ const DEFAULT_APP_SETTINGS: AppSettings = {
   staffIdleMinutes: 10,
   adminIdleMinutes: 5,
   vatRegistered: false,
+  leave: DEFAULT_LEAVE_RULES,
 }
 
 export const getAppSettings = cache(async (): Promise<AppSettings> => {
@@ -34,6 +37,19 @@ export const getAppSettings = cache(async (): Promise<AppSettings> => {
     staffIdleMinutes: Number(data.staff_idle_minutes) || DEFAULT_APP_SETTINGS.staffIdleMinutes,
     adminIdleMinutes: Number(data.admin_idle_minutes) || DEFAULT_APP_SETTINGS.adminIdleMinutes,
     vatRegistered: Boolean(data.vat_registered),
+    leave: {
+      noticeDays: data.leave_notice_days == null ? DEFAULT_LEAVE_RULES.noticeDays : Number(data.leave_notice_days),
+      kinds: {
+        vacation: data.leave_vacation ?? true,
+        sick: data.leave_sick ?? true,
+        personal: data.leave_personal ?? true,
+      },
+      quotas: {
+        vacation: Number(data.leave_quota_vacation ?? 0),
+        sick: Number(data.leave_quota_sick ?? 0),
+        personal: Number(data.leave_quota_personal ?? 0),
+      },
+    },
   }
 })
 

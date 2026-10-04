@@ -2076,3 +2076,50 @@ $$;
 -- new setting: whether the business is VAT registered — prices include 7%
 -- VAT and the report splits it out (amount × 7/107).
 alter table public.app_settings add column if not exists vat_registered boolean not null default false;
+
+
+-- 25. Leave requests (v0.24). Staff ask for days off from their phone
+-- (My account › My shifts); an admin approves or declines in Back Office ›
+-- Time › Leave. Approving marks those days "day off" on the roster.
+-- Full days only. Rules (notice, which kinds, yearly quotas) live in
+-- app_settings; a quota of 0 means no limit. Written by the server only.
+alter table public.app_settings add column if not exists leave_notice_days integer not null default 3 check (leave_notice_days between 0 and 60);
+alter table public.app_settings add column if not exists leave_vacation boolean not null default true;
+alter table public.app_settings add column if not exists leave_sick boolean not null default true;
+alter table public.app_settings add column if not exists leave_personal boolean not null default true;
+alter table public.app_settings add column if not exists leave_quota_vacation integer not null default 0 check (leave_quota_vacation between 0 and 366);
+alter table public.app_settings add column if not exists leave_quota_sick integer not null default 0 check (leave_quota_sick between 0 and 366);
+alter table public.app_settings add column if not exists leave_quota_personal integer not null default 0 check (leave_quota_personal between 0 and 366);
+
+create table if not exists public.leave_requests (
+  id uuid primary key default gen_random_uuid(),
+  staff_id uuid not null references auth.users(id) on delete cascade,
+  start_date date not null,
+  end_date date not null,
+  days integer not null check (days between 1 and 60),
+  kind text not null check (kind in ('vacation', 'sick', 'personal')),
+  reason text check (char_length(reason) <= 300),
+  doc_path text,                                   -- e.g. a doctor's note (bucket leave-docs)
+  status text not null default 'pending' check (status in ('pending', 'approved', 'rejected', 'cancelled')),
+  decided_by uuid references auth.users(id) on delete set null,
+  decided_at timestamptz,
+  decision_note text check (char_length(decision_note) <= 300),
+  created_at timestamptz not null default now(),
+  constraint leave_requests_dates check (end_date >= start_date)
+);
+create index if not exists leave_requests_staff_idx on public.leave_requests (staff_id, start_date);
+create index if not exists leave_requests_status_idx on public.leave_requests (status, start_date);
+
+alter table public.leave_requests enable row level security;
+revoke insert, update, delete on public.leave_requests from anon, authenticated;
+drop policy if exists "Leave: own or admin" on public.leave_requests;
+create policy "Leave: own or admin" on public.leave_requests for select to authenticated
+  using (staff_id = auth.uid() or public.is_admin());
+
+-- Attachments: private, read through short-lived links made by the server.
+insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+values ('leave-docs', 'leave-docs', false, 5242880, array['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'application/pdf'])
+on conflict (id) do update set
+  public = excluded.public,
+  file_size_limit = excluded.file_size_limit,
+  allowed_mime_types = excluded.allowed_mime_types;

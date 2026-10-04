@@ -13,6 +13,9 @@ import { entryStats, isForgotten, minutesOf, type ShiftAssignment, type ShiftTem
 import { RosterGrid, ShiftSettings } from '@/components/console/shift-admin'
 import { addEntry, clockOut, editEntry } from '@/app/console/time/actions'
 import { cn } from '@/lib/utils'
+import { LeaveAdmin } from '@/components/console/leave-admin'
+import type { LeaveRequest } from '@/lib/leave'
+import type { LeaveDayCheck } from '@/lib/leave-server'
 
 const TZ = 'Asia/Bangkok'
 
@@ -45,6 +48,8 @@ export function TimeView({
   shiftsReady,
   assignments,
   settings,
+  pendingLeave = 0,
+  leave = null,
 }: {
   admin: boolean
   onTablet: boolean
@@ -56,11 +61,13 @@ export function TimeView({
   open: TimeEntry[]
   staff: { id: string; name: string }[]
   loadError: boolean
-  view: 'entries' | 'roster' | 'shifts'
+  view: 'entries' | 'roster' | 'shifts' | 'leave'
   templates: ShiftTemplate[]
   shiftsReady: boolean
   assignments: ShiftAssignment[]
   settings: TimeSettings
+  pendingLeave?: number
+  leave?: { pending: LeaveRequest[]; decided: LeaveRequest[]; checks: Record<string, LeaveDayCheck[]> } | null
 }) {
   const { tr, lang } = useLanguage()
   const router = useRouter()
@@ -119,7 +126,7 @@ export function TimeView({
 
       {admin && (
         <nav aria-label={tr(timeCopy.heading)} className="flex flex-wrap gap-2">
-          {(['entries', 'roster', 'shifts'] as const).map((v) => (
+          {(['entries', 'roster', 'shifts', 'leave'] as const).map((v) => (
             <Link
               key={v}
               href={`${TIME_PATH}?week=${weekStart}${v === 'entries' ? '' : `&view=${v}`}`}
@@ -129,13 +136,16 @@ export function TimeView({
                 view === v ? 'bg-foreground text-background' : 'border border-border text-foreground hover:border-primary/40',
               )}
             >
-              {tr(v === 'entries' ? timeCopy.viewEntries : v === 'roster' ? timeCopy.viewRoster : timeCopy.viewShifts)}
+              {tr(v === 'entries' ? timeCopy.viewEntries : v === 'roster' ? timeCopy.viewRoster : v === 'shifts' ? timeCopy.viewShifts : timeCopy.viewLeave)}
+              {v === 'leave' && pendingLeave > 0 && (
+                <span className="ml-1.5 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-amber-500 px-1.5 text-[11px] font-bold text-white">{pendingLeave}</span>
+              )}
             </Link>
           ))}
         </nav>
       )}
 
-      {admin && view !== 'entries' && !shiftsReady && (
+      {admin && view !== 'entries' && view !== 'leave' && !shiftsReady && (
         <div role="alert" className="rounded-2xl bg-destructive/10 px-4 py-3 text-sm font-semibold text-destructive">
           {tr(timeCopy.shiftsNotReady)}
         </div>
@@ -174,6 +184,7 @@ export function TimeView({
         <RosterGrid weekStart={weekStart} today={today} staff={staff} templates={templates} assignments={assignments} fmtDay={fmtDay} />
       )}
       {admin && view === 'shifts' && shiftsReady && <ShiftSettings templates={templates} settings={settings} />}
+      {admin && view === 'leave' && leave && <LeaveAdmin pending={leave.pending} decided={leave.decided} checks={leave.checks} />}
     </div>
   )
 }

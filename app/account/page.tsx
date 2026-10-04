@@ -8,6 +8,7 @@ import { createClient } from '@/lib/supabase/server'
 import { resolveAvatarUrl } from '@/lib/supabase/avatar'
 import { isGift, loadMemberPackages, packageAlive } from '@/lib/packages'
 import { bangkokToday } from '@/lib/check-in/day'
+import { loadMyShifts } from '@/lib/my-shifts'
 
 export const metadata: Metadata = {
   title: 'My Account | RAVENTA Wellness Retreat',
@@ -60,6 +61,8 @@ export default async function AccountPage({
   const packages = allPackages.filter((k) => !isGift(k) && packageAlive(k, today))
   const recent = new Date(Date.now() - GIFT_KEEP_DAYS * 86_400_000).toISOString()
   const gifts = allPackages.filter((k) => isGift(k) && !k.cancelled && (packageAlive(k, today) || k.createdAt >= recent))
+  // Staff: their roster and leave requests (§17, §25).
+  const myShifts = profile?.role === 'staff' ? await loadMyShifts(user.id, today) : null
   const fullName = [profile?.first_name, profile?.last_name].filter(Boolean).join(' ')
   // Staff see the front-desk link only when an admin allowed it on their
   // phone (Back Office › Settings); otherwise they use the counter tablet.
@@ -80,6 +83,7 @@ export default async function AccountPage({
           role={profile?.role ?? 'customer'}
           packages={packages}
           gifts={gifts}
+          myShifts={myShifts}
           // /account?card=1 (the LINE rich menu's member card button) opens
           // the check-in QR straight away.
           openCardOnLoad={params.card === '1'}

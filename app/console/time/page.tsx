@@ -1,6 +1,8 @@
 import type { Metadata } from 'next'
 import { redirect } from 'next/navigation'
 import { TimeView } from '@/components/console/time-view'
+import { checkLeaveDays, countPendingLeave, listLeaveForAdmin, type LeaveDayCheck } from '@/lib/leave-server'
+import type { LeaveRequest } from '@/lib/leave'
 import { getConsoleSession } from '@/lib/console/session'
 import { getCurrentDevice } from '@/lib/console/device'
 import { addDays, getOpenEntry, listEntries, listOpenEntries, listStaff, weekStart } from '@/lib/console/time'
@@ -25,7 +27,7 @@ export default async function TimePage({ searchParams }: { searchParams: Promise
   if (!admin && !(canUseDesk(role) && device)) redirect(DESK_PATH)
 
   const { week, view: rawView } = await searchParams
-  const view = admin && (rawView === 'roster' || rawView === 'shifts') ? rawView : 'entries'
+  const view = admin && (rawView === 'roster' || rawView === 'shifts' || rawView === 'leave') ? rawView : 'entries'
   const start = weekStart(week && /^\d{4}-\d{2}-\d{2}$/.test(week) ? week : bangkokToday())
   const end = addDays(start, 7)
 
@@ -38,11 +40,18 @@ export default async function TimePage({ searchParams }: { searchParams: Promise
       admin ? listStaff() : Promise.resolve([]),
     ])
     // Shifts (§17) are optional: before that SQL is run the clock still works.
-    const [templates, assignments, settings] = await Promise.all([
+    const [templates, assignments, settings, pendingLeave] = await Promise.all([
       listTemplates().catch(() => null),
       listAssignments(start, end, admin ? undefined : user.id).catch(() => []),
       getTimeSettings().catch(() => DEFAULT_SETTINGS),
+      admin ? countPendingLeave() : Promise.resolve(0),
     ])
+    // Leave requests (§25): only loaded on that tab.
+    let leave: { pending: LeaveRequest[]; decided: LeaveRequest[]; checks: Record<string, LeaveDayCheck[]> } | null = null
+    if (admin && view === 'leave') {
+      const { pending, decided } = await listLeaveForAdmin()
+      leave = { pending, decided, checks: await checkLeaveDays(pending, staff).catch(() => ({})) }
+    }
     return (
       <main>
         <TimeView
@@ -61,6 +70,8 @@ export default async function TimePage({ searchParams }: { searchParams: Promise
           shiftsReady={templates !== null}
           assignments={assignments}
           settings={settings}
+          pendingLeave={pendingLeave}
+          leave={leave}
         />
       </main>
     )

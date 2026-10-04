@@ -9,6 +9,7 @@ import { shiftErrors, timeCopy } from '@/lib/console/copy'
 import { fill } from '@/lib/check-in/copy'
 import type { ShiftTemplate } from '@/lib/console/shift-math'
 import { setAssignmentRange } from '@/app/console/time/shift-actions'
+import { TIME_PATH } from '@/lib/auth/roles'
 import { cn } from '@/lib/utils'
 
 // Roster › "Plan a date range": pick people, tap a first and last day on a
@@ -16,6 +17,12 @@ import { cn } from '@/lib/utils'
 const WEEK = [1, 2, 3, 4, 5, 6, 0] // Monday first, like the roster
 const iso = (d: Date) => d.toISOString().slice(0, 10)
 const utc = (s: string) => new Date(`${s}T00:00:00Z`)
+// The Monday of the week a day falls in (the roster's weeks start Monday).
+const mondayOf = (s: string) => {
+  const d = utc(s)
+  d.setUTCDate(d.getUTCDate() - ((d.getUTCDay() + 6) % 7))
+  return iso(d)
+}
 
 export function RangePlanner({
   staff,
@@ -37,7 +44,7 @@ export function RangePlanner({
   const [days, setDays] = useState<Set<number>>(new Set(WEEK))
   const [value, setValue] = useState(templates[0]?.id ?? 'off')
   const [overwrite, setOverwrite] = useState(true)
-  const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null)
+  const [msg, setMsg] = useState<{ ok: boolean; text: string; nextWeek?: string } | null>(null)
 
   const dayName = (wd: number) =>
     new Intl.DateTimeFormat(lang === 'th' ? 'th-TH' : 'en-GB', { weekday: 'short', timeZone: 'UTC' }).format(new Date(Date.UTC(2024, 0, 7 + wd)))
@@ -93,7 +100,23 @@ export function RangePlanner({
         setMsg({ ok: false, text: tr(shiftErrors[r.error] ?? shiftErrors.failed) })
         return
       }
-      setMsg({ ok: true, text: fill(tr(timeCopy.planDone), { n: (r.count ?? 0) }) })
+      const n = r.count ?? 0
+      if (n === 0) {
+        setMsg({ ok: true, text: tr(timeCopy.planNothing) })
+        return
+      }
+      const fmt = (d: string) =>
+        new Intl.DateTimeFormat(lang === 'th' ? 'th-TH' : 'en-GB', { day: 'numeric', month: 'short', timeZone: 'UTC' }).format(utc(d))
+      const range = from === end ? fmt(from) : `${fmt(from)} – ${fmt(end)}`
+      const week = mondayOf(from)
+      const next = new Date(utc(week).getTime() + 7 * 86_400_000).toISOString().slice(0, 10)
+      setMsg({
+        ok: true,
+        text: fill(tr(who.size > 1 ? timeCopy.planSavedMany : timeCopy.planSaved), { n, range }),
+        nextWeek: end >= next ? next : undefined,
+      })
+      // Show the week the plan starts in, so the saved shifts are on screen.
+      router.push(`${TIME_PATH}?week=${week}&view=roster`)
       router.refresh()
     })
 
@@ -228,7 +251,16 @@ export function RangePlanner({
               {pending && <Spinner className="h-4 w-4" />}
               {from ? fill(tr(timeCopy.planApply), { d: count, p: who.size }) : tr(timeCopy.planPickRange)}
             </button>
-            {msg && <span className={cn('text-sm font-semibold', msg.ok ? 'text-accent' : 'text-destructive')}>{msg.text}</span>}
+            {msg && (
+              <span className={cn('text-sm font-semibold', msg.ok ? 'text-accent' : 'text-destructive')}>
+                {msg.text}
+                {msg.nextWeek && (
+                  <a href={`${TIME_PATH}?week=${msg.nextWeek}&view=roster`} className="ml-2 text-primary underline">
+                    {tr(timeCopy.planNextWeek)}
+                  </a>
+                )}
+              </span>
+            )}
           </div>
         </div>
       </div>

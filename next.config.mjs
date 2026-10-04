@@ -44,6 +44,11 @@ const nextConfig = {
   images: {
     unoptimized: true,
   },
+  // Leave requests may carry a doctor's note (§25): photos are shrunk on the
+  // phone first, PDFs go as they are — up to 4 MB (Vercel's own cap is 4.5).
+  experimental: {
+    serverActions: { bodySizeLimit: '4mb' },
+  },
   // v0.13: the Back Office moved from /admin to /console. Old links and
   // bookmarks (the counter tablet's included) keep working.
   async redirects() {

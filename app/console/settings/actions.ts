@@ -5,6 +5,7 @@ import { requireAdmin } from '@/lib/console/guard'
 import { isMissingTable } from '@/lib/console/db-errors'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { SETTINGS_PATH } from '@/lib/auth/roles'
+import { LEAVE_KINDS, type LeaveRules } from '@/lib/leave'
 
 // Admin: Back Office › Settings (§19). Service role after an admin check;
 // each change is logged in staff_actions.
@@ -19,12 +20,16 @@ export async function saveAccessSettings(input: {
   staffIdleMinutes: number
   adminIdleMinutes: number
   vatRegistered: boolean
+  leave: LeaveRules
 }): Promise<SettingsResult> {
   const ctx = await requireAdmin()
   if ('error' in ctx) return { ok: false, error: ctx.error }
   const staffIdle = Math.round(Number(input.staffIdleMinutes))
   const adminIdle = Math.round(Number(input.adminIdleMinutes))
   if (!(staffIdle >= 1 && staffIdle <= 60) || !(adminIdle >= 1 && adminIdle <= 60)) return { ok: false, error: 'bad_minutes' }
+  const lv = input.leave
+  const int = (v: unknown, lo: number, hi: number) => Number.isInteger(v) && (v as number) >= lo && (v as number) <= hi
+  if (!lv || !int(lv.noticeDays, 0, 60) || !LEAVE_KINDS.every((k) => int(lv.quotas?.[k], 0, 366))) return { ok: false, error: 'bad_leave' }
   const row = {
     id: 1,
     staff_desk_on_phone: Boolean(input.staffDeskOnPhone),
@@ -32,6 +37,13 @@ export async function saveAccessSettings(input: {
     staff_idle_minutes: staffIdle,
     admin_idle_minutes: adminIdle,
     vat_registered: Boolean(input.vatRegistered),
+    leave_notice_days: lv.noticeDays,
+    leave_vacation: Boolean(lv.kinds.vacation),
+    leave_sick: Boolean(lv.kinds.sick),
+    leave_personal: Boolean(lv.kinds.personal),
+    leave_quota_vacation: lv.quotas.vacation,
+    leave_quota_sick: lv.quotas.sick,
+    leave_quota_personal: lv.quotas.personal,
     updated_by: ctx.userId,
     updated_at: new Date().toISOString(),
   }

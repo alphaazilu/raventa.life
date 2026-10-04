@@ -54,6 +54,16 @@ export function ConsoleDashboard({ firstName, data }: { firstName: string | null
         </div>
       )}
 
+      {data.pendingLeave > 0 && (
+        <a
+          href={`${TIME_PATH}?view=leave`}
+          className="flex items-center justify-between gap-3 rounded-2xl bg-amber-500/15 px-4 py-3 text-sm font-semibold text-amber-900 hover:bg-amber-500/20 dark:text-amber-200"
+        >
+          {tr(consoleCopy.pendingLeave).replace('{n}', String(data.pendingLeave))}
+          <span aria-hidden="true">→</span>
+        </a>
+      )}
+
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <Kpi label={tr(consoleCopy.inStoreNow)} value={<>{n(data.inside)} <small className="text-sm font-semibold text-muted-foreground">/ {FLOOR_CAPACITY}</small></>}
           sub={`${tr(consoleCopy.seatsLeft)} ${Math.max(0, FLOOR_CAPACITY - data.inside)} ${tr(consoleCopy.seatsUnit)}`}>
