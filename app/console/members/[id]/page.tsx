@@ -10,6 +10,7 @@ import { loadMemberPackages } from '@/lib/packages'
 import { bangkokToday } from '@/lib/check-in/day'
 import { loadShareHistory } from '@/lib/package-share-history'
 import { ShareHistory } from '@/components/console/share-history'
+import { MemberRole } from '@/components/console/member-role'
 
 export const metadata: Metadata = {
   title: 'ข้อมูลสมาชิก | RAVENTA Back Office',
@@ -26,7 +27,7 @@ export default async function EditMemberPage({ params }: { params: Promise<{ id:
   const [{ data: member }, history, stampRes, packages, shareEvents] = await Promise.all([
     supabase
       .from('profiles')
-      .select('id, member_no, first_name, last_name, email, phone, province, nationality')
+      .select('id, member_no, first_name, last_name, email, phone, province, nationality, role')
       .eq('id', id)
       .single(),
     loadVisitHistory(supabase, id, { bills: true }),
@@ -44,6 +45,10 @@ export default async function EditMemberPage({ params }: { params: Promise<{ id:
     <main className="mx-auto grid max-w-7xl gap-2 lg:grid-cols-[28rem_1fr] lg:items-start">
       <MemberEditForm member={member} />
       <div className="px-4 pb-12 lg:py-12 lg:pr-6">
+        <MemberRole
+          person={{ id: member.id, name: [member.first_name, member.last_name].filter(Boolean).join(' ') || member.email || '—', role: member.role }}
+          meId={user.id}
+        />
         <PackageList packages={packages} heading className="mb-6" />
         <ShareHistory events={shareEvents} className="mb-6" />
         <VisitHistoryView history={history} stamps={stamps} admin />

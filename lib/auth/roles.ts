@@ -22,5 +22,6 @@ export const TIME_PATH = '/console/time'
 export const CATALOG_PATH = '/console/catalog'
 export const SETTINGS_PATH = '/console/settings'
 export const REPORTS_PATH = '/console/reports'
+export const TEAM_PATH = '/console/team'
 // Pairing screen for a new counter tablet (outside the console's login gate).
 export const TABLET_SETUP_PATH = '/tablet'

@@ -4,7 +4,7 @@ import { isMissingTable, requireAdmin } from '@/lib/console/guard'
 import { revalidatePath } from 'next/cache'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { TIME_PATH } from '@/lib/auth/roles'
-import { applyPlans, MAX_SHIFTS_A_DAY, readDays, withShift, type CellPlan } from '@/lib/console/roster-write'
+import { applyPlans, MAX_SHIFTS_A_DAY, readDays, withShift, type CellPlan, type DayPlan } from '@/lib/console/roster-write'
 
 // Admin: shift templates, the weekly roster and the late/OT rules (§17).
 
@@ -113,7 +113,13 @@ export async function setDayShifts(staffId: string, date: string, value: { off: 
 
 // Monthly roster, many cells at once (drag-select, v0.26.1): each chosen
 // day becomes a shift / a day off / nothing, or gets a shift added.
-export type BulkAction = { set: string } | { add: string } | { off: true } | { clear: true }
+export type BulkAction =
+  | { set: string }
+  | { add: string }
+  | { shifts: string[] } // the day becomes exactly these (v0.27)
+  | { addShifts: string[] } // these join the day's others (v0.27)
+  | { off: true }
+  | { clear: true }
 
 export async function setCells(cells: { staffId: string; date: string }[], action: BulkAction): Promise<ShiftResult & { count?: number }> {
   const ctx = await requireAdmin()
@@ -121,8 +127,13 @@ export async function setCells(cells: { staffId: string; date: string }[], actio
   const uniq = [...new Map(cells.filter((c) => UUID_RE.test(c.staffId) && DATE_RE.test(c.date)).map((c) => [`${c.staffId}|${c.date}`, c])).values()]
   if (uniq.length === 0) return { ok: false, error: 'bad_range' }
   if (uniq.length > 600) return { ok: false, error: 'range_too_long' }
-  const tid = 'set' in action ? action.set : 'add' in action ? action.add : null
-  if (tid !== null && !UUID_RE.test(tid)) return { ok: false, error: 'bad_range' }
+  const ids =
+    'set' in action ? [action.set] : 'add' in action ? [action.add] : 'shifts' in action ? action.shifts : 'addShifts' in action ? action.addShifts : []
+  const tids = [...new Set(ids)]
+  if (tids.some((id) => !UUID_RE.test(id))) return { ok: false, error: 'bad_range' }
+  if (tids.length > MAX_SHIFTS_A_DAY) return { ok: false, error: 'too_many_shifts' }
+  const adding = 'add' in action || 'addShifts' in action
+  if (adding && tids.length === 0) return { ok: false, error: 'bad_range' }
   let existing
   try {
     existing = await readDays(uniq)
@@ -136,9 +147,12 @@ export async function setCells(cells: { staffId: string; date: string }[], actio
         ? { off: true }
         : 'clear' in action
           ? { shifts: [] }
-          : 'set' in action
-            ? { shifts: [action.set] }
-            : withShift(existing.get(`${c.staffId}|${c.date}`) ?? [], action.add),
+          : !adding
+            ? { shifts: tids }
+            : tids.reduce<DayPlan>(
+                (plan, id) => ('off' in plan ? plan : withShift(plan.shifts.map((t) => ({ templateId: t, dayOff: false })), id)),
+                withShift(existing.get(`${c.staffId}|${c.date}`) ?? [], tids[0]),
+              ),
   }))
   const r = await applyPlans(plans, ctx.userId, existing)
   if (!r.ok) return r

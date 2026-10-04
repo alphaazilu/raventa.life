@@ -7,7 +7,7 @@ import { useEffect, useRef, useState } from 'react'
 import { ChevronDown, Expand, Globe, Lock, LogOut, Settings, ShieldAlert, Shrink } from 'lucide-react'
 import { useLanguage } from '@/components/language-provider'
 import { consoleCopy } from '@/lib/console/copy'
-import { CATALOG_PATH, SETTINGS_PATH, CONSOLE_PATH, DESK_PATH, DEVICES_PATH, MEMBERS_PATH, REPORTS_PATH, TIME_PATH } from '@/lib/auth/roles'
+import { CATALOG_PATH, SETTINGS_PATH, CONSOLE_PATH, DESK_PATH, DEVICES_PATH, MEMBERS_PATH, REPORTS_PATH, TEAM_PATH, TIME_PATH } from '@/lib/auth/roles'
 import { cn } from '@/lib/utils'
 import { AppVersion } from '@/components/console/app-version'
 
@@ -32,6 +32,7 @@ const TABS: Tab[] = [
   { key: 'reports', label: consoleCopy.tabReports, href: REPORTS_PATH, adminOnly: true },
   { key: 'devices', label: consoleCopy.tabDevices, href: DEVICES_PATH, adminOnly: true, notOnTablet: true },
   { key: 'settings', label: consoleCopy.tabSettings, href: SETTINGS_PATH, adminOnly: true, notOnTablet: true },
+  { key: 'team', label: consoleCopy.tabTeam, href: TEAM_PATH, adminOnly: true, notOnTablet: true },
 ]
 
 // Desktop: with many tabs (an admin on a computer), related pages sit under
@@ -40,7 +41,7 @@ const TABS: Tab[] = [
 const GROUPS: { key: string; label: { th: string; en: string }; tabs: string[]; icon?: boolean }[] = [
   { key: 'front', label: consoleCopy.groupFront, tabs: ['desk', 'members'] },
   { key: 'back', label: consoleCopy.groupBack, tabs: ['time', 'catalog'] },
-  { key: 'system', label: consoleCopy.groupSystem, tabs: ['settings', 'devices'], icon: true },
+  { key: 'system', label: consoleCopy.groupSystem, tabs: ['settings', 'team', 'devices'], icon: true },
 ]
 const TOP_ORDER = ['overview', 'front', 'back', 'reports', 'system']
 const GROUP_WHEN_MORE_THAN = 5

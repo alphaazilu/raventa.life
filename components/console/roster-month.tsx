@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { useEffect, useMemo, useRef, useState, useTransition } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, useTransition } from 'react'
 import { Briefcase, Check, ChevronLeft, ChevronRight, Copy, Palmtree, Printer, Thermometer, X } from 'lucide-react'
 import { useLanguage } from '@/components/language-provider'
 import { Spinner } from '@/components/ui/spinner'
@@ -165,7 +165,11 @@ export function RosterMonth({
   const [sel, setSel] = useState<Set<string>>(new Set())
   const [anchor, setAnchor] = useState<string | null>(null)
   const [touchSelect, setTouchSelect] = useState(false)
-  const [addMode, setAddMode] = useState(false)
+  const [addMode, setAddMode] = useState(false) // add to the day's shifts instead of replacing
+  const [bulkShifts, setBulkShifts] = useState<string[]>([])
+  const [dragging, setDragging] = useState(false)
+  const barRef = useRef<HTMLDivElement>(null)
+  const [barPos, setBarPos] = useState<{ left: number; top: number } | null>(null)
   const drag = useRef<{ start: string; moved: boolean } | null>(null)
   const suppressClick = useRef(false)
   const press = useRef<{ timer: ReturnType<typeof setTimeout>; x: number; y: number } | null>(null)
@@ -190,6 +194,7 @@ export function RosterMonth({
     setSel(new Set())
     setAnchor(null)
     setTouchSelect(false)
+    setBulkShifts([])
   }
   const toggleSel = (k: string) =>
     setSel((cur) => {
@@ -204,6 +209,7 @@ export function RosterMonth({
     const up = () => {
       if (drag.current?.moved) setTimeout(() => (suppressClick.current = false), 0)
       drag.current = null
+      setDragging(false)
     }
     const key = (e: KeyboardEvent) => e.key === 'Escape' && clearSel()
     window.addEventListener('pointerup', up)
@@ -263,6 +269,7 @@ export function RosterMonth({
     if (!d || e.pointerType !== 'mouse' || (e.buttons & 1) === 0) return
     if (k !== d.start) d.moved = true
     if (d.moved) {
+      setDragging(true)
       suppressClick.current = true
       setSel(rect(d.start, k))
       setAnchor(d.start)
@@ -311,6 +318,54 @@ export function RosterMonth({
       router.refresh()
     })
   }
+
+  // The bar sits right under the chosen cells (above them when there's no
+  // room below); for scattered picks, by the last one clicked. It follows
+  // the cells when the page or the grid scrolls, and hides while dragging.
+  useLayoutEffect(() => {
+    if (!sel.size || dragging) {
+      setBarPos(null)
+      return
+    }
+    const place = () => {
+      const rects = [...sel]
+        .map((k) => document.querySelector<HTMLElement>(`[data-cell="${CSS.escape(k)}"]`)?.getBoundingClientRect())
+        .filter((r): r is DOMRect => Boolean(r))
+      if (!rects.length) return setBarPos(null)
+      let box = {
+        left: Math.min(...rects.map((r) => r.left)),
+        right: Math.max(...rects.map((r) => r.right)),
+        top: Math.min(...rects.map((r) => r.top)),
+        bottom: Math.max(...rects.map((r) => r.bottom)),
+      }
+      // Not one rectangle (Cmd-click here and there): stay by the last cell.
+      const rows = new Set([...sel].map((k) => split(k)[0])).size
+      const cols = new Set([...sel].map((k) => split(k)[1])).size
+      if (rows * cols !== sel.size && anchor) {
+        const a = document.querySelector<HTMLElement>(`[data-cell="${CSS.escape(anchor)}"]`)?.getBoundingClientRect()
+        if (a) box = { left: a.left, right: a.right, top: a.top, bottom: a.bottom }
+      }
+      const bar = barRef.current
+      const w = bar?.offsetWidth ?? 420
+      const h = bar?.offsetHeight ?? 56
+      const center = (box.left + box.right) / 2
+      const left = Math.min(Math.max(8, center - w / 2), window.innerWidth - w - 8)
+      const below = box.bottom + 8
+      const top = below + h <= window.innerHeight - 8 ? below : Math.max(8, box.top - 8 - h)
+      setBarPos({ left, top })
+    }
+    place()
+    window.addEventListener('scroll', place, true)
+    window.addEventListener('resize', place)
+    return () => {
+      window.removeEventListener('scroll', place, true)
+      window.removeEventListener('resize', place)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sel, anchor, dragging, bulkShifts.length, addMode])
+
+  const toggleBulkShift = (id: string) =>
+    setBulkShifts((cur) => (cur.includes(id) ? cur.filter((x) => x !== id) : cur.length >= 3 ? cur : [...cur, id]))
 
   // Ticked shifts whose hours run into each other (allowed, but flagged).
   const overlapping = (list: ShiftTemplate[]) => {
@@ -479,6 +534,7 @@ export function RosterMonth({
                     <td key={d} className={cn('border-t border-border p-[2px]', (isWeekend(d) || holidayOf.has(d)) && 'bg-secondary')}>
                       <button
                         type="button"
+                        data-cell={key}
                         onClick={(e) => onCellClick(e, p.id, p.name, d)}
                         onPointerDown={(e) => onCellPointerDown(e, key)}
                         onPointerEnter={(e) => onCellPointerEnter(e, key)}
@@ -576,45 +632,71 @@ export function RosterMonth({
         </table>
       </div>
 
-      {/* Many cells chosen: one bar to set them all */}
-      {sel.size > 0 && (
-        <div className="fixed inset-x-0 bottom-4 z-40 flex justify-center px-4 print:hidden">
-          <div className="flex max-w-full flex-wrap items-center gap-2 rounded-2xl border border-border bg-popover px-3 py-2.5 text-sm shadow-xl">
-            <span className="font-semibold">{fill(tr(timeCopy.bulkSelected), { n: sel.size })}</span>
-            <span className="h-5 w-px bg-border" aria-hidden="true" />
-            {active.map((t) => (
+      {/* Many cells chosen: one bar, next to them, to set them all */}
+      {sel.size > 0 && !dragging && (
+        <div
+          ref={barRef}
+          className="fixed z-40 flex max-w-[calc(100vw-16px)] flex-wrap items-center gap-2 rounded-2xl border border-border bg-popover px-3 py-2 text-sm shadow-xl print:hidden"
+          style={barPos ? { left: barPos.left, top: barPos.top } : { left: -9999, top: -9999 }}
+        >
+          <span className="font-semibold">{fill(tr(timeCopy.bulkSelected), { n: sel.size })}</span>
+          <span className="h-5 w-px bg-border" aria-hidden="true" />
+          {/* Tick one or more shifts, then save. */}
+          {active.map((t) => {
+            const on = bulkShifts.includes(t.id)
+            return (
               <button
                 key={t.id}
                 type="button"
-                disabled={busy}
-                onClick={() => applyBulk(addMode ? { add: t.id } : { set: t.id })}
-                title={`${addMode ? '+ ' : ''}${t.name} ${t.start}–${t.end}`}
-                className="inline-flex h-8 min-w-8 items-center justify-center gap-1 rounded-lg px-2 text-xs font-bold text-white disabled:opacity-50"
+                aria-pressed={on}
+                onClick={() => toggleBulkShift(t.id)}
+                title={`${t.name} ${t.start}–${t.end}`}
+                className={cn(
+                  'inline-flex h-9 min-w-9 items-center justify-center gap-1 rounded-lg px-2 text-xs font-bold text-white transition-opacity',
+                  on ? 'ring-2 ring-foreground ring-offset-2' : 'opacity-45 hover:opacity-80',
+                )}
                 style={{ backgroundColor: t.color }}
               >
-                {addMode && '+'}
+                {on && <Check className="h-3.5 w-3.5" aria-hidden="true" />}
                 {t.shortCode}
               </button>
+            )
+          })}
+          <div className="inline-flex rounded-full bg-secondary p-0.5 text-xs font-semibold">
+            {([false, true] as const).map((m) => (
+              <button
+                key={String(m)}
+                type="button"
+                onClick={() => setAddMode(m)}
+                aria-pressed={addMode === m}
+                className={cn('rounded-full px-2.5 py-1', addMode === m ? 'bg-background shadow-sm' : 'text-muted-foreground')}
+              >
+                {tr(m ? timeCopy.bulkAddMode : timeCopy.planModeReplace)}
+              </button>
             ))}
-            <button
-              type="button"
-              onClick={() => setAddMode(!addMode)}
-              aria-pressed={addMode}
-              className={cn('rounded-full border px-3 py-1.5 text-xs font-semibold', addMode ? 'border-primary bg-primary text-primary-foreground' : 'border-border')}
-            >
-              {tr(timeCopy.planModeAdd)}
-            </button>
-            <button type="button" disabled={busy} onClick={() => applyBulk({ off: true })} className="rounded-full border border-border px-3 py-1.5 text-xs font-semibold disabled:opacity-50">
-              {tr(timeCopy.dayOff)}
-            </button>
-            <button type="button" disabled={busy} onClick={() => applyBulk({ clear: true })} className="rounded-full border border-border px-3 py-1.5 text-xs font-semibold text-muted-foreground disabled:opacity-50">
-              {tr(timeCopy.bulkClear)}
-            </button>
-            {busy && busyCell === 'bulk' && <Spinner className="h-4 w-4" />}
-            <button type="button" onClick={clearSel} aria-label={tr(timeCopy.bulkCancel)} className="ml-1 rounded-full p-1 text-muted-foreground hover:bg-secondary">
-              <X className="h-4 w-4" aria-hidden="true" />
-            </button>
           </div>
+          <button
+            type="button"
+            disabled={busy || bulkShifts.length === 0}
+            onClick={() => applyBulk(addMode ? { addShifts: bulkShifts } : { shifts: bulkShifts })}
+            className="inline-flex h-9 items-center gap-1.5 rounded-full bg-primary px-4 text-xs font-bold text-primary-foreground disabled:opacity-40"
+          >
+            {busy && busyCell === 'bulk' && <Spinner className="h-3.5 w-3.5" />}
+            {tr(timeCopy.save)}
+          </button>
+          <span className="h-5 w-px bg-border" aria-hidden="true" />
+          <button type="button" disabled={busy} onClick={() => applyBulk({ off: true })} className="rounded-full border border-border px-3 py-1.5 text-xs font-semibold disabled:opacity-50">
+            {tr(timeCopy.dayOff)}
+          </button>
+          <button type="button" disabled={busy} onClick={() => applyBulk({ clear: true })} className="rounded-full border border-border px-3 py-1.5 text-xs font-semibold text-muted-foreground disabled:opacity-50">
+            {tr(timeCopy.bulkClear)}
+          </button>
+          <button type="button" onClick={clearSel} aria-label={tr(timeCopy.bulkCancel)} className="rounded-full p-1 text-muted-foreground hover:bg-secondary">
+            <X className="h-4 w-4" aria-hidden="true" />
+          </button>
+          {overlapping(active.filter((t) => bulkShifts.includes(t.id))) && (
+            <p className="w-full text-xs font-semibold text-amber-700 dark:text-amber-300">{tr(timeCopy.shiftsOverlap)}</p>
+          )}
         </div>
       )}
 
