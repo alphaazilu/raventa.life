@@ -1,5 +1,6 @@
 import { createAdminClient } from '@/lib/supabase/admin'
 import type { Role } from '@/lib/auth/roles'
+import { resolveAvatarUrl } from '@/lib/supabase/avatar'
 
 // Back Office › System › Team & roles (v0.27). Read with the service role;
 // the page and actions check for an admin first.
@@ -12,6 +13,7 @@ export type Person = {
   memberNo: string | null
   role: Role
   since: string | null // when they got this role (from the history), if known
+  avatarUrl?: string | null // look-ups only (the add-to-team station)
 }
 
 export type RoleChange = { id: number; at: string; who: string; whom: string; whomId: string | null; from: Role; to: Role }
@@ -72,14 +74,56 @@ export async function listTeam(history: RoleChange[]): Promise<Person[]> {
     .sort((a, b) => (a.role === b.role ? a.name.localeCompare(b.name) : a.role === 'admin' ? -1 : 1))
 }
 
-// Find members to add to the team: name, email, phone or member number.
-export async function searchPeople(raw: string): Promise<Person[]> {
-  const q = raw.replace(/[,()*%\\]/g, ' ').trim()
-  if (q.length < 2) return []
-  const like = `%${q}%`
-  const digits = q.replace(/\D/g, '')
-  const ors = [`first_name.ilike.${like}`, `last_name.ilike.${like}`, `email.ilike.${like}`, `member_no.ilike.${like}`]
-  if (digits.length >= 3) ors.push(`phone.ilike.%${digits}%`)
-  const { data } = await createAdminClient().from('profiles').select(COLS).or(ors.join(',')).order('first_name').limit(12)
-  return ((data ?? []) as ProfileRow[]).map((r) => toPerson(r))
+// Contact details shown half-hidden in look-ups: k•••@gmail.com, 08•-•••-1234.
+export function maskEmail(e: string | null): string | null {
+  if (!e) return null
+  const [u, d] = e.split('@')
+  return d ? `${u.slice(0, 1)}•••@${d}` : '•••'
+}
+export function maskPhone(p: string | null): string | null {
+  if (!p) return null
+  const digits = p.replace(/\D/g, '')
+  return digits.length >= 4 ? `${digits.slice(0, 2)}•-•••-${digits.slice(-4)}` : '•••'
+}
+const masked = (x: Person): Person => ({ ...x, email: maskEmail(x.email), phone: maskPhone(x.phone) })
+
+// Local Thai number from whatever was typed or stored: +66 81… → 081…
+const phoneKey = (v: string) => {
+  const d = v.replace(/\D/g, '')
+  return d.startsWith('66') && d.length === 11 ? `0${d.slice(2)}` : d
+}
+
+// Add-to-team look-up (v0.27.1): one exact member number, full email or
+// full phone number — no partial names, so it can't be used to browse
+// the members. At most one person comes back, contacts half-hidden.
+export async function findExact(raw: string): Promise<Person | null> {
+  const q = raw.trim()
+  if (q.length < 4) return null
+  const db = createAdminClient()
+  let rows: ProfileRow[] = []
+  if (q.includes('@')) {
+    const { data } = await db.from('profiles').select(COLS).ilike('email', q.replace(/[%_\\]/g, '')).limit(2)
+    rows = (data ?? []) as ProfileRow[]
+  } else if (/^[+\d\s()-]+$/.test(q) && phoneKey(q).length >= 9) {
+    const key = phoneKey(q)
+    const { data } = await db.from('profiles').select(COLS).ilike('phone', `%${key.slice(-4)}%`).limit(50)
+    rows = ((data ?? []) as ProfileRow[]).filter((r) => r.phone && phoneKey(r.phone) === key)
+  } else {
+    const { data } = await db.from('profiles').select(COLS).ilike('member_no', q.replace(/[%_\\]/g, '')).limit(2)
+    rows = (data ?? []) as ProfileRow[]
+  }
+  return rows.length === 1 ? withAvatar(rows[0].id, masked(toPerson(rows[0]))) : null
+}
+
+// The person's photo for the round frame (uploaded, else LINE/Google).
+async function withAvatar(id: string, p: Person): Promise<Person> {
+  const db = createAdminClient()
+  const { data } = await db.from('profiles').select('avatar_path, provider_avatar_url').eq('id', id).maybeSingle()
+  const avatarUrl = await resolveAvatarUrl(db as unknown as Parameters<typeof resolveAvatarUrl>[0], data).catch(() => null)
+  return { ...p, avatarUrl }
+}
+
+export async function personById(id: string): Promise<Person | null> {
+  const { data } = await createAdminClient().from('profiles').select(COLS).eq('id', id).maybeSingle()
+  return data ? withAvatar(id, masked(toPerson(data as ProfileRow))) : null
 }
