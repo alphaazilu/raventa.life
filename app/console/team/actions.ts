@@ -7,6 +7,8 @@ import { bangkokToday } from '@/lib/check-in/day'
 import { MEMBERS_PATH, TEAM_PATH, type Role } from '@/lib/auth/roles'
 import { findExact, personById, type Person } from '@/lib/console/team'
 import { verifyMemberQrToken } from '@/lib/member-card'
+import { isMissingTable } from '@/lib/console/db-errors'
+import { PAY_TYPES, type PayType } from '@/lib/console/pay-cycle'
 
 // Admin: who is staff / admin (v0.27). The profiles.role guard in the
 // database (protect_role, §11) refuses role changes made with a person's
@@ -87,5 +89,22 @@ export async function setRole(
   })
   revalidatePath(TEAM_PATH)
   revalidatePath(`${MEMBERS_PATH}/${memberId}`)
+  return { ok: true }
+}
+
+// Paid by the day or by the month (§28, v0.28) — the time report counts the
+// two differently. Team members only; logged like role changes.
+export async function setPayType(memberId: string, payType: PayType): Promise<RoleResult> {
+  const ctx = await requireAdmin()
+  if ('error' in ctx) return { ok: false, error: ctx.error }
+  if (!UUID.test(memberId) || !(PAY_TYPES as readonly string[]).includes(payType)) return { ok: false, error: 'failed' }
+  const db = createAdminClient()
+  const { data: p } = await db.from('profiles').select('role').eq('id', memberId).maybeSingle()
+  if (!p) return { ok: false, error: 'not_found' }
+  if (p.role !== 'staff' && p.role !== 'admin') return { ok: false, error: 'not_team' }
+  const { error } = await db.from('staff_pay').upsert({ staff_id: memberId, pay_type: payType, updated_by: ctx.userId, updated_at: new Date().toISOString() })
+  if (error) return { ok: false, error: isMissingTable(error) ? 'pay_not_set_up' : 'failed' }
+  await db.from('staff_actions').insert({ actor_id: ctx.userId, member_id: memberId, action: 'pay_type', detail: { to: payType } })
+  revalidatePath(TEAM_PATH)
   return { ok: true }
 }

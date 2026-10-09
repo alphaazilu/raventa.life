@@ -1,6 +1,6 @@
 import type { Metadata } from 'next'
 import { redirect } from 'next/navigation'
-import { SettingsView } from '@/components/console/settings-view'
+import { SettingsView, type SettingsTab } from '@/components/console/settings-view'
 import { getConsoleSession } from '@/lib/console/session'
 import { getAppSettings, listPhoneAccess } from '@/lib/console/settings'
 import { isMissingTable } from '@/lib/console/db-errors'
@@ -13,12 +13,15 @@ export const metadata: Metadata = {
 
 export const dynamic = 'force-dynamic'
 
-// Back Office › Settings (schema.sql §19). Admins only, never on a tablet.
-export default async function SettingsPage() {
+// Back Office › Settings (schema.sql §19), in tabs (v0.28): ?tab=team|work|shop.
+// Admins only, never on a tablet.
+export default async function SettingsPage({ searchParams }: { searchParams: Promise<{ tab?: string }> }) {
   const { user, role } = await getConsoleSession()
   if (!user) redirect(`/login?next=${SETTINGS_PATH}`)
   if (!isAdmin(role)) redirect(CONSOLE_PATH)
 
+  const { tab } = await searchParams
+  const initialTab: SettingsTab = tab === 'work' || tab === 'shop' ? tab : 'team'
   const admin = createAdminClient()
   const [settings, phone, check, staffRes] = await Promise.all([
     getAppSettings(),
@@ -33,7 +36,7 @@ export default async function SettingsPage() {
 
   return (
     <main>
-      <SettingsView settings={settings} staff={staff} phoneAccess={phone} setUp={!isMissingTable(check.error)} />
+      <SettingsView settings={settings} staff={staff} phoneAccess={phone} setUp={!isMissingTable(check.error)} initialTab={initialTab} />
     </main>
   )
 }

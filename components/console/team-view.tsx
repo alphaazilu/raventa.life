@@ -7,7 +7,8 @@ import { useLanguage } from '@/components/language-provider'
 import { Spinner } from '@/components/ui/spinner'
 import { formatMemberDate } from '@/lib/format-date'
 import { MEMBERS_PATH, type Role } from '@/lib/auth/roles'
-import { findPerson, personFromQr, setRole } from '@/app/console/team/actions'
+import { findPerson, personFromQr, setPayType, setRole } from '@/app/console/team/actions'
+import { PAY_TYPES, type PayType } from '@/lib/console/pay-cycle'
 import { QrScanner } from '@/components/admin/qr-scanner'
 import { AvatarCircle } from '@/components/account/avatar-circle'
 import { SearchInput } from '@/components/ui/search-input'
@@ -48,6 +49,12 @@ const t = {
   confirmCustomer: { th: 'ยกเลิกการเป็นพนักงานของ {n}? (กลับเป็นลูกค้า) เข้าหลังร้านไม่ได้ตั้งแต่หน้าถัดไป', en: '{n} is no longer staff? (back to customer) Back Office access ends on their next page' },
   remove: { th: 'ยกเลิกการเป็นพนักงาน', en: 'No longer staff' },
   tabEmpty: { th: 'ยังไม่มี{r}', en: 'No {r} yet' },
+  monthly: { th: 'รายเดือน', en: 'Monthly' },
+  daily: { th: 'รายวัน', en: 'Daily' },
+  payHeading: { th: 'จ้างแบบ', en: 'Paid' },
+  payUnset: { th: 'ยังไม่ระบุ', en: 'Not set' },
+  payNotSetUp: { th: 'ระบุพนักงานรายวัน/รายเดือนได้หลังรัน supabase/schema.sql (§28)', en: 'Daily / monthly pay can be set after running supabase/schema.sql (§28)' },
+  payUnsetCount: { th: '{n} คนยังไม่ได้ระบุว่าเป็นรายวันหรือรายเดือน — ใช้แยกในรายงานการลงเวลา', en: '{n} people have no pay type yet — the time report splits by it' },
   confirmSwitch: { th: 'เปลี่ยน {n} เป็น{r}?', en: 'Change {n} to {r}?' },
   clearShifts: { th: 'ล้างกะที่จัดไว้ตั้งแต่วันนี้', en: 'Clear their planned shifts from today' },
   clearPhone: { th: 'ปิดสิทธิ์ขาย/เช็คอินบนมือถือ', en: 'Turn off selling from their phone' },
@@ -67,6 +74,8 @@ const errors: Record<string, L> = {
   qr_expired: { th: 'QR หมดอายุ — ให้แตะบัตรเพื่อขึ้น QR ใหม่', en: 'QR expired — tap the card for a fresh one' },
   qr_invalid: { th: 'ไม่ใช่ QR บัตรสมาชิก RAVENTA', en: 'Not a RAVENTA member card QR' },
   failed: { th: 'บันทึกไม่สำเร็จ ลองอีกครั้ง', en: 'Couldn’t save — try again' },
+  not_team: { th: 'ต้องเป็นพนักงานหรือแอดมินก่อน', en: 'Make them staff or admin first' },
+  pay_not_set_up: { th: 'ยังไม่ได้รัน supabase/schema.sql (§28)', en: 'Run supabase/schema.sql (§28) first' },
 }
 
 // v0.27.1: the switch only moves people within the team; leaving the team
@@ -252,12 +261,76 @@ export function RoleSwitch({
   )
 }
 
-export function TeamView({ team, history, meId }: { team: Person[]; history: RoleChange[]; meId: string }) {
+// Paid by the day or by the month (v0.28) — a small switch on each team
+// row and at the add-to-team station.
+export function PaySwitch({
+  person,
+  big = false,
+  onChanged,
+}: {
+  person: Pick<Person, 'id' | 'payType'>
+  big?: boolean
+  onChanged?: (p: PayType) => void
+}) {
+  const { tr } = useLanguage()
+  const router = useRouter()
+  const [pending, start] = useTransition()
+  const [value, setValue] = useState<PayType | null>(person.payType ?? null)
+  const [error, setError] = useState<string | null>(null)
+  const pick = (p: PayType) =>
+    start(async () => {
+      setError(null)
+      const before = value
+      setValue(p)
+      const r = await setPayType(person.id, p)
+      if (!r.ok) {
+        setValue(before)
+        setError(r.error)
+      } else onChanged?.(p)
+      router.refresh()
+    })
+  return (
+    <span className={cn('inline-flex flex-wrap items-center gap-2', big && 'w-full')}>
+      <span
+        className={cn(
+          'inline-flex rounded-full p-0.5 font-semibold',
+          big ? 'w-full bg-secondary text-sm' : 'text-[11px]',
+          !big && (value ? 'bg-secondary' : 'bg-amber-500/15 ring-1 ring-amber-500/40'),
+        )}
+        role="radiogroup"
+        aria-label={tr(t.payHeading)}
+      >
+        {PAY_TYPES.map((p) => (
+          <button
+            key={p}
+            type="button"
+            role="radio"
+            aria-checked={value === p}
+            disabled={pending}
+            onClick={() => value !== p && pick(p)}
+            className={cn(
+              'rounded-full transition-colors disabled:opacity-60',
+              big ? 'flex-1 py-2' : 'px-2.5 py-0.5',
+              value === p ? 'bg-background shadow-sm' : 'text-muted-foreground hover:text-foreground',
+            )}
+          >
+            {tr(t[p])}
+          </button>
+        ))}
+      </span>
+      {!value && !big && <span className="text-[11px] font-semibold text-amber-700 dark:text-amber-400">{tr(t.payUnset)}</span>}
+      {error && <span className="text-[11px] font-semibold text-destructive">{tr(errors[error] ?? errors.failed)}</span>}
+    </span>
+  )
+}
+
+export function TeamView({ team, history, meId, paySetUp = true }: { team: Person[]; history: RoleChange[]; meId: string; paySetUp?: boolean }) {
   const { tr, lang } = useLanguage()
   const date = (iso: string | null) => (iso ? formatMemberDate(iso, lang, true) : null)
   // The team in tabs by role (v0.27.1); staff first — the longer list.
   const [tab, setTab] = useState<Role>('staff')
   const shown = team.filter((p) => p.role === tab)
+  const unsetPay = team.filter((p) => !p.payType).length
 
   return (
     <div className="mx-auto flex max-w-6xl flex-col gap-5 px-4 py-6 md:px-6 md:py-8">
@@ -265,8 +338,14 @@ export function TeamView({ team, history, meId }: { team: Person[]; history: Rol
         <h1 className="font-display text-2xl font-extrabold md:text-3xl">{tr(t.title)}</h1>
         <p className="mt-1 text-sm text-muted-foreground">{tr(t.intro)}</p>
       </div>
+      {!paySetUp && <p className="rounded-2xl bg-amber-500/15 px-4 py-3 text-sm font-semibold text-amber-800 dark:text-amber-300">{tr(t.payNotSetUp)}</p>}
+      {paySetUp && unsetPay > 0 && (
+        <p className="rounded-2xl bg-amber-500/15 px-4 py-3 text-sm font-semibold text-amber-800 dark:text-amber-300">
+          {tr(t.payUnsetCount).replace('{n}', String(unsetPay))}
+        </p>
+      )}
 
-      <AddPeople meId={meId}>
+      <AddPeople meId={meId} paySetUp={paySetUp}>
         <section className="rounded-2xl border border-border bg-card p-4 md:p-5">
           <div className="mb-2 flex flex-wrap items-center justify-between gap-3">
             <h2 className="flex items-center gap-2 font-display text-lg font-extrabold">
@@ -300,6 +379,11 @@ export function TeamView({ team, history, meId }: { team: Person[]; history: Rol
                   <p className="text-xs text-muted-foreground">
                     {[p.memberNo, p.email, p.since ? tr(t.since).replace('{d}', date(p.since) ?? '') : null].filter(Boolean).join(' · ')}
                   </p>
+                  {paySetUp && (
+                    <div className="mt-1.5">
+                      <PaySwitch key={`${p.id}-${p.payType ?? ''}`} person={p} />
+                    </div>
+                  )}
                 </div>
                 <RoleSwitch person={p} meId={meId} />
               </li>
@@ -338,7 +422,7 @@ export function TeamView({ team, history, meId }: { team: Person[]; history: Rol
 // their photo takes the camera's place and the role choice sits under it.
 // On tablet and up this whole left column stays put while the right
 // column (the team by role, then the history) scrolls past it.
-function AddPeople({ meId, children }: { meId: string; children?: React.ReactNode }) {
+function AddPeople({ meId, paySetUp, children }: { meId: string; paySetUp: boolean; children?: React.ReactNode }) {
   const { tr } = useLanguage()
   const [searchOpen, setSearchOpen] = useState(false)
   const [q, setQ] = useState('')
@@ -461,7 +545,15 @@ function AddPeople({ meId, children }: { meId: string; children?: React.ReactNod
           <div className="mt-4 border-t border-border pt-3">
             <h3 className="mb-2 text-sm font-bold">{tr(t.chooseRole)}</h3>
             {found ? (
-              <RoleSwitch person={found} meId={meId} cards onChanged={(role) => setFound({ ...found, role })} />
+              <>
+                <RoleSwitch person={found} meId={meId} cards onChanged={(role) => setFound({ ...found, role })} />
+                {paySetUp && found.role !== 'customer' && (
+                  <div className="mt-3">
+                    <h3 className="mb-2 text-sm font-bold">{tr(t.payHeading)}</h3>
+                    <PaySwitch key={found.id} person={found} big onChanged={(payType) => setFound({ ...found, payType })} />
+                  </div>
+                )}
+              </>
             ) : (
               <div className="grid grid-cols-2 gap-2">
                 {TEAM_ROLES.map((r) => (

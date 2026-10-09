@@ -1,6 +1,8 @@
 import { createAdminClient } from '@/lib/supabase/admin'
 import type { Role } from '@/lib/auth/roles'
 import { resolveAvatarUrl } from '@/lib/supabase/avatar'
+import { isMissingTable } from '@/lib/console/db-errors'
+import type { PayType } from '@/lib/console/pay-cycle'
 
 // Back Office › System › Team & roles (v0.27). Read with the service role;
 // the page and actions check for an admin first.
@@ -14,6 +16,7 @@ export type Person = {
   role: Role
   since: string | null // when they got this role (from the history), if known
   avatarUrl?: string | null // look-ups only (the add-to-team station)
+  payType?: PayType | null // §28: paid by the day or the month; null = not set yet
 }
 
 export type RoleChange = { id: number; at: string; who: string; whom: string; whomId: string | null; from: Role; to: Role }
@@ -64,13 +67,28 @@ export async function roleHistory(limit = 50): Promise<RoleChange[]> {
   })
 }
 
+// Each person's pay type (§28); null until that SQL is run.
+export async function listPayTypes(): Promise<Map<string, PayType> | null> {
+  const { data, error } = await createAdminClient().from('staff_pay').select('staff_id, pay_type')
+  if (error) {
+    if (!isMissingTable(error)) console.error('staff_pay load failed', error.code)
+    return null
+  }
+  return new Map((data ?? []).map((r) => [r.staff_id as string, r.pay_type as PayType]))
+}
+
+async function payTypeOf(id: string): Promise<PayType | null> {
+  const { data } = await createAdminClient().from('staff_pay').select('pay_type').eq('staff_id', id).maybeSingle()
+  return (data?.pay_type as PayType | undefined) ?? null
+}
+
 // Admins first, then staff.
-export async function listTeam(history: RoleChange[]): Promise<Person[]> {
+export async function listTeam(history: RoleChange[], pay: Map<string, PayType> | null = null): Promise<Person[]> {
   const { data } = await createAdminClient().from('profiles').select(COLS).in('role', ['admin', 'staff']).order('first_name')
   const since = new Map<string, string>()
   for (const h of history) if (h.whomId && !since.has(h.whomId)) since.set(h.whomId, h.at)
   return ((data ?? []) as ProfileRow[])
-    .map((r) => toPerson(r, since.get(r.id) ?? null))
+    .map((r) => ({ ...toPerson(r, since.get(r.id) ?? null), payType: pay?.get(r.id) ?? null }))
     .sort((a, b) => (a.role === b.role ? a.name.localeCompare(b.name) : a.role === 'admin' ? -1 : 1))
 }
 
@@ -119,8 +137,11 @@ export async function findExact(raw: string): Promise<Person | null> {
 async function withAvatar(id: string, p: Person): Promise<Person> {
   const db = createAdminClient()
   const { data } = await db.from('profiles').select('avatar_path, provider_avatar_url').eq('id', id).maybeSingle()
-  const avatarUrl = await resolveAvatarUrl(db as unknown as Parameters<typeof resolveAvatarUrl>[0], data).catch(() => null)
-  return { ...p, avatarUrl }
+  const [avatarUrl, payType] = await Promise.all([
+    resolveAvatarUrl(db as unknown as Parameters<typeof resolveAvatarUrl>[0], data).catch(() => null),
+    payTypeOf(id).catch(() => null),
+  ])
+  return { ...p, avatarUrl, payType }
 }
 
 export async function personById(id: string): Promise<Person | null> {

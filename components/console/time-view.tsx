@@ -7,11 +7,11 @@ import { AlertTriangle, CalendarDays, ChevronLeft, ChevronRight, Clock, Download
 import { useLanguage } from '@/components/language-provider'
 import { Spinner } from '@/components/ui/spinner'
 import { timeCopy, timeErrors } from '@/lib/console/copy'
-import { TIME_PATH } from '@/lib/auth/roles'
+import { REPORTS_PATH, TIME_PATH } from '@/lib/auth/roles'
 import type { TimeEntry } from '@/lib/console/time'
-import { entryStats, groupAssignments, isForgotten, minutesOf, type ShiftAssignment, type ShiftTemplate, type TimeSettings } from '@/lib/console/shift-math'
+import { entryStats, groupAssignments, isForgotten, minutesOf, pickAssignment, shiftLengthMinutes, type ShiftAssignment, type ShiftTemplate, type TimeSettings } from '@/lib/console/shift-math'
 import { RosterGrid, ShiftSettings } from '@/components/console/shift-admin'
-import { addEntry, clockOut, editEntry } from '@/app/console/time/actions'
+import { addEntry, adminClockOut, clockOut, editEntry } from '@/app/console/time/actions'
 import { cn } from '@/lib/utils'
 import { LeaveAdmin } from '@/components/console/leave-admin'
 import { RosterMonth, type LeaveMark } from '@/components/console/roster-month'
@@ -85,6 +85,14 @@ export function TimeView({
   const amap = useMemo(() => groupAssignments(assignments), [assignments])
   const statsOf = (e: TimeEntry, now: number) =>
     entryStats(e, minutesOf(e, now), toLocal(e.clockIn).slice(0, 10), amap.get(`${e.staffId}|${toLocal(e.clockIn).slice(0, 10)}`), tmap, settings)
+  // When the shift this entry belongs to ends (for clocking someone out who
+  // forgot), or null when there was no shift that day (or it isn't loaded).
+  const shiftEndOf = (e: TimeEntry): number | null => {
+    const date = toLocal(e.clockIn).slice(0, 10)
+    const a = pickAssignment(amap.get(`${e.staffId}|${date}`), e.clockIn, date, tmap)
+    const tpl = a?.templateId ? tmap.get(a.templateId) : undefined
+    return tpl ? Date.parse(`${date}T${tpl.start}:00+07:00`) + shiftLengthMinutes(tpl) * 60000 : null
+  }
   const locale = lang === 'th' ? 'th-TH' : 'en-GB'
   const [now, setNow] = useState(() => Date.now())
   useEffect(() => {
@@ -207,7 +215,7 @@ export function TimeView({
       )}
 
       {admin && view === 'entries' && (
-        <AdminTime entries={entries} open={open} staff={staff} now={now} fmtDay={fmtDay} fmtTime={fmtTime} fmtDur={fmtDur} statsOf={statsOf} />
+        <AdminTime entries={entries} open={open} staff={staff} now={now} fmtDay={fmtDay} fmtTime={fmtTime} fmtDur={fmtDur} statsOf={statsOf} shiftEndOf={shiftEndOf} />
       )}
       {monthMode && shiftsReady && month && (
         <RosterMonth
@@ -352,6 +360,7 @@ function AdminTime({
   fmtTime,
   fmtDur,
   statsOf,
+  shiftEndOf,
 }: {
   entries: TimeEntry[]
   open: TimeEntry[]
@@ -361,9 +370,12 @@ function AdminTime({
   fmtTime: (iso: string) => string
   fmtDur: (m: number) => string
   statsOf: (e: TimeEntry, now: number) => ReturnType<typeof entryStats>
+  shiftEndOf: (e: TimeEntry) => number | null
 }) {
   const { tr } = useLanguage()
   const [editing, setEditing] = useState<string | null>(null)
+  const [closing, setClosing] = useState<string | null>(null)
+  const closingEntry = open.find((e) => e.id === closing) ?? null
 
   const summary = useMemo(() => {
     const m = new Map<string, { name: string; minutes: number; days: Set<string>; flagged: number; late: number; ot: number }>()
@@ -405,15 +417,42 @@ function AdminTime({
                   <span className="tabular-nums">
                     {fmtDay(e.clockIn)} {fmtTime(e.clockIn)} · {lost ? tr(timeCopy.forgot) : fmtDur(minutesOf(e, now))}
                   </span>
+                  <button
+                    type="button"
+                    onClick={() => setClosing(closing === e.id ? null : e.id)}
+                    className={cn(
+                      'ml-1 inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-xs font-semibold',
+                      closing === e.id ? 'border-foreground bg-background text-foreground' : 'border-current/30 bg-background/70 hover:bg-background',
+                    )}
+                  >
+                    <LogOut className="h-3.5 w-3.5" aria-hidden="true" />
+                    {tr(timeCopy.adminOutBtn)}
+                  </button>
                 </li>
               )
             })}
           </ul>
         )}
+        {closingEntry && (
+          <AdminClockOut
+            key={closingEntry.id}
+            entry={closingEntry}
+            lost={forgotten(closingEntry, now)}
+            shiftEnd={shiftEndOf(closingEntry)}
+            fmtTime={fmtTime}
+            onDone={() => setClosing(null)}
+          />
+        )}
       </section>
 
       <section className="rounded-2xl border border-border bg-card p-5">
-        <h2 className="text-base font-semibold">{tr(timeCopy.summary)}</h2>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h2 className="text-base font-semibold">{tr(timeCopy.summary)}</h2>
+          <Link href={`${REPORTS_PATH}?r=time`} className="inline-flex items-center gap-1 text-sm font-semibold text-primary hover:underline">
+            {tr(timeCopy.monthReport)}
+            <ChevronRight className="h-4 w-4" aria-hidden="true" />
+          </Link>
+        </div>
         {summary.length === 0 ? (
           <p className="mt-2 text-sm text-muted-foreground">{tr(timeCopy.none)}</p>
         ) : (
@@ -497,6 +536,9 @@ function AdminTime({
                     </td>
                     <td className="py-2.5 pr-3 tabular-nums">
                       {e.clockOut ? fmtTime(e.clockOut) : forgotten(e, now) ? <b className="text-destructive">{tr(timeCopy.forgot)}</b> : <b className="text-accent">{tr(timeCopy.stillIn)}</b>}
+                      {e.clockOut && e.outMethod === 'admin' && (
+                        <span className="ml-1.5 rounded-full bg-amber-500/15 px-2 py-0.5 text-[11px] font-semibold text-amber-800 dark:text-amber-300">{tr(timeCopy.adminOutBadge)}</span>
+                      )}
                     </td>
                     <td className="py-2.5 pr-3 font-semibold tabular-nums">
                       {forgotten(e, now) ? '—' : fmtDur(statsOf(e, now).paidMinutes)}
@@ -527,6 +569,83 @@ function AdminTime({
         </div>
       </section>
     </>
+  )
+}
+
+// Clock someone out from "Working now" (v0.28): now for someone who just
+// left, the shift's end for someone who forgot (now would add hours they
+// didn't work). A reason is kept with the change.
+function AdminClockOut({
+  entry,
+  lost,
+  shiftEnd,
+  fmtTime,
+  onDone,
+}: {
+  entry: TimeEntry
+  lost: boolean
+  shiftEnd: number | null
+  fmtTime: (iso: string) => string
+  onDone: () => void
+}) {
+  const { tr } = useLanguage()
+  const router = useRouter()
+  const nowLocal = toLocal(new Date().toISOString())
+  const initial = !lost ? nowLocal : shiftEnd && shiftEnd > Date.parse(entry.clockIn) && shiftEnd < Date.now() ? toLocal(new Date(shiftEnd).toISOString()) : ''
+  const [out, setOut] = useState(initial)
+  const [reason, setReason] = useState(lost ? tr(timeCopy.reasonForgot) : tr(timeCopy.reasonLeft))
+  const [error, setError] = useState<string | null>(null)
+  const [pending, start] = useTransition()
+  const submit = () =>
+    start(async () => {
+      setError(null)
+      const r = await adminClockOut(entry.id, out, reason)
+      if (!r.ok) {
+        setError(r.error)
+        return
+      }
+      onDone()
+      router.refresh()
+    })
+  return (
+    <div className="mt-3 max-w-xl rounded-xl border border-border bg-background p-4 text-sm">
+      <p className="font-semibold">
+        {tr(timeCopy.adminOutTitle).replace('{n}', entry.name)} <span className="font-normal text-muted-foreground">· {tr(timeCopy.inSince)} {fmtTime(entry.clockIn)}</span>
+      </p>
+      <div className="mt-3 grid gap-3 sm:grid-cols-2">
+        <label className="block">
+          <span className="mb-1 block text-xs font-semibold text-muted-foreground">{tr(timeCopy.adminOutTime)}</span>
+          <input type="datetime-local" value={out} max={nowLocal} onChange={(e) => setOut(e.target.value)} className={inputClass} />
+          {lost && <span className="mt-1 block text-xs text-muted-foreground">{tr(initial ? timeCopy.adminOutShiftEnd : timeCopy.adminOutNoShift)}</span>}
+        </label>
+        <label className="block">
+          <span className="mb-1 block text-xs font-semibold text-muted-foreground">{tr(timeCopy.adminOutReason)}</span>
+          <input value={reason} onChange={(e) => setReason(e.target.value)} maxLength={300} className={inputClass} />
+          <span className="mt-1.5 flex flex-wrap gap-1.5">
+            {[timeCopy.reasonForgot, timeCopy.reasonLeft].map((r) => (
+              <button
+                key={r.th}
+                type="button"
+                onClick={() => setReason(tr(r))}
+                className={cn('rounded-full border px-2.5 py-0.5 text-xs', reason === tr(r) ? 'border-foreground font-semibold' : 'border-border text-muted-foreground')}
+              >
+                {tr(r)}
+              </button>
+            ))}
+          </span>
+        </label>
+      </div>
+      {error && <p className="mt-2 text-xs font-semibold text-destructive">{tr(timeErrors[error] ?? timeErrors.failed)}</p>}
+      <div className="mt-3 flex gap-2">
+        <button type="button" disabled={pending || !out || reason.trim().length < 3} onClick={submit} className={cn(btn, 'bg-primary px-4 py-2 text-primary-foreground')}>
+          {pending ? <Spinner className="h-4 w-4" /> : <LogOut className="h-4 w-4" aria-hidden="true" />}
+          {tr(timeCopy.adminOutBtn)}
+        </button>
+        <button type="button" onClick={onDone} className={cn(btn, 'border border-border px-4 py-2')}>
+          {tr(timeCopy.cancel)}
+        </button>
+      </div>
+    </div>
   )
 }
 

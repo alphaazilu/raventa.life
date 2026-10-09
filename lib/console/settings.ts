@@ -2,6 +2,7 @@ import { cache } from 'react'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { isMissingTable } from '@/lib/console/db-errors'
 import { DEFAULT_LEAVE_RULES, type LeaveRules } from '@/lib/leave'
+import { DEFAULT_PAY_CYCLE, type DailyCycle, type PayCycleRules } from '@/lib/console/pay-cycle'
 
 // Back Office › Settings (schema.sql §19). Read on the server with the
 // service role; until §19 is run the defaults below apply.
@@ -13,6 +14,8 @@ export type AppSettings = {
   adminIdleMinutes: number
   vatRegistered: boolean // reports split out 7% VAT (prices include it)
   leave: LeaveRules // §25
+  pay: PayCycleRules // §28 — where pay periods end
+  paySetUp: boolean // false until §28 is run
 }
 
 const DEFAULT_APP_SETTINGS: AppSettings = {
@@ -22,6 +25,8 @@ const DEFAULT_APP_SETTINGS: AppSettings = {
   adminIdleMinutes: 5,
   vatRegistered: false,
   leave: DEFAULT_LEAVE_RULES,
+  pay: DEFAULT_PAY_CYCLE,
+  paySetUp: false,
 }
 
 export const getAppSettings = cache(async (): Promise<AppSettings> => {
@@ -50,6 +55,12 @@ export const getAppSettings = cache(async (): Promise<AppSettings> => {
         personal: Number(data.leave_quota_personal ?? 0),
       },
     },
+    pay: {
+      monthlyCutoffDay: Number(data.monthly_cutoff_day ?? 0),
+      dailyCycle: (['weekly', 'half', 'monthly'].includes(data.daily_cycle) ? data.daily_cycle : DEFAULT_PAY_CYCLE.dailyCycle) as DailyCycle,
+      dailyWeekEnd: Number(data.daily_week_end ?? 0),
+    },
+    paySetUp: 'monthly_cutoff_day' in data,
   }
 })
 

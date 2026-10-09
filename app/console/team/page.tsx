@@ -2,7 +2,7 @@ import type { Metadata } from 'next'
 import { redirect } from 'next/navigation'
 import { getConsoleSession } from '@/lib/console/session'
 import { DESK_PATH, isAdmin, TEAM_PATH } from '@/lib/auth/roles'
-import { listTeam, roleHistory } from '@/lib/console/team'
+import { listPayTypes, listTeam, roleHistory } from '@/lib/console/team'
 import { TeamView } from '@/components/console/team-view'
 
 export const metadata: Metadata = {
@@ -18,11 +18,11 @@ export default async function TeamPage() {
   const { user, role } = await getConsoleSession()
   if (!user) redirect(`/login?next=${TEAM_PATH}`)
   if (!isAdmin(role)) redirect(DESK_PATH)
-  const history = await roleHistory()
-  const team = await listTeam(history)
+  const [history, pay] = await Promise.all([roleHistory(), listPayTypes()])
+  const team = await listTeam(history, pay)
   return (
     <main>
-      <TeamView team={team} history={history} meId={user.id} />
+      <TeamView team={team} history={history} meId={user.id} paySetUp={pay !== null} />
     </main>
   )
 }

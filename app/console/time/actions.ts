@@ -124,3 +124,47 @@ export async function addEntry(staffId: string, inLocal: string, outLocal: strin
   revalidatePath(TIME_PATH)
   return { ok: true }
 }
+
+// Admin: clock someone out from "Working now" (v0.28) — they left without
+// pressing the button, or forgot. Kept like an edit: who, the time, why.
+export async function adminClockOut(entryId: string, outLocal: string, reason: string): Promise<TimeResult> {
+  const ctx = await requireAdmin()
+  if ('error' in ctx) return { ok: false, error: ctx.error }
+  const why = reason.trim()
+  if (why.length < 3) return { ok: false, error: 'need_reason' }
+  const outIso = bangkokLocalToIso(outLocal)
+  if (!outIso) return { ok: false, error: outLocal ? 'bad_time' : 'need_out' }
+
+  const admin = createAdminClient()
+  const { data: before } = await admin.from('time_entries').select('id, clock_in, clock_out').eq('id', entryId).maybeSingle()
+  if (!before) return { ok: false, error: 'not_found' }
+  if (before.clock_out) return { ok: false, error: 'already_out' }
+  const t = parseTimes(isoLocal(before.clock_in), outLocal)
+  if ('error' in t) return { ok: false, error: t.error }
+
+  const { data: done, error } = await admin
+    .from('time_entries')
+    .update({ clock_out: t.outIso, out_method: 'admin', updated_at: new Date().toISOString() })
+    .eq('id', entryId)
+    .is('clock_out', null)
+    .select('id')
+  if (error) return { ok: false, error: 'failed' }
+  if (!done?.length) return { ok: false, error: 'already_out' }
+
+  await admin.from('time_entry_edits').insert({
+    entry_id: entryId,
+    editor_id: ctx.userId,
+    old_clock_in: before.clock_in,
+    old_clock_out: null,
+    new_clock_in: before.clock_in,
+    new_clock_out: t.outIso,
+    reason: why,
+  })
+  revalidatePath(TIME_PATH)
+  return { ok: true }
+}
+
+// ISO instant → "YYYY-MM-DDTHH:MM" Bangkok (parseTimes takes local times).
+function isoLocal(iso: string): string {
+  return new Date(Date.parse(iso) + 7 * 3600 * 1000).toISOString().slice(0, 16)
+}

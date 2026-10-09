@@ -6,6 +6,7 @@ import { isMissingTable } from '@/lib/console/db-errors'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { SETTINGS_PATH } from '@/lib/auth/roles'
 import { LEAVE_KINDS, type LeaveRules } from '@/lib/leave'
+import type { PayCycleRules } from '@/lib/console/pay-cycle'
 
 // Admin: Back Office › Settings (§19). Service role after an admin check;
 // each change is logged in staff_actions.
@@ -66,6 +67,30 @@ export async function setPhoneAccess(staffId: string, allowed: boolean): Promise
     : await admin.from('staff_phone_access').delete().eq('staff_id', staffId)
   if (error) return fail(error)
   await admin.from('staff_actions').insert({ actor_id: ctx.userId, member_id: staffId, action: allowed ? 'phone_access_on' : 'phone_access_off' })
+  revalidatePath(SETTINGS_PATH)
+  return { ok: true }
+}
+
+// Where pay periods end (§28, v0.28): saved apart from the rest so the
+// other settings still save before that SQL is run.
+export async function savePayCycle(input: PayCycleRules): Promise<SettingsResult> {
+  const ctx = await requireAdmin()
+  if ('error' in ctx) return { ok: false, error: ctx.error }
+  const cut = Number(input.monthlyCutoffDay)
+  const end = Number(input.dailyWeekEnd)
+  if (!Number.isInteger(cut) || cut < 0 || cut > 28 || !Number.isInteger(end) || end < 0 || end > 6 || !['weekly', 'half', 'monthly'].includes(input.dailyCycle)) {
+    return { ok: false, error: 'bad_pay' }
+  }
+  const row = { monthly_cutoff_day: cut, daily_cycle: input.dailyCycle, daily_week_end: end, updated_by: ctx.userId, updated_at: new Date().toISOString() }
+  const admin = createAdminClient()
+  const { data, error } = await admin.from('app_settings').update(row).eq('id', 1).select('id')
+  // A missing column (§28 not run): 42703 from Postgres, PGRST204 from the API.
+  if (error) return error.code === '42703' || error.code === 'PGRST204' ? { ok: false, error: 'pay_not_set_up' } : fail(error)
+  if (!data?.length) {
+    const { error: e } = await admin.from('app_settings').insert({ id: 1, ...row })
+    if (e) return fail(e)
+  }
+  await admin.from('staff_actions').insert({ actor_id: ctx.userId, action: 'settings_pay', detail: row })
   revalidatePath(SETTINGS_PATH)
   return { ok: true }
 }

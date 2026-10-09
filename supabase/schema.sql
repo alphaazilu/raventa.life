@@ -2141,3 +2141,27 @@ alter table public.shift_assignments drop constraint if exists shift_assignments
 create unique index if not exists shift_assignments_one_per_shift
   on public.shift_assignments (staff_id, work_date, coalesce(template_id, '00000000-0000-0000-0000-000000000000'::uuid));
 create index if not exists shift_assignments_staff_date_idx on public.shift_assignments (staff_id, work_date);
+
+
+-- 28. Pay type and pay periods (v0.28). Each team member is paid by the day
+-- or by the month (the time report splits them, since the two are counted
+-- differently). Only the type is kept here — no rates or salaries.
+-- Server (service-role) only.
+create table if not exists public.staff_pay (
+  staff_id uuid primary key references auth.users(id) on delete cascade,
+  pay_type text not null check (pay_type in ('daily', 'monthly')),
+  updated_by uuid references auth.users(id) on delete set null,
+  updated_at timestamptz not null default now()
+);
+
+alter table public.staff_pay enable row level security;
+revoke all on public.staff_pay from anon, authenticated;
+
+-- Where each pay period ends (Settings › Work time & leave):
+--   monthly_cutoff_day  0 = last day of the month, 1–28 = that day
+--                       (e.g. 25 → the 26th of last month to the 25th)
+--   daily_cycle         'weekly' (ends on daily_week_end, 0 = Sunday … 6),
+--                       'half' (1–15 and 16–end), or 'monthly' (as above)
+alter table public.app_settings add column if not exists monthly_cutoff_day integer not null default 0 check (monthly_cutoff_day between 0 and 28);
+alter table public.app_settings add column if not exists daily_cycle text not null default 'half' check (daily_cycle in ('weekly', 'half', 'monthly'));
+alter table public.app_settings add column if not exists daily_week_end integer not null default 0 check (daily_week_end between 0 and 6);
