@@ -2165,3 +2165,58 @@ revoke all on public.staff_pay from anon, authenticated;
 alter table public.app_settings add column if not exists monthly_cutoff_day integer not null default 0 check (monthly_cutoff_day between 0 and 28);
 alter table public.app_settings add column if not exists daily_cycle text not null default 'half' check (daily_cycle in ('weekly', 'half', 'monthly'));
 alter table public.app_settings add column if not exists daily_week_end integer not null default 0 check (daily_week_end between 0 and 6);
+
+
+-- 29. Staff checklists by QR (v0.29). Admins set up check points (a QR
+-- sticker at each place, with the things to tick or note there) and rounds
+-- (which points, when). Staff scan the points with their own phone; every
+-- scan is kept as a log that is never edited. A round is done when each of
+-- its points was scanned inside the round's time window, by anyone.
+-- Server (service-role) only.
+create table if not exists public.checklist_points (
+  id uuid primary key default gen_random_uuid(),
+  name text not null check (char_length(btrim(name)) between 1 and 60),
+  place text check (char_length(place) <= 120),          -- where the sticker is
+  items jsonb not null default '[]'::jsonb,               -- [{id, label, kind: check|number|text, unit, min, max}]
+  code_version integer not null default 1,                -- reprint = +1, old stickers stop working
+  is_active boolean not null default true,
+  sort integer not null default 0,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+alter table public.checklist_points enable row level security;
+revoke all on public.checklist_points from anon, authenticated;
+
+create table if not exists public.checklist_rounds (
+  id uuid primary key default gen_random_uuid(),
+  name text not null check (char_length(btrim(name)) between 1 and 60),
+  point_ids uuid[] not null default '{}',
+  kind text not null default 'daily' check (kind in ('daily', 'every', 'anytime')),
+  start_time time,                                        -- daily: window start · every: first slot
+  end_time time,                                          -- daily: window end · every: last slot ends by
+  every_minutes integer check (every_minutes is null or every_minutes between 30 and 720),
+  days smallint[] not null default '{0,1,2,3,4,5,6}',     -- 0 = Sunday
+  is_active boolean not null default true,
+  sort integer not null default 0,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+alter table public.checklist_rounds enable row level security;
+revoke all on public.checklist_rounds from anon, authenticated;
+
+create table if not exists public.checklist_scans (
+  id uuid primary key default gen_random_uuid(),
+  point_id uuid not null references public.checklist_points(id) on delete restrict,
+  staff_id uuid not null references auth.users(id) on delete restrict,
+  scanned_at timestamptz not null default now(),
+  results jsonb not null default '[]'::jsonb,             -- [{id, label, value}] as answered
+  note text check (char_length(note) <= 500),
+  issue boolean not null default false,                   -- "something's wrong here"
+  flags text[] not null default '{}',                     -- fast, out_of_range, missed_items
+  user_agent text check (char_length(user_agent) <= 300)
+);
+create index if not exists checklist_scans_at_idx on public.checklist_scans (scanned_at desc);
+create index if not exists checklist_scans_point_idx on public.checklist_scans (point_id, scanned_at desc);
+create index if not exists checklist_scans_staff_idx on public.checklist_scans (staff_id, scanned_at desc);
+alter table public.checklist_scans enable row level security;
+revoke all on public.checklist_scans from anon, authenticated;

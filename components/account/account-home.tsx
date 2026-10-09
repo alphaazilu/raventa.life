@@ -4,9 +4,11 @@ import { useLanguage } from '@/components/language-provider'
 import { authCopy } from '@/lib/auth/copy'
 import { MemberCard } from '@/components/account/member-card'
 import { LinkRow } from '@/components/account/account-view'
-import { DESK_PATH } from '@/lib/auth/roles'
+import { DESK_PATH, MY_CHECKLIST_PATH } from '@/lib/auth/roles'
 import { cn } from '@/lib/utils'
-import { Gift } from 'lucide-react'
+import { ChevronRight, Gift, ListChecks } from 'lucide-react'
+import Link from 'next/link'
+import { checklistCopy } from '@/lib/checklist'
 import { PackageList } from '@/components/package-list'
 import { PackageShare } from '@/components/account/package-share'
 import { GiftVoucher } from '@/components/gift-voucher'
@@ -30,6 +32,7 @@ export function AccountHome({
   packages,
   gifts = [],
   myShifts = null,
+  checklist = null,
 }: {
   name: string
   memberNo: string | null
@@ -42,6 +45,7 @@ export function AccountHome({
   packages: MemberPackage[]
   gifts?: MemberPackage[]
   myShifts?: MyShiftsData | null
+  checklist?: { rounds: number; left: number } | null
 }) {
   const { tr } = useLanguage()
   return (
@@ -53,6 +57,25 @@ export function AccountHome({
       <div className="mt-8">
         <MemberCard name={name} memberNo={memberNo} avatarUrl={avatarUrl} joinedAt={joinedAt} role={role} autoOpen={openCardOnLoad} />
       </div>
+
+      {checklist && (
+        <Link
+          href={MY_CHECKLIST_PATH}
+          className={cn(
+            'mt-6 flex items-center gap-3 rounded-2xl border px-4 py-3.5',
+            checklist.left > 0 ? 'border-primary/40 bg-primary/5' : 'border-border bg-card',
+          )}
+        >
+          <ListChecks className="h-6 w-6 shrink-0 text-primary" aria-hidden="true" />
+          <span className="min-w-0 flex-1">
+            <span className="block font-semibold">{tr(checklistCopy.today)}</span>
+            <span className="block text-sm text-muted-foreground">
+              {checklist.left > 0 ? tr(checklistCopy.left).replace('{n}', String(checklist.left)) : tr(checklistCopy.scan)}
+            </span>
+          </span>
+          <ChevronRight className="h-5 w-5 text-muted-foreground" aria-hidden="true" />
+        </Link>
+      )}
 
       {myShifts && <MyShifts data={myShifts} />}
 

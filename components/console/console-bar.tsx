@@ -7,7 +7,7 @@ import { useEffect, useRef, useState } from 'react'
 import { ChevronDown, Expand, Globe, Lock, LogOut, Settings, ShieldAlert, Shrink } from 'lucide-react'
 import { useLanguage } from '@/components/language-provider'
 import { consoleCopy } from '@/lib/console/copy'
-import { CATALOG_PATH, SETTINGS_PATH, CONSOLE_PATH, DESK_PATH, DEVICES_PATH, MEMBERS_PATH, REPORTS_PATH, TEAM_PATH, TIME_PATH } from '@/lib/auth/roles'
+import { CATALOG_PATH, CHECKLIST_PATH, SETTINGS_PATH, CONSOLE_PATH, DESK_PATH, DEVICES_PATH, MEMBERS_PATH, REPORTS_PATH, TEAM_PATH, TIME_PATH } from '@/lib/auth/roles'
 import { cn } from '@/lib/utils'
 import { AppVersion } from '@/components/console/app-version'
 
@@ -28,6 +28,7 @@ const TABS: Tab[] = [
   { key: 'desk', label: consoleCopy.tabDesk, href: DESK_PATH },
   { key: 'members', label: consoleCopy.tabMembers, href: MEMBERS_PATH, adminOnly: true, staffOnTablet: true },
   { key: 'time', label: consoleCopy.tabTime, href: TIME_PATH, adminOnly: true, staffOnTablet: true },
+  { key: 'checklist', label: consoleCopy.tabChecklist, href: CHECKLIST_PATH, adminOnly: true, notOnTablet: true },
   { key: 'catalog', label: consoleCopy.tabCatalog, href: CATALOG_PATH, adminOnly: true, notOnTablet: true },
   { key: 'reports', label: consoleCopy.tabReports, href: REPORTS_PATH, adminOnly: true },
   { key: 'devices', label: consoleCopy.tabDevices, href: DEVICES_PATH, adminOnly: true, notOnTablet: true },
@@ -40,7 +41,7 @@ const TABS: Tab[] = [
 // extra tap at the counter. Phones always get the flat, scrollable row.
 const GROUPS: { key: string; label: { th: string; en: string }; tabs: string[]; icon?: boolean }[] = [
   { key: 'front', label: consoleCopy.groupFront, tabs: ['desk', 'members'] },
-  { key: 'back', label: consoleCopy.groupBack, tabs: ['time', 'catalog'] },
+  { key: 'back', label: consoleCopy.groupBack, tabs: ['time', 'checklist', 'catalog'] },
   { key: 'system', label: consoleCopy.groupSystem, tabs: ['settings', 'team', 'devices'], icon: true },
 ]
 const TOP_ORDER = ['overview', 'front', 'back', 'reports', 'system']

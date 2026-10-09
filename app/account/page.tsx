@@ -9,6 +9,7 @@ import { resolveAvatarUrl } from '@/lib/supabase/avatar'
 import { isGift, loadMemberPackages, packageAlive } from '@/lib/packages'
 import { bangkokToday } from '@/lib/check-in/day'
 import { loadMyShifts } from '@/lib/my-shifts'
+import { dueNow } from '@/lib/console/checklist'
 
 export const metadata: Metadata = {
   title: 'My Account | RAVENTA Wellness Retreat',
@@ -63,6 +64,8 @@ export default async function AccountPage({
   const gifts = allPackages.filter((k) => isGift(k) && !k.cancelled && (packageAlive(k, today) || k.createdAt >= recent))
   // Staff: their roster and leave requests (§17, §25).
   const myShifts = profile?.role === 'staff' ? await loadMyShifts(user.id, today) : null
+  // Team: checklists due now (§29), a row linking to the scan page.
+  const checklist = profile?.role === 'staff' || profile?.role === 'admin' ? await dueNow(today).catch(() => null) : null
   const fullName = [profile?.first_name, profile?.last_name].filter(Boolean).join(' ')
   // Staff see the front-desk link only when an admin allowed it on their
   // phone (Back Office › Settings); otherwise they use the counter tablet.
@@ -84,6 +87,7 @@ export default async function AccountPage({
           packages={packages}
           gifts={gifts}
           myShifts={myShifts}
+          checklist={checklist}
           // /account?card=1 (the LINE rich menu's member card button) opens
           // the check-in QR straight away.
           openCardOnLoad={params.card === '1'}

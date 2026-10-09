@@ -23,5 +23,7 @@ export const CATALOG_PATH = '/console/catalog'
 export const SETTINGS_PATH = '/console/settings'
 export const REPORTS_PATH = '/console/reports'
 export const TEAM_PATH = '/console/team'
+export const CHECKLIST_PATH = '/console/checklist' // admin: set up + log (v0.29)
+export const MY_CHECKLIST_PATH = '/account/checklist' // staff phone: today's rounds + scan
 // Pairing screen for a new counter tablet (outside the console's login gate).
 export const TABLET_SETUP_PATH = '/tablet'

@@ -12,6 +12,7 @@ export const consoleCopy = {
   tabOverview: { th: 'ภาพรวม', en: 'Overview' },
   tabDesk: { th: 'ขาย + เช็คอิน', en: 'Sell + check-in' },
   tabTime: { th: 'ลงเวลา', en: 'Time clock' },
+  tabChecklist: { th: 'เช็คลิสต์', en: 'Checklists' },
   tabMembers: { th: 'ลูกค้า', en: 'Members' },
   tabReports: { th: 'รายงาน', en: 'Reports' },
   pendingLeave: { th: 'มีคำขอหยุดรออนุมัติ {n} รายการ', en: '{n} leave requests waiting' },
