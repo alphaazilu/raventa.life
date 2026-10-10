@@ -21,19 +21,19 @@ export const dynamic = 'force-dynamic'
 // checked — by payment (cash drawer, bank, card machine), by kind of sale
 // (revenue lines), packages paid in advance, visits, and an audit of receipt
 // numbers and voided bills.
-// Time (?r=time, v0.28): clock entries per person against their shifts,
+// Time (?tab=time, v0.28; ?r=time before v0.30): clock entries per person against their shifts,
 // leave and holidays, for pay — monthly and daily staff apart.
 export default async function ReportsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ r?: string; p?: string; from?: string; to?: string; pay?: string }>
+  searchParams: Promise<{ tab?: string; r?: string; p?: string; from?: string; to?: string; pay?: string }>
 }) {
   const { user, role } = await getConsoleSession()
   if (!user) redirect(`/login?next=${REPORTS_PATH}`)
   if (!isAdmin(role)) redirect(DESK_PATH)
   const q = await searchParams
 
-  if (q.r === 'time') {
+  if (q.tab === 'time' || q.r === 'time') {
     const settings = await getAppSettings()
     const period = resolveTimePeriod(q, settings.pay)
     const report = await loadTimeReport(period.from, period.to).catch((err: Error) => {

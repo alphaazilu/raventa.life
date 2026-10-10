@@ -16,9 +16,9 @@ export const dynamic = 'force-dynamic'
 // QR a signed link to /cp/<code>. ?ids=a,b for some points, else all active.
 export default async function PrintPage({ searchParams }: { searchParams: Promise<{ ids?: string }> }) {
   const { user, role } = await getConsoleSession()
-  if (!user) redirect(`/login?next=${CHECKLIST_PATH}`)
-  if (!isAdmin(role)) redirect(DESK_PATH)
   const { ids } = await searchParams
+  if (!user) redirect(`/login?next=${encodeURIComponent(`${CHECKLIST_PATH}/print${ids ? `?ids=${ids}` : ''}`)}`)
+  if (!isAdmin(role)) redirect(DESK_PATH)
   const want = ids ? new Set(ids.split(',')) : null
   const points = ((await listPoints()) ?? []).filter((p) => p.active && (!want || want.has(p.id)))
   return (

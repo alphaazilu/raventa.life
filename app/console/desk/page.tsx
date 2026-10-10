@@ -13,9 +13,10 @@ export const metadata: Metadata = {
 }
 
 // Sell + check in — the counter tablet's main screen.
-// ?view=floor opens the "In today" tab (e.g. Dashboard › Recent check-ins › See all).
-export default async function DeskPage({ searchParams }: { searchParams: Promise<{ view?: string }> }) {
-  const { view } = await searchParams
+// ?tab=floor (or ?view=floor, before v0.30) opens the "In today" tab (e.g. Dashboard › Recent check-ins › See all).
+export default async function DeskPage({ searchParams }: { searchParams: Promise<{ tab?: string; view?: string }> }) {
+  const q = await searchParams
+  const view = q.tab ?? q.view
   const { user, role } = await getConsoleSession()
   if (!user) redirect(`/login?next=${DESK_PATH}`)
   if (!canUseDesk(role)) redirect('/account')

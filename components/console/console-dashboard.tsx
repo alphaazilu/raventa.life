@@ -3,10 +3,11 @@
 import Link, { useLinkStatus } from 'next/link'
 import { useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { BarChart3, ChevronRight, Clock, Receipt, Users, type LucideIcon } from 'lucide-react'
+import { AlertTriangle, BarChart3, CheckCircle2, ChevronRight, Clock, ListChecks, Package, Receipt, Settings, UserCog, Users, type LucideIcon } from 'lucide-react'
 import { useLanguage } from '@/components/language-provider'
 import { consoleCopy } from '@/lib/console/copy'
-import { DESK_PATH, MEMBERS_PATH, TIME_PATH } from '@/lib/auth/roles'
+import { CATALOG_PATH, CHECKLIST_PATH, DESK_PATH, MEMBERS_PATH, REPORTS_PATH, SETTINGS_PATH, TEAM_PATH, TIME_PATH } from '@/lib/auth/roles'
+import type { ConsoleAlerts } from '@/lib/console/alerts'
 import { bangkokTime, FLOOR_CAPACITY } from '@/lib/check-in/day'
 import { formatMemberNo } from '@/lib/format-date'
 import type { DashboardData } from '@/app/console/dashboard-data'
@@ -24,7 +25,7 @@ function formatToday(date: string, lang: 'th' | 'en'): string {
   }).format(new Date(`${date}T00:00:00Z`))
 }
 
-export function ConsoleDashboard({ firstName, data }: { firstName: string | null; data: DashboardData }) {
+export function ConsoleDashboard({ firstName, data, alerts }: { firstName: string | null; data: DashboardData; alerts: ConsoleAlerts }) {
   const { tr, lang } = useLanguage()
   const router = useRouter()
 
@@ -54,15 +55,7 @@ export function ConsoleDashboard({ firstName, data }: { firstName: string | null
         </div>
       )}
 
-      {data.pendingLeave > 0 && (
-        <a
-          href={`${TIME_PATH}?view=leave`}
-          className="flex items-center justify-between gap-3 rounded-2xl bg-amber-500/15 px-4 py-3 text-sm font-semibold text-amber-900 hover:bg-amber-500/20 dark:text-amber-200"
-        >
-          {tr(consoleCopy.pendingLeave).replace('{n}', String(data.pendingLeave))}
-          <span aria-hidden="true">→</span>
-        </a>
-      )}
+      <ToDo alerts={alerts} />
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <Kpi label={tr(consoleCopy.inStoreNow)} value={<>{n(data.inside)} <small className="text-sm font-semibold text-muted-foreground">/ {FLOOR_CAPACITY}</small></>}
@@ -85,7 +78,11 @@ export function ConsoleDashboard({ firstName, data }: { firstName: string | null
         <Module href={MEMBERS_PATH} icon={Users} title={tr(consoleCopy.modMembersTitle)} desc={tr(consoleCopy.modMembersDesc)}
           meta={`${n(data.membersTotal)} ${tr(consoleCopy.modMembersMeta)}`} />
         <Module href={TIME_PATH} icon={Clock} title={tr(consoleCopy.modTimeTitle)} desc={tr(consoleCopy.modTimeDesc)} />
-        <Module icon={BarChart3} title={tr(consoleCopy.modReportsTitle)} desc={tr(consoleCopy.modReportsDesc)} soon={tr(consoleCopy.soon)} />
+        <Module href={TEAM_PATH} icon={UserCog} title={tr(consoleCopy.modTeamTitle)} desc={tr(consoleCopy.modTeamDesc)} />
+        <Module href={CHECKLIST_PATH} icon={ListChecks} title={tr(consoleCopy.modChecklistTitle)} desc={tr(consoleCopy.modChecklistDesc)} />
+        <Module href={CATALOG_PATH} icon={Package} title={tr(consoleCopy.modCatalogTitle)} desc={tr(consoleCopy.modCatalogDesc)} />
+        <Module href={REPORTS_PATH} icon={BarChart3} title={tr(consoleCopy.modReportsTitle)} desc={tr(consoleCopy.modReportsDesc)} />
+        <Module href={SETTINGS_PATH} icon={Settings} title={tr(consoleCopy.modSettingsTitle)} desc={tr(consoleCopy.modSettingsDesc)} />
       </div>
 
       <div className="grid gap-3 lg:grid-cols-5">
@@ -96,7 +93,7 @@ export function ConsoleDashboard({ firstName, data }: { firstName: string | null
         <section className="rounded-2xl border border-border bg-card p-4 md:p-5 lg:col-span-2">
           <div className="flex items-baseline justify-between">
             <h2 className="text-base font-semibold text-card-foreground">{tr(consoleCopy.recentHeading)}</h2>
-            <Link href={`${DESK_PATH}?view=floor`} className="text-sm font-semibold text-primary hover:underline">
+            <Link href={`${DESK_PATH}?tab=floor`} className="text-sm font-semibold text-primary hover:underline">
               {tr(consoleCopy.seeAll)}
             </Link>
           </div>
@@ -129,6 +126,50 @@ export function ConsoleDashboard({ firstName, data }: { firstName: string | null
         </section>
       </div>
     </div>
+  )
+}
+
+// What needs doing (v0.30): each line goes straight to where it's handled.
+function ToDo({ alerts }: { alerts: ConsoleAlerts }) {
+  const { tr } = useLanguage()
+  const rows = [
+    { n: alerts.pendingLeave, text: consoleCopy.todoLeave, href: `${TIME_PATH}?tab=leave` },
+    { n: alerts.checklistIssues, text: consoleCopy.todoIssues, href: CHECKLIST_PATH, red: true },
+    { n: alerts.checklistMissed, text: consoleCopy.todoMissed, href: CHECKLIST_PATH },
+    { n: alerts.forgotClockOut, text: consoleCopy.todoForgot, href: TIME_PATH },
+    { n: alerts.unsetPay, text: consoleCopy.todoPay, href: TEAM_PATH },
+  ].filter((r) => r.n > 0)
+  if (rows.length === 0) {
+    return (
+      <p className="flex items-center gap-2 text-sm text-muted-foreground">
+        <CheckCircle2 className="h-4 w-4 text-accent" aria-hidden="true" />
+        {tr(consoleCopy.todoNone)}
+      </p>
+    )
+  }
+  return (
+    <section className="rounded-2xl border border-amber-500/40 bg-amber-500/10 p-4">
+      <h2 className="flex items-center gap-2 text-sm font-bold text-amber-900 dark:text-amber-200">
+        <AlertTriangle className="h-4 w-4" aria-hidden="true" />
+        {tr(consoleCopy.todoHeading)}
+      </h2>
+      <ul className="mt-2 grid gap-1.5 sm:grid-cols-2 xl:grid-cols-3">
+        {rows.map((r) => (
+          <li key={r.text.en}>
+            <Link
+              href={r.href}
+              className={cn(
+                'flex items-center justify-between gap-3 rounded-xl bg-background px-3 py-2.5 text-sm font-semibold hover:bg-background/70',
+                r.red && 'text-destructive',
+              )}
+            >
+              <span className="min-w-0">{tr(r.text).replace('{n}', String(r.n))}</span>
+              <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+            </Link>
+          </li>
+        ))}
+      </ul>
+    </section>
   )
 }
 

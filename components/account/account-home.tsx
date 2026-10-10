@@ -17,6 +17,10 @@ import type { MyShifts as MyShiftsData } from '@/lib/my-shifts'
 import { packageAlive, packageLeft, type MemberPackage } from '@/lib/packages'
 import { bangkokToday } from '@/lib/check-in/day'
 
+// Staff: "My work" (today's checklists, my shifts / leave) sits under the
+// card, apart from the member things (stamps, packages) — v0.30.
+const myWork = { th: 'งานของฉัน', en: 'My work' }
+
 // The member page people open at the counter: just the card (and its
 // check-in QR). Phone, email and the rest sit one tap away on the settings
 // page, so nobody glancing at the screen sees them.
@@ -58,11 +62,13 @@ export function AccountHome({
         <MemberCard name={name} memberNo={memberNo} avatarUrl={avatarUrl} joinedAt={joinedAt} role={role} autoOpen={openCardOnLoad} />
       </div>
 
+      {(checklist || myShifts) && <h2 className="mt-8 text-base font-semibold text-card-foreground">{tr(myWork)}</h2>}
+
       {checklist && (
         <Link
           href={MY_CHECKLIST_PATH}
           className={cn(
-            'mt-6 flex items-center gap-3 rounded-2xl border px-4 py-3.5',
+            'mt-3 flex items-center gap-3 rounded-2xl border px-4 py-3.5',
             checklist.left > 0 ? 'border-primary/40 bg-primary/5' : 'border-border bg-card',
           )}
         >

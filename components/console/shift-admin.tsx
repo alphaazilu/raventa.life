@@ -1,13 +1,15 @@
 'use client'
 
+import Link from 'next/link'
 import { useRouter } from 'next/navigation'
+import { SETTINGS_PATH } from '@/lib/auth/roles'
 import { useState, useTransition } from 'react'
 import { Copy, Plus } from 'lucide-react'
 import { useLanguage } from '@/components/language-provider'
 import { Spinner } from '@/components/ui/spinner'
 import { shiftErrors, timeCopy } from '@/lib/console/copy'
 import { autoShortCode, groupAssignments, SHIFT_COLORS, shiftLengthMinutes, type ShiftAssignment, type ShiftTemplate, type TimeSettings } from '@/lib/console/shift-math'
-import { copyPreviousWeek, saveTemplate, saveTimeSettings, setAssignment } from '@/app/console/time/shift-actions'
+import { copyPreviousWeek, saveTemplate, setAssignment } from '@/app/console/time/shift-actions'
 import { cn } from '@/lib/utils'
 import { RangePlanner } from '@/components/console/range-planner'
 
@@ -158,7 +160,7 @@ export function RosterGrid({
   )
 }
 
-// Shift templates + the late / OT rules.
+// Shift templates; the rules are edited in Settings › Work time & leave.
 export function ShiftSettings({ templates, settings }: { templates: ShiftTemplate[]; settings: TimeSettings }) {
   const { tr } = useLanguage()
   return (
@@ -173,7 +175,22 @@ export function ShiftSettings({ templates, settings }: { templates: ShiftTemplat
           <TemplateRow t={null} />
         </div>
       </section>
-      <RulesForm settings={settings} />
+      {/* The late / OT / minimum-people rules live in Settings (v0.30). */}
+      <Link
+        href={`${SETTINGS_PATH}?tab=work`}
+        className="flex items-center justify-between gap-3 rounded-2xl border border-border bg-card px-5 py-4 text-sm hover:border-primary/40"
+      >
+        <span>
+          <span className="block font-semibold">{tr(timeCopy.rules)}</span>
+          <span className="block text-xs text-muted-foreground">
+            {tr(timeCopy.rulesNow)
+              .replace('{g}', String(settings.lateGraceMinutes))
+              .replace('{o}', String(settings.otMinMinutes))
+              .replace('{m}', String(settings.minStaffPerDay))}
+          </span>
+        </span>
+        <span className="shrink-0 font-semibold text-primary">{tr(timeCopy.rulesEdit)} →</span>
+      </Link>
     </>
   )
 }
@@ -298,58 +315,3 @@ function TemplateRow({ t }: { t: ShiftTemplate | null }) {
   )
 }
 
-function RulesForm({ settings }: { settings: TimeSettings }) {
-  const { tr } = useLanguage()
-  const router = useRouter()
-  const [grace, setGrace] = useState(String(settings.lateGraceMinutes))
-  const [ot, setOt] = useState(String(settings.otMinMinutes))
-  const [minStaff, setMinStaff] = useState(String(settings.minStaffPerDay))
-  const [error, setError] = useState<string | null>(null)
-  const [saved, setSaved] = useState(false)
-  const [pending, start] = useTransition()
-  return (
-    <section className="rounded-2xl border border-border bg-card p-5">
-      <h2 className="text-base font-semibold">{tr(timeCopy.rules)}</h2>
-      <form
-        onSubmit={(e) => {
-          e.preventDefault()
-          start(async () => {
-            setError(null)
-            setSaved(false)
-            const r = await saveTimeSettings(Number(grace), Number(ot), Number(minStaff))
-            if (!r.ok) setError(r.error)
-            else setSaved(true)
-            router.refresh()
-          })
-        }}
-        className="mt-3 grid gap-4 md:grid-cols-[1fr_1fr_1fr_auto] md:items-end"
-      >
-        <label className="flex flex-col gap-1 text-xs font-semibold text-muted-foreground" htmlFor="rule-grace">
-          {tr(timeCopy.ruleGrace)}
-          <input id="rule-grace" type="number" min={0} max={120} value={grace} onChange={(e) => setGrace(e.target.value)} className={inputClass} />
-          <span className="font-normal">{tr(timeCopy.ruleGraceHint)}</span>
-        </label>
-        <label className="flex flex-col gap-1 text-xs font-semibold text-muted-foreground" htmlFor="rule-ot">
-          {tr(timeCopy.ruleOt)}
-          <input id="rule-ot" type="number" min={0} max={240} value={ot} onChange={(e) => setOt(e.target.value)} className={inputClass} />
-          <span className="font-normal">{tr(timeCopy.ruleOtHint)}</span>
-        </label>
-        <label className="flex flex-col gap-1 text-xs font-semibold text-muted-foreground" htmlFor="rule-min-staff">
-          {tr(timeCopy.ruleMinStaff)}
-          <input id="rule-min-staff" type="number" min={0} max={50} value={minStaff} onChange={(e) => setMinStaff(e.target.value)} className={inputClass} />
-          <span className="font-normal">{tr(timeCopy.ruleMinStaffHint)}</span>
-        </label>
-        <button type="submit" disabled={pending} className={cn(btn, 'bg-primary text-primary-foreground hover:opacity-90')}>
-          {pending && <Spinner className="h-4 w-4" />}
-          {tr(timeCopy.save)}
-        </button>
-        {(saved || error) && (
-          <p className="text-sm md:col-span-4">
-            {saved && <span className="font-semibold text-accent">✓ {tr(timeCopy.saved)}</span>}
-            {error && <span className="font-semibold text-destructive">{tr(shiftErrors[error] ?? shiftErrors.failed)}</span>}
-          </p>
-        )}
-      </form>
-    </section>
-  )
-}

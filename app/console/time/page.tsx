@@ -22,7 +22,7 @@ export const dynamic = 'force-dynamic'
 export default async function TimePage({
   searchParams,
 }: {
-  searchParams: Promise<{ week?: string; view?: string; mode?: string; month?: string }>
+  searchParams: Promise<{ week?: string; tab?: string; view?: string; mode?: string; month?: string }>
 }) {
   const { user, role } = await getConsoleSession()
   if (!user) redirect(`/login?next=${TIME_PATH}`)
@@ -30,7 +30,9 @@ export default async function TimePage({
   const device = await getCurrentDevice().catch(() => null)
   if (!admin && !(canUseDesk(role) && device)) redirect(DESK_PATH)
 
-  const { week, view: rawView, mode, month: rawMonth } = await searchParams
+  const q = await searchParams
+  const { week, mode, month: rawMonth } = q
+  const rawView = q.tab ?? q.view // ?view= = links from before v0.30
   const view = admin && (rawView === 'roster' || rawView === 'shifts' || rawView === 'leave') ? rawView : 'entries'
   const start = weekStart(week && /^\d{4}-\d{2}-\d{2}$/.test(week) ? week : bangkokToday())
   const end = addDays(start, 7)

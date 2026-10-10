@@ -11,7 +11,7 @@ import { REPORTS_PATH } from '@/lib/auth/roles'
 import type { Period, Preset } from '@/lib/console/report-period'
 import type { BillRow, SalesReport } from '@/lib/console/report-calc'
 import { cn } from '@/lib/utils'
-import { ReportTabs } from '@/components/console/time-report-view'
+import { keepPeriod, ReportTabs } from '@/components/console/time-report-view'
 
 type L = { th: string; en: string }
 const t = {
@@ -124,7 +124,7 @@ export function ReportView({ period, report }: { period: Period; report: SalesRe
 
   return (
     <div className="mx-auto flex max-w-6xl flex-col gap-5 px-4 py-6 md:px-6 md:py-8">
-      <ReportTabs active="sales" />
+      <ReportTabs active="sales" keep={keepPeriod(period.preset, period.from, period.to)} />
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h1 className="font-display text-2xl font-extrabold md:text-3xl">{tr(t.title)}</h1>

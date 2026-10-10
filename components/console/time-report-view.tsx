@@ -4,7 +4,7 @@ import { Fragment, useState } from 'react'
 import { AlertTriangle, ChevronDown, ChevronRight, Download } from 'lucide-react'
 import { useLanguage } from '@/components/language-provider'
 import { formatMemberDate } from '@/lib/format-date'
-import { REPORTS_PATH, TEAM_PATH } from '@/lib/auth/roles'
+import { REPORTS_PATH, TEAM_PATH, TIME_PATH } from '@/lib/auth/roles'
 import { leaveCopy, LEAVE_KINDS, type LeaveKind } from '@/lib/leave'
 import type { PayTab, TimePeriod, TimePreset } from '@/lib/console/time-period'
 import { leaveTotal, needsCheck, type DayRow, type PersonTime, type TimeReport } from '@/lib/console/time-report-calc'
@@ -67,6 +67,7 @@ const t = {
   adminOut: { th: 'แอดมินลงออก', en: 'Clocked out by admin' },
   edited: { th: 'แก้ไขเวลา', en: 'Time edited' },
   stillIn: { th: 'ยังอยู่', en: 'Still in' },
+  openWeek: { th: 'เปิดหน้าลงเวลาสัปดาห์นี้เพื่อแก้เวลา', en: 'Open this week in the time clock to fix times' },
   noDays: { th: 'ไม่มีกะหรือการลงเวลาในช่วงนี้', en: 'No shifts or clock entries in this period' },
   checkHint: { th: 'ลืมลงเวลาออก / แอดมินลงออกให้ / แก้ไขเวลา — แตะชื่อเพื่อดูรายวัน', en: 'Forgot to clock out / clocked out by admin / edited — tap a name for the days' },
   // export
@@ -83,7 +84,16 @@ const num = 'px-3 py-2.5 text-right tabular-nums align-top whitespace-nowrap'
 export const hm = (min: number) => `${Math.floor(min / 60)}:${String(Math.round(min % 60)).padStart(2, '0')}`
 
 // Sales | Time switch at the top of Reports.
-export function ReportTabs({ active }: { active: 'sales' | 'time' }) {
+// What carries over to the other report tab: a calendar month, or the
+// exact dates (pay periods and "today" belong to one report only).
+export function keepPeriod(preset: string, from: string, to: string): string {
+  if (preset === 'month' || preset === 'last_month') return `p=${preset}`
+  if (preset === 'custom') return `from=${from}&to=${to}`
+  return ''
+}
+
+// The dates chosen carry over when switching (v0.30).
+export function ReportTabs({ active, keep = '' }: { active: 'sales' | 'time'; keep?: string }) {
   const { tr } = useLanguage()
   return (
     <div className="inline-flex self-start rounded-full bg-secondary p-1 text-sm font-semibold" role="tablist">
@@ -92,7 +102,7 @@ export function ReportTabs({ active }: { active: 'sales' | 'time' }) {
           key={k}
           role="tab"
           aria-selected={active === k}
-          href={k === 'sales' ? REPORTS_PATH : `${REPORTS_PATH}?r=time`}
+          href={`${REPORTS_PATH}?${[k === 'time' ? 'tab=time' : '', keep].filter(Boolean).join('&')}`.replace(/\?$/, '')}
           className={cn('rounded-full px-4 py-1.5', active === k ? 'bg-background shadow-sm' : 'text-muted-foreground hover:text-foreground')}
         >
           {tr(t[k])}
@@ -106,7 +116,7 @@ export function TimeReportView({ period, report, paySetUp }: { period: TimePerio
   const { tr, lang } = useLanguage()
   const date = (d: string) => formatMemberDate(`${d}T12:00:00+07:00`, lang, true) ?? d
   const span = (a: string, b: string) => (a === b ? date(a) : `${date(a)} – ${date(b)}`)
-  const base = `${REPORTS_PATH}?r=time&pay=${period.pay}`
+  const base = `${REPORTS_PATH}?tab=time&pay=${period.pay}`
   const qs = `pay=${period.pay}&from=${period.from}&to=${period.to}`
 
   const people = report?.people ?? []
@@ -123,7 +133,7 @@ export function TimeReportView({ period, report, paySetUp }: { period: TimePerio
 
   return (
     <div className="mx-auto flex max-w-6xl flex-col gap-5 px-4 py-6 md:px-6 md:py-8">
-      <ReportTabs active="time" />
+      <ReportTabs active="time" keep={keepPeriod(period.preset, period.from, period.to)} />
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h1 className="font-display text-2xl font-extrabold md:text-3xl">{tr(t.title)}</h1>
@@ -140,7 +150,7 @@ export function TimeReportView({ period, report, paySetUp }: { period: TimePerio
               key={k}
               role="tab"
               aria-selected={period.pay === k}
-              href={`${REPORTS_PATH}?r=time&pay=${k}&p=${period.preset === 'custom' ? 'cycle' : period.preset}`}
+              href={`${REPORTS_PATH}?tab=time&pay=${k}&p=${period.preset === 'custom' ? 'cycle' : period.preset}`}
               className={cn('rounded-full px-4 py-1.5', period.pay === k ? 'bg-background shadow-sm' : 'text-muted-foreground hover:text-foreground')}
             >
               {tr(t[k])} <span className="text-muted-foreground">{groups[k].length}</span>
@@ -168,7 +178,7 @@ export function TimeReportView({ period, report, paySetUp }: { period: TimePerio
           ),
         )}
         <form action={REPORTS_PATH} className="flex flex-wrap items-center gap-2 text-sm">
-          <input type="hidden" name="r" value="time" />
+          <input type="hidden" name="tab" value="time" />
           <input type="hidden" name="pay" value={period.pay} />
           <input type="date" name="from" defaultValue={period.from} className="h-9 rounded-full border border-border bg-background px-3" />
           <span className="text-muted-foreground">{tr(t.fromTo)}</span>
@@ -402,7 +412,14 @@ function DayTable({ days, date }: { days: DayRow[]; date: (d: string) => string 
           <tr key={d.date} className={cn((d.status === 'off' || d.status === 'upcoming' || d.status === 'none') && 'text-muted-foreground')}>
             <td className={cn(td, 'whitespace-nowrap')}>
               <span className="inline-block w-8 text-xs text-muted-foreground">{weekday(d.date, lang)}</span>
-              {date(d.date)}
+              {d.entries.length ? (
+                // Fix a time: the time clock opened on that week.
+                <a href={`${TIME_PATH}?week=${d.date}`} className="hover:text-primary hover:underline" title={tr(t.openWeek)}>
+                  {date(d.date)}
+                </a>
+              ) : (
+                date(d.date)
+              )}
             </td>
             <td className={td}>{d.shifts.join(' + ') || '—'}</td>
             <td className={cn(td, 'tabular-nums whitespace-nowrap')}>

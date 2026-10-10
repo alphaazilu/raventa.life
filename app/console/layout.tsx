@@ -1,7 +1,9 @@
 import type { Metadata, Viewport } from 'next'
 import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
-import { ConsoleBar } from '@/components/console/console-bar'
+import { Suspense } from 'react'
+import { ConsoleShell } from '@/components/console/console-shell'
+import { loadAlerts, type ConsoleAlerts } from '@/lib/console/alerts'
 import { TabletLock } from '@/components/console/tablet-lock'
 import { IdleLock } from '@/components/console/idle-lock'
 import { BusyOverlay } from '@/components/console/busy-overlay'
@@ -28,7 +30,7 @@ export const viewport: Viewport = {
   themeColor: '#ffffff',
 }
 
-// Back Office console: its own top bar, no site header/footer. The proxy
+// Back Office console: its own side menu + top bar (v0.30), no site header/footer. The proxy
 // (lib/supabase/middleware.ts) already gates these routes; this is the
 // second check, and each page checks again for what it shows.
 //
@@ -64,17 +66,26 @@ export default async function ConsoleLayout({ children }: { children: React.Reac
   if (device && role === 'staff') await clockInIfNeeded(user.id, device.id, 'password')
   const settings = await getAppSettings()
 
+  // Numbers beside the side menu (admins only; staff see none).
+  const alerts: ConsoleAlerts = isAdmin(me?.role)
+    ? await loadAlerts()
+    : { pendingLeave: 0, forgotClockOut: 0, checklistIssues: 0, checklistMissed: 0, unsetPay: 0 }
+
   return (
     <div className="min-h-dvh overflow-x-clip bg-background">
-      <ConsoleBar
-        name={me?.first_name || user.email || ''}
-        admin={isAdmin(me?.role)}
-        deviceName={device?.name ?? null}
-        signOutAction={lockConsole.bind(null, 'manual')}
-        staffMembers={settings.staffMembersOnTablet}
-        idleMinutes={isAdmin(me?.role) ? settings.adminIdleMinutes : settings.staffIdleMinutes}
-      />
-      {children}
+      <Suspense>
+        <ConsoleShell
+          name={me?.first_name || user.email || ''}
+          admin={isAdmin(me?.role)}
+          deviceName={device?.name ?? null}
+          signOutAction={lockConsole.bind(null, 'manual')}
+          staffMembers={settings.staffMembersOnTablet}
+          idleMinutes={isAdmin(me?.role) ? settings.adminIdleMinutes : settings.staffIdleMinutes}
+          alerts={alerts}
+        >
+          {children}
+        </ConsoleShell>
+      </Suspense>
       {device && <UpdateBanner />}
       {device && <IdleLock minutes={isAdmin(me?.role) ? settings.adminIdleMinutes : settings.staffIdleMinutes} />}
       <BusyOverlay />

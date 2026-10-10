@@ -76,7 +76,7 @@ export function CatalogAdmin({ catalog, view, today }: { catalog: Catalog | null
         {tabs.map((t) => (
           <Link
             key={t.key}
-            href={t.key === 'products' ? CATALOG_PATH : `${CATALOG_PATH}?view=${t.key}`}
+            href={t.key === 'products' ? CATALOG_PATH : `${CATALOG_PATH}?tab=${t.key}`}
             className={cn(
               'inline-flex h-9 items-center gap-1.5 rounded-full px-3.5 text-sm font-semibold',
               view === t.key ? 'bg-foreground text-background' : 'border border-border text-foreground hover:border-primary/40',

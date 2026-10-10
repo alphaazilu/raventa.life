@@ -119,7 +119,7 @@ export function RangePlanner({
         nextWeek: !monthView && end >= next ? next : undefined,
       })
       // Show the week (or month) the plan starts in, so the saved shifts are on screen.
-      router.push(monthView ? `${TIME_PATH}?view=roster&month=${from.slice(0, 7)}` : `${TIME_PATH}?week=${week}&view=roster&mode=week`)
+      router.push(monthView ? `${TIME_PATH}?tab=roster&month=${from.slice(0, 7)}` : `${TIME_PATH}?week=${week}&tab=roster&mode=week`)
       router.refresh()
     })
 
@@ -271,7 +271,7 @@ export function RangePlanner({
               <span className={cn('text-sm font-semibold', msg.ok ? 'text-accent' : 'text-destructive')}>
                 {msg.text}
                 {msg.nextWeek && (
-                  <a href={`${TIME_PATH}?week=${msg.nextWeek}&view=roster`} className="ml-2 text-primary underline">
+                  <a href={`${TIME_PATH}?week=${msg.nextWeek}&tab=roster`} className="ml-2 text-primary underline">
                     {tr(timeCopy.planNextWeek)}
                   </a>
                 )}

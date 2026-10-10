@@ -115,14 +115,14 @@ export function TimeView({
         {admin && view === 'roster' && (
           <div className="ml-auto inline-flex rounded-full bg-secondary p-1 text-sm font-semibold">
             <Link
-              href={`${TIME_PATH}?view=roster&mode=week&week=${month ? (today.startsWith(month.start.slice(0, 7)) ? today : month.start) : weekStart}`}
+              href={`${TIME_PATH}?tab=roster&mode=week&week=${month ? (today.startsWith(month.start.slice(0, 7)) ? today : month.start) : weekStart}`}
               aria-current={!monthMode ? 'page' : undefined}
               className={cn('rounded-full px-4 py-1.5', !monthMode ? 'bg-background shadow-sm' : 'text-muted-foreground')}
             >
               {tr(timeCopy.modeWeek)}
             </Link>
             <Link
-              href={`${TIME_PATH}?view=roster&month=${(month?.start ?? weekStart).slice(0, 7)}`}
+              href={`${TIME_PATH}?tab=roster&month=${(month?.start ?? weekStart).slice(0, 7)}`}
               aria-current={monthMode ? 'page' : undefined}
               className={cn('rounded-full px-4 py-1.5', monthMode ? 'bg-background shadow-sm' : 'text-muted-foreground')}
             >
@@ -130,12 +130,14 @@ export function TimeView({
             </Link>
           </div>
         )}
-        <div className={cn('flex flex-wrap items-center gap-2', monthMode && 'hidden')}>
-          <Link href={`${TIME_PATH}?week=${addDays(weekStart, -7)}${view !== 'entries' ? `&view=${view}` : ''}`} aria-label={tr(timeCopy.prevWeek)} className="flex h-9 w-9 items-center justify-center rounded-full border border-border hover:border-primary/40">
+        <div className={cn('flex w-full flex-wrap items-center gap-2 sm:w-auto', monthMode && 'hidden')}>
+          {/* Phones: ‹ week › on one line (the label shrinks), CSV after it */}
+          <div className="flex min-w-0 flex-1 items-center gap-2 sm:flex-none">
+          <Link href={`${TIME_PATH}?week=${addDays(weekStart, -7)}${view !== 'entries' ? `&tab=${view}` : ''}`} aria-label={tr(timeCopy.prevWeek)} className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-border hover:border-primary/40">
             <ChevronLeft className="h-4 w-4" aria-hidden="true" />
           </Link>
           {/* Tap the week to pick any date from the calendar → that week. */}
-          <label className="relative inline-flex min-w-[11rem] cursor-pointer items-center justify-center gap-1.5 rounded-full px-2 py-1.5 text-center text-sm font-semibold tabular-nums hover:bg-secondary">
+          <label className="relative inline-flex min-w-0 flex-1 cursor-pointer items-center justify-center gap-1.5 rounded-full px-2 py-1.5 text-center text-sm font-semibold tabular-nums hover:bg-secondary sm:min-w-[11rem] sm:flex-none">
             <CalendarDays className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
             {isThisWeek ? `${tr(timeCopy.thisWeek)} · ` : ''}
             {weekLabel}
@@ -144,14 +146,15 @@ export function TimeView({
               aria-label={tr(timeCopy.pickWeek)}
               value={weekStart}
               onChange={(e) => {
-                if (e.target.value) router.push(`${TIME_PATH}?week=${e.target.value}${view !== 'entries' ? `&view=${view}` : ''}`)
+                if (e.target.value) router.push(`${TIME_PATH}?week=${e.target.value}${view !== 'entries' ? `&tab=${view}` : ''}`)
               }}
               className="absolute inset-0 cursor-pointer opacity-0"
             />
           </label>
-          <Link href={`${TIME_PATH}?week=${addDays(weekStart, 7)}${view !== 'entries' ? `&view=${view}` : ''}`} aria-label={tr(timeCopy.nextWeek)} className="flex h-9 w-9 items-center justify-center rounded-full border border-border hover:border-primary/40">
+          <Link href={`${TIME_PATH}?week=${addDays(weekStart, 7)}${view !== 'entries' ? `&tab=${view}` : ''}`} aria-label={tr(timeCopy.nextWeek)} className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-border hover:border-primary/40">
             <ChevronRight className="h-4 w-4" aria-hidden="true" />
           </Link>
+          </div>
           {admin && (
             <a href={`/api/console/time?week=${weekStart}`} className="ml-1 inline-flex h-9 items-center gap-1.5 rounded-full border border-border px-3 text-xs font-semibold hover:border-primary/40">
               <Download className="h-3.5 w-3.5" aria-hidden="true" />
@@ -166,7 +169,7 @@ export function TimeView({
           {(['entries', 'roster', 'shifts', 'leave'] as const).map((v) => (
             <Link
               key={v}
-              href={`${TIME_PATH}?week=${weekStart}${v === 'entries' ? '' : `&view=${v}`}${v === 'roster' && month ? `&month=${month.start.slice(0, 7)}` : ''}`}
+              href={`${TIME_PATH}?week=${weekStart}${v === 'entries' ? '' : `&tab=${v}`}${v === 'roster' && month ? `&month=${month.start.slice(0, 7)}` : ''}`}
               aria-current={view === v ? 'page' : undefined}
               className={cn(
                 'rounded-full px-4 py-2 text-sm font-semibold',
@@ -408,12 +411,12 @@ function AdminTime({
                 <li
                   key={e.id}
                   className={cn(
-                    'flex items-center gap-2 rounded-full border px-3 py-1.5 text-sm',
+                    'flex flex-wrap items-center gap-x-2 gap-y-1 rounded-2xl border px-3 py-1.5 text-sm sm:rounded-full',
                     lost ? 'border-destructive/40 bg-destructive/10 text-destructive' : 'border-border bg-secondary',
                   )}
                 >
                   {lost ? <AlertTriangle className="h-4 w-4" aria-hidden="true" /> : <span className="h-2 w-2 rounded-full bg-loading" />}
-                  <b>{e.name}</b>
+                  <b className="whitespace-nowrap">{e.name}</b>
                   <span className="tabular-nums">
                     {fmtDay(e.clockIn)} {fmtTime(e.clockIn)} · {lost ? tr(timeCopy.forgot) : fmtDur(minutesOf(e, now))}
                   </span>
@@ -421,7 +424,7 @@ function AdminTime({
                     type="button"
                     onClick={() => setClosing(closing === e.id ? null : e.id)}
                     className={cn(
-                      'ml-1 inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-xs font-semibold',
+                      'ml-1 inline-flex items-center gap-1 whitespace-nowrap rounded-full border px-2.5 py-0.5 text-xs font-semibold',
                       closing === e.id ? 'border-foreground bg-background text-foreground' : 'border-current/30 bg-background/70 hover:bg-background',
                     )}
                   >
@@ -448,7 +451,7 @@ function AdminTime({
       <section className="rounded-2xl border border-border bg-card p-5">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <h2 className="text-base font-semibold">{tr(timeCopy.summary)}</h2>
-          <Link href={`${REPORTS_PATH}?r=time`} className="inline-flex items-center gap-1 text-sm font-semibold text-primary hover:underline">
+          <Link href={`${REPORTS_PATH}?tab=time`} className="inline-flex items-center gap-1 text-sm font-semibold text-primary hover:underline">
             {tr(timeCopy.monthReport)}
             <ChevronRight className="h-4 w-4" aria-hidden="true" />
           </Link>
@@ -543,7 +546,7 @@ function AdminTime({
                     <td className="py-2.5 pr-3 font-semibold tabular-nums">
                       {forgotten(e, now) ? '—' : fmtDur(statsOf(e, now).paidMinutes)}
                       {statsOf(e, now).otMinutes > 0 && <span className="ml-1.5 text-xs font-semibold text-accent">OT {fmtDur(statsOf(e, now).otMinutes)}</span>}
-                      {statsOf(e, now).earlyMinutes > 0 && <span className="ml-1.5 text-xs font-semibold text-amber-700">{tr(timeCopy.early)} {statsOf(e, now).earlyMinutes}</span>}
+                      {statsOf(e, now).earlyMinutes > 0 && <span className="ml-1.5 text-xs font-semibold text-amber-700">{tr(timeCopy.early)} {statsOf(e, now).earlyMinutes} {tr(timeCopy.minutesShort)}</span>}
                     </td>
                     <td className="py-2.5 text-right">
                       <button type="button" onClick={() => setEditing(e.id)} className="inline-flex items-center gap-1 text-xs font-semibold text-primary hover:underline">

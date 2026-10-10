@@ -9,9 +9,11 @@ import { decideLeave, leaveDocLink } from '@/app/console/time/leave-actions'
 import { leaveCopy, leaveErrors, type LeaveRequest } from '@/lib/leave'
 import type { LeaveDayCheck } from '@/lib/leave-server'
 import { cn } from '@/lib/utils'
+import { TIME_PATH } from '@/lib/auth/roles'
 
 type L = { th: string; en: string }
 const t = {
+  seeRoster: { th: 'ดูในตารางกะ', en: 'See the roster' },
   waiting: { th: 'รออนุมัติ', en: 'Waiting' },
   none: { th: 'ไม่มีคำขอที่รออยู่', en: 'Nothing waiting' },
   decided: { th: 'ตัดสินแล้ว (60 วันล่าสุด)', en: 'Decided (last 60 days)' },
@@ -131,6 +133,9 @@ function PendingCard({ r, days, range, fmt }: { r: LeaveRequest; days: LeaveDayC
       </div>
       <p className="mt-0.5 text-sm">
         {range} · {tr(t.days).replace('{n}', String(r.days))}
+        <a href={`${TIME_PATH}?tab=roster&month=${r.start.slice(0, 7)}`} className="ml-2 text-xs font-semibold text-primary hover:underline">
+          {tr(t.seeRoster)}
+        </a>
       </p>
       {r.reason && <p className="mt-1 text-sm text-muted-foreground">“{r.reason}”</p>}
       {r.hasDoc && (

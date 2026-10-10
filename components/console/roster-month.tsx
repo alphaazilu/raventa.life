@@ -401,7 +401,7 @@ export function RosterMonth({
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-2">
           <Link
-            href={`${TIME_PATH}?view=roster&month=${addMonths(monthStart, -1).slice(0, 7)}`}
+            href={`${TIME_PATH}?tab=roster&month=${addMonths(monthStart, -1).slice(0, 7)}`}
             aria-label={tr(timeCopy.prevMonth)}
             className="flex h-9 w-9 items-center justify-center rounded-full border border-border hover:border-primary/40 print:hidden"
           >
@@ -409,14 +409,14 @@ export function RosterMonth({
           </Link>
           <h2 className="min-w-[9rem] text-center font-display text-lg font-extrabold">{monthLabel}</h2>
           <Link
-            href={`${TIME_PATH}?view=roster&month=${next.slice(0, 7)}`}
+            href={`${TIME_PATH}?tab=roster&month=${next.slice(0, 7)}`}
             aria-label={tr(timeCopy.nextMonth)}
             className="flex h-9 w-9 items-center justify-center rounded-full border border-border hover:border-primary/40 print:hidden"
           >
             <ChevronRight className="h-4 w-4" aria-hidden="true" />
           </Link>
           {!thisMonth && (
-            <Link href={`${TIME_PATH}?view=roster`} className="ml-1 text-sm font-semibold text-primary hover:underline print:hidden">
+            <Link href={`${TIME_PATH}?tab=roster`} className="ml-1 text-sm font-semibold text-primary hover:underline print:hidden">
               {tr(timeCopy.thisMonth)}
             </Link>
           )}

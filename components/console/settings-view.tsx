@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useEffect, useState, useTransition } from 'react'
-import { CalendarOff, ChevronRight, Lock, Receipt, Smartphone, Users, Wallet } from 'lucide-react'
+import { CalendarOff, ChevronRight, Clock, Lock, Receipt, Smartphone, Users, Wallet } from 'lucide-react'
 import { LEAVE_KINDS, leaveCopy } from '@/lib/leave'
 import { useLanguage } from '@/components/language-provider'
 import { Spinner } from '@/components/ui/spinner'
@@ -14,6 +14,9 @@ import { cycleOf, type DailyCycle } from '@/lib/console/pay-cycle'
 import { formatMemberDate } from '@/lib/format-date'
 import { bangkokToday } from '@/lib/check-in/day'
 import { saveAccessSettings, savePayCycle, setPhoneAccess } from '@/app/console/settings/actions'
+import { saveTimeSettings } from '@/app/console/time/shift-actions'
+import { shiftErrors, timeCopy } from '@/lib/console/copy'
+import type { TimeSettings } from '@/lib/console/shift-math'
 import { cn } from '@/lib/utils'
 
 const card = 'rounded-2xl border border-border bg-card p-5'
@@ -79,18 +82,22 @@ export function SettingsView({
   phoneAccess,
   setUp,
   initialTab = 'team',
+  timeRules,
 }: {
   settings: AppSettings
   staff: { id: string; name: string }[]
   phoneAccess: string[]
   setUp: boolean
   initialTab?: SettingsTab
+  // Late / OT / minimum people a day (§17, §26) — moved here from Time (v0.30).
+  timeRules: TimeSettings
 }) {
   const { tr, lang } = useLanguage()
   const router = useRouter()
   const [pending, start] = useTransition()
   const [tab, setTab] = useState<SettingsTab>(initialTab)
   const [form, setForm] = useState(settings)
+  const [rules, setRules] = useState(timeRules)
   const [error, setError] = useState<string | null>(null)
   const [saved, setSaved] = useState(false)
   const [busyId, setBusyId] = useState<string | null>(null)
@@ -107,7 +114,7 @@ export function SettingsView({
       form.staffMembersOnTablet !== settings.staffMembersOnTablet ||
       form.staffIdleMinutes !== settings.staffIdleMinutes ||
       form.adminIdleMinutes !== settings.adminIdleMinutes,
-    work: !same(form.leave, settings.leave) || !same(form.pay, settings.pay),
+    work: !same(form.leave, settings.leave) || !same(form.pay, settings.pay) || !same(rules, timeRules),
     shop: form.vatRegistered !== settings.vatRegistered,
   }
   const dirty = SETTINGS_TABS.some((k) => dirtyBy[k])
@@ -133,6 +140,10 @@ export function SettingsView({
         const r = await savePayCycle(form.pay)
         if (!r.ok) return setError(r.error)
       }
+      if (!same(rules, timeRules)) {
+        const r = await saveTimeSettings(rules.lateGraceMinutes, rules.otMinMinutes, rules.minStaffPerDay)
+        if (!r.ok) return setError(`rules:${r.error}`)
+      }
       setSaved(true)
       router.refresh()
     })
@@ -155,32 +166,33 @@ export function SettingsView({
   }
 
   return (
-    <div className="mx-auto max-w-3xl space-y-5 px-4 pb-28 pt-5">
+    <div className="mx-auto max-w-3xl space-y-5 px-4 pb-6 pt-5">
       <h1 className="font-display text-2xl font-extrabold">{tr(c.title)}</h1>
 
-      {/* Tabs */}
-      <div className="-mx-4 overflow-x-auto px-4">
-        <div className="inline-flex min-w-max rounded-full bg-secondary p-1 text-sm font-semibold" role="tablist">
-          {SETTINGS_TABS.map((k) => (
-            <button
-              key={k}
-              type="button"
-              role="tab"
-              aria-selected={tab === k}
-              onClick={() => go(k)}
-              className={cn('relative rounded-full px-4 py-2', tab === k ? 'bg-background shadow-sm' : 'text-muted-foreground hover:text-foreground')}
-            >
-              {tr(TAB_LABEL[k])}
-              {dirtyBy[k] && <span className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-primary" aria-label={tr(c.unsaved)} />}
-            </button>
-          ))}
-        </div>
+      {/* Tabs: three equal columns on a phone (labels may wrap), pills from sm up */}
+      <div className="grid grid-cols-3 gap-1 rounded-2xl bg-secondary p-1 text-xs font-semibold sm:inline-flex sm:rounded-full sm:text-sm" role="tablist">
+        {SETTINGS_TABS.map((k) => (
+          <button
+            key={k}
+            type="button"
+            role="tab"
+            aria-selected={tab === k}
+            onClick={() => go(k)}
+            className={cn(
+              'relative rounded-xl px-2 py-2 leading-tight sm:rounded-full sm:px-4',
+              tab === k ? 'bg-background shadow-sm' : 'text-muted-foreground hover:text-foreground',
+            )}
+          >
+            {tr(TAB_LABEL[k])}
+            {dirtyBy[k] && <span className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-primary" aria-label={tr(c.unsaved)} />}
+          </button>
+        ))}
       </div>
 
       {!setUp && <p className="rounded-2xl bg-amber-500/15 p-4 text-sm font-semibold text-amber-800 dark:text-amber-300">{tr(c.notSetUp)}</p>}
       {error && (
         <p role="alert" className="rounded-2xl bg-destructive/10 px-4 py-3 text-sm font-semibold text-destructive">
-          {tr(settingsErrors[error] ?? settingsErrors.failed)}
+          {error.startsWith('rules:') ? tr(shiftErrors[error.slice(6)] ?? shiftErrors.failed) : tr(settingsErrors[error] ?? settingsErrors.failed)}
         </p>
       )}
 
@@ -253,6 +265,32 @@ export function SettingsView({
 
       {tab === 'work' && (
         <>
+          <section className={card}>
+            <h2 className="flex items-center gap-2 text-base font-bold">
+              <Clock className="h-4 w-4" aria-hidden="true" /> {tr(timeCopy.rules)}
+            </h2>
+            <div className="mt-3 grid gap-4 sm:grid-cols-3">
+              {(
+                [
+                  ['lateGraceMinutes', timeCopy.ruleGrace, timeCopy.ruleGraceHint, 120],
+                  ['otMinMinutes', timeCopy.ruleOt, timeCopy.ruleOtHint, 240],
+                  ['minStaffPerDay', timeCopy.ruleMinStaff, timeCopy.ruleMinStaffHint, 50],
+                ] as const
+              ).map(([k, label, hint, max]) => (
+                <label key={k} className="flex flex-col gap-1 text-sm">
+                  <span className="font-semibold">{tr(label)}</span>
+                  <input
+                    className={cn(input, 'w-24')}
+                    inputMode="numeric"
+                    value={rules[k]}
+                    onChange={(e) => setRules({ ...rules, [k]: Math.min(max, Number(e.target.value.replace(/\D/g, '')) || 0) })}
+                  />
+                  <span className="text-xs text-muted-foreground">{tr(hint)}</span>
+                </label>
+              ))}
+            </div>
+          </section>
+
           <section className={card}>
             <h2 className="flex items-center gap-2 text-base font-bold">
               <CalendarOff className="h-4 w-4" aria-hidden="true" /> {tr(c.leaveHeading)}
@@ -360,7 +398,7 @@ export function SettingsView({
           <section className={card}>
             <h2 className="text-base font-bold">{tr(c.elsewhereHeading)}</h2>
             <div className="mt-1">
-              <Links items={[{ href: TIME_PATH + '?view=shifts', text: c.workLinks }]} />
+              <Links items={[{ href: TIME_PATH + '?tab=shifts', text: c.workLinks }]} />
             </div>
           </section>
         </>
@@ -388,8 +426,8 @@ export function SettingsView({
 
       {/* Save bar: only while something is changed */}
       {(dirty || (saved && !dirty)) && (
-        <div className="fixed inset-x-0 bottom-0 z-30 border-t border-border bg-background/95 px-4 py-3 shadow-[0_-4px_16px_rgba(0,0,0,0.06)] backdrop-blur print:hidden">
-          <div className="mx-auto flex max-w-3xl items-center gap-3">
+        <div className="sticky bottom-0 z-30 -mx-4 border-t border-border bg-background/95 px-4 py-3 shadow-[0_-4px_16px_rgba(0,0,0,0.06)] backdrop-blur print:hidden sm:rounded-t-2xl">
+          <div className="flex flex-wrap items-center gap-3">
             {dirty ? (
               <>
                 <span className="mr-auto text-sm font-semibold">{tr(c.unsaved)}</span>
@@ -398,6 +436,7 @@ export function SettingsView({
                   disabled={pending}
                   onClick={() => {
                     setForm(settings)
+                    setRules(timeRules)
                     setError(null)
                   }}
                   className="h-10 rounded-full border border-border px-4 text-sm font-semibold"

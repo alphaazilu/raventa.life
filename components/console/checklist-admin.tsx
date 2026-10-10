@@ -2,10 +2,10 @@
 
 import Link from 'next/link'
 import { useMemo, useState } from 'react'
-import { AlertTriangle, Check, ChevronLeft, ChevronRight, Download, Flag } from 'lucide-react'
+import { AlertTriangle, Check, ChevronLeft, ChevronRight, Download, Flag, ScanLine } from 'lucide-react'
 import { useLanguage } from '@/components/language-provider'
 import { formatMemberDate } from '@/lib/format-date'
-import { CHECKLIST_PATH } from '@/lib/auth/roles'
+import { CHECKLIST_PATH, MY_CHECKLIST_PATH } from '@/lib/auth/roles'
 import { checklistCopy as c, hhmm, slotsOn, slotState, withLivePoints, type Answer, type CheckPoint, type CheckRound, type CheckScan, type SlotState } from '@/lib/checklist'
 import { ChecklistSetup } from '@/components/console/checklist-setup'
 import { cn } from '@/lib/utils'
@@ -39,6 +39,7 @@ const t = {
   ticks: { th: 'ติ๊ก {a}/{b}', en: '{a}/{b} ticked' },
   anytime: { th: 'ทำเมื่อต้องการ — ตรวจล่าสุด', en: 'Any time — last checked' },
   pointsN: { th: '{n} จุด', en: '{n} points' },
+  scanPhone: { th: 'สแกนจุด (มือถือ)', en: 'Scan a point (phone)' },
 } satisfies Record<string, L>
 
 const tone: Record<SlotState['status'], string> = {
@@ -85,8 +86,16 @@ export function ChecklistAdmin({
   return (
     <div className="mx-auto flex max-w-6xl flex-col gap-5 px-4 py-6 md:px-6 md:py-8">
       <div>
-        <h1 className="font-display text-2xl font-extrabold md:text-3xl">{tr(c.title)}</h1>
-        <p className="mt-1 text-sm text-muted-foreground">{tr(t.intro)}</p>
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div className="min-w-0">
+            <h1 className="font-display text-2xl font-extrabold md:text-3xl">{tr(c.title)}</h1>
+            <p className="mt-1 text-sm text-muted-foreground">{tr(t.intro)}</p>
+          </div>
+          <Link href={MY_CHECKLIST_PATH} className="inline-flex h-10 shrink-0 items-center gap-2 rounded-full border border-border px-4 text-sm font-semibold hover:bg-secondary">
+            <ScanLine className="h-4 w-4" aria-hidden="true" />
+            {tr(t.scanPhone)}
+          </Link>
+        </div>
       </div>
       <div className="-mx-4 overflow-x-auto px-4">
         <div className="inline-flex min-w-max rounded-full bg-secondary p-1 text-sm font-semibold" role="tablist">

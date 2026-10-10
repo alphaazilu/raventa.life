@@ -5,7 +5,7 @@ import { getConsoleSession } from '@/lib/console/session'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { loadCatalog } from '@/lib/console/catalog'
 import { bangkokToday } from '@/lib/check-in/day'
-import { CATALOG_PATH, CONSOLE_PATH, isAdmin } from '@/lib/auth/roles'
+import { CATALOG_PATH, DESK_PATH, isAdmin } from '@/lib/auth/roles'
 
 export const metadata: Metadata = {
   title: 'สินค้าและราคา | RAVENTA Back Office',
@@ -14,12 +14,13 @@ export const metadata: Metadata = {
 export const dynamic = 'force-dynamic'
 
 // Back Office → Products & prices (schema.sql §18). Admins only.
-export default async function CatalogPage({ searchParams }: { searchParams: Promise<{ view?: string }> }) {
+export default async function CatalogPage({ searchParams }: { searchParams: Promise<{ tab?: string; view?: string }> }) {
   const { user, role } = await getConsoleSession()
   if (!user) redirect(`/login?next=${CATALOG_PATH}`)
-  if (!isAdmin(role)) redirect(CONSOLE_PATH)
+  if (!isAdmin(role)) redirect(DESK_PATH)
 
-  const { view: raw } = await searchParams
+  const q = await searchParams
+  const raw = q.tab ?? q.view // ?view= = links from before v0.30
   const view: CatalogView = raw === 'holidays' || raw === 'promotions' ? raw : 'products'
   const catalog = await loadCatalog(createAdminClient()).catch((err) => {
     console.error('catalog load failed', err)
