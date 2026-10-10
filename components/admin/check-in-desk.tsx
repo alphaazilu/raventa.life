@@ -245,110 +245,115 @@ export function CheckInDesk({
         />
       ) : (
         <div className="grid items-start gap-4 md:grid-cols-[17rem_minmax(0,1fr)] lg:grid-cols-[19rem_minmax(0,1fr)]">
-          {/* Left: who — round camera, or the guest's photo once scanned. */}
-          <section className="relative rounded-2xl border border-border bg-card p-4">
-            <div className="relative mx-auto w-full max-w-[15rem]">
-              <QrScanner
-                round
-                hint={null}
-                onCode={handleCode}
-                paused={busy || member !== null || searchOpen}
-                pausedText={tr(deskCopy.scanChecking)}
-                cover={
-                  member ? (
-                    <AvatarCircle src={member.avatarUrl} name={member.name} className="h-full w-full text-6xl" />
-                  ) : undefined
-                }
-                corner={
-                  member ? (
-                    <CornerButton label={tr(deskCopy.nextGuest)} onClick={reset}>
-                      <RotateCcw className="h-5 w-5" aria-hidden="true" />
-                    </CornerButton>
-                  ) : (
-                    <CornerButton label={tr(deskCopy.searchButton)} onClick={() => setSearchOpen(true)}>
-                      <Search className="h-5 w-5" aria-hidden="true" />
-                    </CornerButton>
-                  )
-                }
-              />
-              {searchOpen && !member && (
-                <form
-                  onSubmit={handleSearch}
-                  className="absolute inset-x-[-0.5rem] top-[35%] z-20 rounded-2xl border border-border bg-card p-3 shadow-xl"
-                >
-                  <div className="mb-2 flex items-center justify-between">
-                    <span className="text-xs font-semibold text-muted-foreground">{tr(deskCopy.searchHeading)}</span>
-                    <button type="button" onClick={closeSearch} aria-label={tr(deskCopy.searchClose)} className="text-muted-foreground">
-                      <X className="h-4 w-4" aria-hidden="true" />
-                    </button>
-                  </div>
-                  <SearchInput
-                    value={query}
-                    onChange={setQuery}
-                    placeholder={tr(deskCopy.searchPlaceholder)}
-                    clearLabel={tr(deskCopy.clearSearch)}
-                    autoFocus
-                  />
-                  <button
-                    type="submit"
-                    disabled={busy || !query.trim()}
-                    className="mt-2 inline-flex h-10 w-full items-center justify-center gap-1.5 rounded-full bg-foreground text-sm font-semibold text-background disabled:opacity-40"
-                  >
-                    <Search className="h-4 w-4" aria-hidden="true" />
-                    {tr(deskCopy.searchButton)}
-                  </button>
-                </form>
-              )}
-            </div>
-
-            <div className="mt-4">
-              {member ? (
-                <MemberInfo
-                  member={member}
-                  busy={busy}
-                  onCheckOut={(visitId) =>
-                    run(
-                      () => checkOut(visitId),
-                      () => {
-                        setNotice(`${tr(deskCopy.doneCheckOut)} · ${member.name}`)
-                        reloadMember(member.id)
-                        void refreshFloor()
-                      },
-                    )
+          {/* Left: who — round camera, or the guest's photo once scanned.
+              From md up it stays pinned under the top bar while the bill scrolls (v0.30.1);
+              if the guest's details are taller than the screen, this side scrolls on its own. */}
+          <div className="relative md:sticky md:top-[69px] xl:top-[77px]">
+            <section className="relative rounded-2xl border border-border bg-card p-4 md:max-h-[calc(100dvh-81px)] md:overflow-y-auto md:overscroll-contain xl:max-h-[calc(100dvh-89px)]">
+              <div className="relative mx-auto w-full max-w-[15rem]">
+                <QrScanner
+                  round
+                  hint={null}
+                  onCode={handleCode}
+                  paused={busy || member !== null || searchOpen}
+                  pausedText={tr(deskCopy.scanChecking)}
+                  cover={
+                    member ? (
+                      <AvatarCircle src={member.avatarUrl} name={member.name} className="h-full w-full text-6xl" />
+                    ) : undefined
                   }
-                  onReEnter={(visitId) =>
-                    run(
-                      () => reEnter(visitId),
-                      () => {
-                        setNotice(`${tr(deskCopy.doneReEnter)} · ${member.name}`)
-                        reloadMember(member.id)
-                        void refreshFloor()
-                      },
-                    )
-                  }
-                  onCancel={(visit, reason) =>
-                    run(
-                      () => (visit.saleId ? voidSale(visit.saleId, reason) : cancelVisit(visit.id, reason)),
-                      () => {
-                        setNotice(`${tr(visit.saleId ? deskCopy.doneVoid : deskCopy.doneCancel)} · ${member.name}`)
-                        reloadMember(member.id)
-                        afterChange()
-                      },
+                  corner={
+                    member ? (
+                      <CornerButton label={tr(deskCopy.nextGuest)} onClick={reset}>
+                        <RotateCcw className="h-5 w-5" aria-hidden="true" />
+                      </CornerButton>
+                    ) : (
+                      <CornerButton label={tr(deskCopy.searchButton)} onClick={() => setSearchOpen(true)}>
+                        <Search className="h-5 w-5" aria-hidden="true" />
+                      </CornerButton>
                     )
                   }
                 />
-              ) : panel.kind === 'hits' ? (
-                <HitList hits={panel.hits} onPick={(id) => run(() => getMember(id), showMember)} onBack={reset} />
-              ) : (
-                <p className="text-center text-sm text-muted-foreground">{tr(deskCopy.emptyPanel)}</p>
-              )}
-            </div>
+                {searchOpen && !member && (
+                  <form
+                    onSubmit={handleSearch}
+                    className="absolute inset-x-[-0.5rem] top-[35%] z-20 rounded-2xl border border-border bg-card p-3 shadow-xl"
+                  >
+                    <div className="mb-2 flex items-center justify-between">
+                      <span className="text-xs font-semibold text-muted-foreground">{tr(deskCopy.searchHeading)}</span>
+                      <button type="button" onClick={closeSearch} aria-label={tr(deskCopy.searchClose)} className="text-muted-foreground">
+                        <X className="h-4 w-4" aria-hidden="true" />
+                      </button>
+                    </div>
+                    <SearchInput
+                      value={query}
+                      onChange={setQuery}
+                      placeholder={tr(deskCopy.searchPlaceholder)}
+                      clearLabel={tr(deskCopy.clearSearch)}
+                      autoFocus
+                    />
+                    <button
+                      type="submit"
+                      disabled={busy || !query.trim()}
+                      className="mt-2 inline-flex h-10 w-full items-center justify-center gap-1.5 rounded-full bg-foreground text-sm font-semibold text-background disabled:opacity-40"
+                    >
+                      <Search className="h-4 w-4" aria-hidden="true" />
+                      {tr(deskCopy.searchButton)}
+                    </button>
+                  </form>
+                )}
+              </div>
+
+              <div className="mt-4">
+                {member ? (
+                  <MemberInfo
+                    member={member}
+                    busy={busy}
+                    onCheckOut={(visitId) =>
+                      run(
+                        () => checkOut(visitId),
+                        () => {
+                          setNotice(`${tr(deskCopy.doneCheckOut)} · ${member.name}`)
+                          reloadMember(member.id)
+                          void refreshFloor()
+                        },
+                      )
+                    }
+                    onReEnter={(visitId) =>
+                      run(
+                        () => reEnter(visitId),
+                        () => {
+                          setNotice(`${tr(deskCopy.doneReEnter)} · ${member.name}`)
+                          reloadMember(member.id)
+                          void refreshFloor()
+                        },
+                      )
+                    }
+                    onCancel={(visit, reason) =>
+                      run(
+                        () => (visit.saleId ? voidSale(visit.saleId, reason) : cancelVisit(visit.id, reason)),
+                        () => {
+                          setNotice(`${tr(visit.saleId ? deskCopy.doneVoid : deskCopy.doneCancel)} · ${member.name}`)
+                          reloadMember(member.id)
+                          afterChange()
+                        },
+                      )
+                    }
+                  />
+                ) : panel.kind === 'hits' ? (
+                  <HitList hits={panel.hits} onPick={(id) => run(() => getMember(id), showMember)} onBack={reset} />
+                ) : (
+                  <p className="text-center text-sm text-muted-foreground">{tr(deskCopy.emptyPanel)}</p>
+                )}
+              </div>
+            </section>
+            {/* Outside the scrolling box so it always covers what is on screen. */}
             {busy && (
               <div className="absolute inset-0 z-30 flex items-center justify-center rounded-2xl bg-card/50">
                 <Spinner className="h-6 w-6 text-primary" />
               </div>
             )}
-          </section>
+          </div>
 
           {/* Right: the bill. */}
           {/* Fills the screen height, so the pay button always sits at the very bottom. */}
