@@ -166,7 +166,7 @@ export function SettingsView({
   }
 
   return (
-    <div className="mx-auto max-w-3xl space-y-5 px-4 pb-6 pt-5">
+    <div className="w-full space-y-5 px-4 pb-6 pt-5 md:px-6 xl:px-8">
       <h1 className="font-display text-2xl font-extrabold">{tr(c.title)}</h1>
 
       {/* Tabs: three equal columns on a phone (labels may wrap), pills from sm up */}
@@ -197,7 +197,7 @@ export function SettingsView({
       )}
 
       {tab === 'team' && (
-        <>
+        <div className="grid items-start gap-5 xl:grid-cols-2">
           <section className={card}>
             <h2 className="flex items-center gap-2 text-base font-bold">
               <Users className="h-4 w-4" aria-hidden="true" /> {tr(c.accessHeading)}
@@ -260,11 +260,11 @@ export function SettingsView({
               <Links items={[{ href: DEVICES_PATH, text: c.elsewhereDevices }]} />
             </div>
           </section>
-        </>
+        </div>
       )}
 
       {tab === 'work' && (
-        <>
+        <div className="grid items-start gap-5 xl:grid-cols-2">
           <section className={card}>
             <h2 className="flex items-center gap-2 text-base font-bold">
               <Clock className="h-4 w-4" aria-hidden="true" /> {tr(timeCopy.rules)}
@@ -401,11 +401,11 @@ export function SettingsView({
               <Links items={[{ href: TIME_PATH + '?tab=shifts', text: c.workLinks }]} />
             </div>
           </section>
-        </>
+        </div>
       )}
 
       {tab === 'shop' && (
-        <>
+        <div className="grid items-start gap-5 xl:grid-cols-2">
           <section className={card}>
             <h2 className="flex items-center gap-2 text-base font-bold">
               <Receipt className="h-4 w-4" aria-hidden="true" /> {tr(c.accountingHeading)}
@@ -421,12 +421,12 @@ export function SettingsView({
             </div>
             <p className="mt-2 text-xs text-muted-foreground">{tr(c.elsewhereLater)}</p>
           </section>
-        </>
+        </div>
       )}
 
       {/* Save bar: only while something is changed */}
       {(dirty || (saved && !dirty)) && (
-        <div className="sticky bottom-0 z-30 -mx-4 border-t border-border bg-background/95 px-4 py-3 shadow-[0_-4px_16px_rgba(0,0,0,0.06)] backdrop-blur print:hidden sm:rounded-t-2xl">
+        <div className="sticky bottom-0 z-30 -mx-4 border-t border-border bg-background/95 px-4 py-3 md:-mx-6 md:px-6 xl:-mx-8 xl:px-8 shadow-[0_-4px_16px_rgba(0,0,0,0.06)] backdrop-blur print:hidden sm:rounded-t-2xl">
           <div className="flex flex-wrap items-center gap-3">
             {dirty ? (
               <>

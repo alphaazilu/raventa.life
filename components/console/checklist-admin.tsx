@@ -84,7 +84,7 @@ export function ChecklistAdmin({
 }) {
   const { tr } = useLanguage()
   return (
-    <div className="mx-auto flex max-w-6xl flex-col gap-5 px-4 py-6 md:px-6 md:py-8">
+    <div className="flex w-full flex-col gap-5 px-4 py-6 md:px-6 md:py-8 xl:px-8">
       <div>
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="min-w-0">
@@ -97,7 +97,7 @@ export function ChecklistAdmin({
           </Link>
         </div>
       </div>
-      <div className="-mx-4 overflow-x-auto px-4">
+      <div className="-mx-4 overflow-x-auto px-4 md:mx-0 md:px-0">
         <div className="inline-flex min-w-max rounded-full bg-secondary p-1 text-sm font-semibold" role="tablist">
           {(['board', 'log', 'setup'] as const).map((k) => (
             <Link

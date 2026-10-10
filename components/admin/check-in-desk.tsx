@@ -180,7 +180,7 @@ export function CheckInDesk({
   const memberBill = member && !member.isSelf && !member.today
 
   return (
-    <div className="mx-auto max-w-6xl px-4 py-3 md:py-4">
+    <div className="w-full px-4 py-3 md:px-6 md:py-4 xl:px-8">
       {/* The console bar shows the tab name and who is working. */}
       <h1 className="sr-only">{tr(deskCopy.title)}</h1>
 
@@ -244,7 +244,7 @@ export function CheckInDesk({
           }
         />
       ) : (
-        <div className="grid items-start gap-4 md:grid-cols-[17rem_minmax(0,1fr)] lg:grid-cols-[19rem_minmax(0,1fr)]">
+        <div className="grid items-start gap-4 md:grid-cols-[17rem_minmax(0,1fr)] lg:grid-cols-[19rem_minmax(0,1fr)] 2xl:grid-cols-[22rem_minmax(0,1fr)]">
           {/* Left: who — round camera, or the guest's photo once scanned.
               From md up it stays pinned under the top bar while the bill scrolls (v0.30.1);
               if the guest's details are taller than the screen, this side scrolls on its own. */}

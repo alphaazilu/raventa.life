@@ -70,7 +70,7 @@ export function CatalogAdmin({ catalog, view, today }: { catalog: Catalog | null
     { key: 'promotions', label: c.tabPromotions, icon: Percent },
   ]
   return (
-    <div className="mx-auto max-w-6xl px-4 py-5">
+    <div className="w-full px-4 py-5 md:px-6 xl:px-8">
       <div className="flex flex-wrap items-center gap-2">
         <h1 className="mr-2 font-display text-2xl font-extrabold text-foreground">{tr(c.title)}</h1>
         {tabs.map((t) => (

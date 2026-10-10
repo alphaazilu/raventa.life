@@ -123,7 +123,7 @@ export function ReportView({ period, report }: { period: Period; report: SalesRe
   const qs = `from=${period.from}&to=${period.to}`
 
   return (
-    <div className="mx-auto flex max-w-6xl flex-col gap-5 px-4 py-6 md:px-6 md:py-8">
+    <div className="flex w-full flex-col gap-5 px-4 py-6 md:px-6 md:py-8 xl:px-8">
       <ReportTabs active="sales" keep={keepPeriod(period.preset, period.from, period.to)} />
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>

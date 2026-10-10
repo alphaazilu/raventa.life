@@ -299,7 +299,7 @@ export function BillBuilder({
             ) : (
               // Many products scroll inside this box, so the total and the
               // pay button stay on screen.
-              <div className="mt-2 grid max-h-[38dvh] grid-cols-2 gap-2 overflow-y-auto pr-1 sm:grid-cols-3">
+              <div className="mt-2 grid max-h-[38dvh] grid-cols-2 gap-2 overflow-y-auto pr-1 sm:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
                 {items.map((item) => {
                   const stock = item.variants.length > 0 ? item.variants.reduce((n, v) => n + v.stock, 0) : item.stock
                   const memberOnly = item.pkg !== null && !memberId

@@ -39,7 +39,7 @@ export function ConsoleDashboard({ firstName, data, alerts }: { firstName: strin
   const n = (x: number) => x.toLocaleString()
 
   return (
-    <div className="mx-auto flex max-w-7xl flex-col gap-5 px-4 py-6 md:px-6 md:py-8">
+    <div className="flex w-full flex-col gap-5 px-4 py-6 md:px-6 md:py-8 xl:px-8">
       <div>
         <p className="text-sm text-muted-foreground">
           {formatToday(data.date, lang)} · {tr(consoleCopy.roleAdmin)}
@@ -153,7 +153,7 @@ function ToDo({ alerts }: { alerts: ConsoleAlerts }) {
         <AlertTriangle className="h-4 w-4" aria-hidden="true" />
         {tr(consoleCopy.todoHeading)}
       </h2>
-      <ul className="mt-2 grid gap-1.5 sm:grid-cols-2 xl:grid-cols-3">
+      <ul className="mt-2 grid gap-1.5 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-5">
         {rows.map((r) => (
           <li key={r.text.en}>
             <Link

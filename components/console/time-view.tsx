@@ -109,7 +109,7 @@ export function TimeView({
   const monthMode = admin && view === 'roster' && month !== null
 
   return (
-    <div className="mx-auto flex max-w-7xl flex-col gap-6 px-4 py-6 md:px-6 md:py-8">
+    <div className="flex w-full flex-col gap-6 px-4 py-6 md:px-6 md:py-8 xl:px-8">
       <div className="flex flex-wrap items-center justify-between gap-3 print:hidden">
         <h1 className="font-display text-2xl font-extrabold text-foreground md:text-3xl">{tr(timeCopy.heading)}</h1>
         {admin && view === 'roster' && (

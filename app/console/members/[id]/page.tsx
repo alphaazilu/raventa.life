@@ -42,9 +42,9 @@ export default async function EditMemberPage({ params }: { params: Promise<{ id:
 
   // Details on the left, history on the right (stacked on a tablet/phone).
   return (
-    <main className="mx-auto grid max-w-7xl gap-2 lg:grid-cols-[28rem_1fr] lg:items-start">
+    <main className="grid w-full gap-2 lg:grid-cols-[28rem_minmax(0,1fr)] 2xl:grid-cols-[32rem_minmax(0,1fr)] lg:items-start">
       <MemberEditForm member={member} />
-      <div className="px-4 pb-12 lg:py-12 lg:pr-6">
+      <div className="px-4 pb-12 lg:py-12 lg:pr-6 xl:pr-8">
         <MemberRole
           person={{ id: member.id, name: [member.first_name, member.last_name].filter(Boolean).join(' ') || member.email || '—', role: member.role }}
           meId={user.id}

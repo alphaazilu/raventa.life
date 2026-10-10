@@ -7,7 +7,7 @@ export default function ConsoleLoading() {
       <div className="h-1 w-full overflow-hidden bg-secondary" aria-hidden="true">
         <div className="h-full w-2/5 rounded-full bg-loading motion-safe:animate-[rv-slide_1.2s_ease-in-out_infinite]" />
       </div>
-      <div className="mx-auto flex max-w-7xl flex-col gap-4 px-4 py-6 md:px-6 md:py-8">
+      <div className="flex w-full flex-col gap-4 px-4 py-6 md:px-6 md:py-8 xl:px-8">
         <p className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
           <span className="h-4 w-4 rounded-full border-2 border-primary/30 border-t-primary motion-safe:animate-spin" />
           กำลังโหลด…

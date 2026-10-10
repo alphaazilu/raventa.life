@@ -70,7 +70,7 @@ export function DevicesView({
   const revoked = devices.filter((d) => d.revokedAt)
 
   return (
-    <div className="mx-auto grid max-w-7xl gap-5 px-4 py-6 md:px-6 md:py-8 lg:grid-cols-[420px_1fr]">
+    <div className="grid w-full gap-5 px-4 py-6 md:px-6 md:py-8 xl:px-8 lg:grid-cols-[420px_minmax(0,1fr)]">
       <section className="rounded-2xl border border-border bg-card p-5 lg:self-start">
         <h1 className="flex items-center gap-2 font-display text-2xl font-extrabold text-foreground">
           <Plus className="h-5 w-5" aria-hidden="true" />

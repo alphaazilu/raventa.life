@@ -132,7 +132,7 @@ export function TimeReportView({ period, report, paySetUp }: { period: TimePerio
     period.pay === 'none' ? {} : { cycle: span(period.cycle.from, period.cycle.to), last_cycle: span(period.lastCycle.from, period.lastCycle.to) }
 
   return (
-    <div className="mx-auto flex max-w-6xl flex-col gap-5 px-4 py-6 md:px-6 md:py-8">
+    <div className="flex w-full flex-col gap-5 px-4 py-6 md:px-6 md:py-8 xl:px-8">
       <ReportTabs active="time" keep={keepPeriod(period.preset, period.from, period.to)} />
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>

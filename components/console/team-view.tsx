@@ -333,7 +333,7 @@ export function TeamView({ team, history, meId, paySetUp = true }: { team: Perso
   const unsetPay = team.filter((p) => !p.payType).length
 
   return (
-    <div className="mx-auto flex max-w-6xl flex-col gap-5 px-4 py-6 md:px-6 md:py-8">
+    <div className="flex w-full flex-col gap-5 px-4 py-6 md:px-6 md:py-8 xl:px-8">
       <div>
         <h1 className="font-display text-2xl font-extrabold md:text-3xl">{tr(t.title)}</h1>
         <p className="mt-1 text-sm text-muted-foreground">{tr(t.intro)}</p>
