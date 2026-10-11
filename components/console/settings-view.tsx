@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { useEffect, useState, useTransition } from 'react'
 import { CalendarOff, ChevronRight, Clock, Lock, Receipt, Smartphone, Users, Wallet } from 'lucide-react'
 import { LEAVE_KINDS, leaveCopy } from '@/lib/leave'
@@ -96,6 +96,13 @@ export function SettingsView({
   const router = useRouter()
   const [pending, start] = useTransition()
   const [tab, setTab] = useState<SettingsTab>(initialTab)
+  // Follow ?tab= when it changes from outside (the side menu's sub-items, v0.30.4);
+  // unsaved edits are kept.
+  const tabParam = useSearchParams().get('tab')
+  useEffect(() => {
+    const k = (SETTINGS_TABS as readonly string[]).includes(tabParam ?? '') ? (tabParam as SettingsTab) : 'team'
+    setTab((cur) => (cur === k ? cur : k))
+  }, [tabParam])
   const [form, setForm] = useState(settings)
   const [rules, setRules] = useState(timeRules)
   const [error, setError] = useState<string | null>(null)

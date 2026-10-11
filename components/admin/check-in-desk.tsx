@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useState, useTransition } from 'react'
+import { useSearchParams } from 'next/navigation'
 import { Gift, LogIn, Lock, LogOut, RotateCcw, Search, ShoppingBag, Undo2, X } from 'lucide-react'
 import { useLanguage } from '@/components/language-provider'
 import { AvatarCircle } from '@/components/account/avatar-circle'
@@ -14,6 +15,7 @@ import { bangkokTime, FLOOR_CAPACITY } from '@/lib/check-in/day'
 import { formatMemberDate, formatMemberNo } from '@/lib/format-date'
 import { receiptLabel } from '@/lib/console/catalog'
 import { cn } from '@/lib/utils'
+import { DESK_PATH } from '@/lib/auth/roles'
 import { isGift } from '@/lib/packages'
 import {
   cancelVisit,
@@ -73,6 +75,20 @@ export function CheckInDesk({
   const [searchOpen, setSearchOpen] = useState(false)
   // 'floor' = who's in today (and check-outs), so the sale screen fits one screen.
   const [view, setView] = useState<'desk' | 'floor'>(initialView)
+  // The tab is in the address (?tab=floor) so the side menu's sub-items
+  // (v0.30.4) and this tab bar stay in step.
+  const sp = useSearchParams()
+  const urlView = sp.get('tab') ?? sp.get('view')
+  useEffect(() => {
+    const v = urlView === 'floor' ? 'floor' : 'desk'
+    setView((cur) => (cur === v ? cur : v))
+  }, [urlView])
+  const go = (v: 'desk' | 'floor') => {
+    setView(v)
+    try {
+      window.history.replaceState(null, '', v === 'floor' ? `${DESK_PATH}?tab=floor` : DESK_PATH)
+    } catch {}
+  }
 
   const errText = (code: string) => tr(deskErrors[code] ?? deskErrors.failed)
 
@@ -187,14 +203,14 @@ export function CheckInDesk({
       <div className="mb-3 inline-flex rounded-full bg-secondary p-1 text-sm font-semibold">
         <button
           type="button"
-          onClick={() => setView('desk')}
+          onClick={() => go('desk')}
           className={cn('rounded-full px-4 py-1.5', view === 'desk' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground')}
         >
           {tr(deskCopy.tabDesk)}
         </button>
         <button
           type="button"
-          onClick={() => setView('floor')}
+          onClick={() => go('floor')}
           className={cn('rounded-full px-4 py-1.5', view === 'floor' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground')}
         >
           {tr(deskCopy.tabFloor)} ({inside}/{FLOOR_CAPACITY})
@@ -219,7 +235,7 @@ export function CheckInDesk({
           busy={busy}
           onRefresh={() => startBusy(refreshFloor)}
           onOpen={(id) => {
-            setView('desk')
+            go('desk')
             run(() => getMember(id), showMember)
           }}
           onReEnter={(v) =>

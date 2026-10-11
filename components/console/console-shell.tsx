@@ -7,6 +7,7 @@ import { useEffect, useRef, useState } from 'react'
 import {
   BarChart3,
   ChevronDown,
+  ChevronRight,
   ChevronsLeft,
   ChevronsRight,
   Clock,
@@ -70,7 +71,11 @@ type Item = {
   notOnTablet?: boolean // never on the counter tablet
   badge?: (a: ConsoleAlerts) => number
   isActive?: (path: string, tab: string | null) => boolean
+  // Tabs inside the page, shown under the item (v0.30.4). The page keeps its
+  // own tab bar too. tab null = the page's default tab (no ?tab=).
+  subs?: Sub[]
 }
+type Sub = { key: string; label: L; tab: string | null; badge?: (a: ConsoleAlerts) => number }
 type Group = { key: string; label?: L; items: Item[] }
 
 const t = {
@@ -96,6 +101,24 @@ const t = {
   expand: { th: 'ขยายเมนู', en: 'Expand menu' },
   openMenu: { th: 'เปิดเมนู', en: 'Open menu' },
   closeMenu: { th: 'ปิดเมนู', en: 'Close menu' },
+  showSubs: { th: 'แสดงเมนูย่อย', en: 'Show sub-menu' },
+  hideSubs: { th: 'ซ่อนเมนูย่อย', en: 'Hide sub-menu' },
+  // sub-menus = the tabs inside each page
+  sell: { th: 'ขาย / เช็คอิน', en: 'Sell / check in' },
+  floor: { th: 'ในร้านวันนี้', en: 'In today' },
+  entries: { th: 'เวลาเข้า-ออก', en: 'Clock entries' },
+  roster: { th: 'ตารางกะ', en: 'Roster' },
+  shifts: { th: 'กะ', en: 'Shifts' },
+  leave: { th: 'คำขอหยุด', en: 'Leave requests' },
+  board: { th: 'วันนี้', en: 'Today' },
+  log: { th: 'ประวัติ', en: 'Log' },
+  points: { th: 'ตั้งค่าจุดและรอบ', en: 'Points & rounds' },
+  products: { th: 'สินค้า', en: 'Products' },
+  holidays: { th: 'วันหยุด', en: 'Holidays' },
+  promotions: { th: 'โปรโมชั่น', en: 'Promotions' },
+  setStaff: { th: 'พนักงานและอุปกรณ์', en: 'Staff & devices' },
+  setWork: { th: 'เวลาทำงานและการลา', en: 'Work time & leave' },
+  setShop: { th: 'ร้านและบัญชี', en: 'Shop & accounts' },
 } satisfies Record<string, L>
 
 const under = (href: string) => (p: string) => p === href || p.startsWith(`${href}/`)
@@ -106,7 +129,16 @@ const GROUPS: Group[] = [
     key: 'front',
     label: t.front,
     items: [
-      { key: 'desk', label: t.desk, icon: Receipt, href: DESK_PATH },
+      {
+        key: 'desk',
+        label: t.desk,
+        icon: Receipt,
+        href: DESK_PATH,
+        subs: [
+          { key: 'sell', label: t.sell, tab: null },
+          { key: 'floor', label: t.floor, tab: 'floor' },
+        ],
+      },
       { key: 'members', label: t.members, icon: Users, href: MEMBERS_PATH, adminOnly: true, staffOnTablet: true },
     ],
   },
@@ -114,7 +146,22 @@ const GROUPS: Group[] = [
     key: 'team',
     label: t.team,
     items: [
-      { key: 'time', label: t.time, icon: Clock, href: TIME_PATH, adminOnly: true, staffOnTablet: true, badge: (a) => a.pendingLeave + a.forgotClockOut },
+      {
+        key: 'time',
+        label: t.time,
+        icon: Clock,
+        href: TIME_PATH,
+        adminOnly: true,
+        staffOnTablet: true,
+        badge: (a) => a.pendingLeave + a.forgotClockOut,
+        // admins only — staff on the tablet see just their clock entries
+        subs: [
+          { key: 'entries', label: t.entries, tab: null, badge: (a) => a.forgotClockOut },
+          { key: 'roster', label: t.roster, tab: 'roster' },
+          { key: 'shifts', label: t.shifts, tab: 'shifts' },
+          { key: 'leave', label: t.leave, tab: 'leave', badge: (a) => a.pendingLeave },
+        ],
+      },
       { key: 'team', label: t.teamRoles, icon: UserCog, href: TEAM_PATH, adminOnly: true, notOnTablet: true, badge: (a) => a.unsetPay },
     ],
   },
@@ -122,9 +169,34 @@ const GROUPS: Group[] = [
     key: 'ops',
     label: t.ops,
     items: [
-      { key: 'checklist', label: t.checklist, icon: ListChecks, href: CHECKLIST_PATH, adminOnly: true, notOnTablet: true, badge: (a) => a.checklistIssues + a.checklistMissed },
+      {
+        key: 'checklist',
+        label: t.checklist,
+        icon: ListChecks,
+        href: CHECKLIST_PATH,
+        adminOnly: true,
+        notOnTablet: true,
+        badge: (a) => a.checklistIssues + a.checklistMissed,
+        subs: [
+          { key: 'board', label: t.board, tab: null, badge: (a) => a.checklistIssues + a.checklistMissed },
+          { key: 'log', label: t.log, tab: 'log' },
+          { key: 'setup', label: t.points, tab: 'setup' },
+        ],
+      },
       { key: 'maintenance', label: t.maintenance, icon: Wrench, adminOnly: true, notOnTablet: true },
-      { key: 'catalog', label: t.catalog, icon: Package, href: CATALOG_PATH, adminOnly: true, notOnTablet: true },
+      {
+        key: 'catalog',
+        label: t.catalog,
+        icon: Package,
+        href: CATALOG_PATH,
+        adminOnly: true,
+        notOnTablet: true,
+        subs: [
+          { key: 'products', label: t.products, tab: null },
+          { key: 'holidays', label: t.holidays, tab: 'holidays' },
+          { key: 'promotions', label: t.promotions, tab: 'promotions' },
+        ],
+      },
     ],
   },
   {
@@ -139,13 +211,26 @@ const GROUPS: Group[] = [
     key: 'system',
     label: t.system,
     items: [
-      { key: 'settings', label: t.settings, icon: Settings, href: SETTINGS_PATH, adminOnly: true, notOnTablet: true },
+      {
+        key: 'settings',
+        label: t.settings,
+        icon: Settings,
+        href: SETTINGS_PATH,
+        adminOnly: true,
+        notOnTablet: true,
+        subs: [
+          { key: 'team', label: t.setStaff, tab: null },
+          { key: 'work', label: t.setWork, tab: 'work' },
+          { key: 'shop', label: t.setShop, tab: 'shop' },
+        ],
+      },
       { key: 'devices', label: t.devices, icon: Tablet, href: DEVICES_PATH, adminOnly: true, notOnTablet: true },
     ],
   },
 ]
 
 const NAV_KEY = 'rv-console-nav'
+const SUBS_KEY = 'rv-console-subs' // which sub-menus were opened / closed by hand
 type NavPref = 'open' | 'closed' | null
 
 export function ConsoleShell({
@@ -181,6 +266,28 @@ export function ConsoleShell({
   const active = (i: Item) => Boolean(i.href) && (i.isActive ? i.isActive(pathname, tab) : under(i.href!)(pathname))
   const current = groups.flatMap((g) => g.items).find(active)
 
+  // Sub-menus: the current page's item is open unless closed by hand; others
+  // stay as last left. Only admins get them (staff see one view per page).
+  const [subsPref, setSubsPref] = useState<Record<string, boolean>>({})
+  useEffect(() => {
+    try {
+      const v = JSON.parse(localStorage.getItem(SUBS_KEY) ?? '{}')
+      if (v && typeof v === 'object') setSubsPref(v)
+    } catch {}
+  }, [])
+  const subsOf = (i: Item) => (admin && i.subs ? i.subs : [])
+  const subsOpen = (i: Item) => subsPref[i.key] ?? active(i)
+  const toggleSubs = (i: Item) => {
+    const next = { ...subsPref, [i.key]: !subsOpen(i) }
+    setSubsPref(next)
+    try {
+      localStorage.setItem(SUBS_KEY, JSON.stringify(next))
+    } catch {}
+  }
+  // An unknown or default ?tab= (e.g. ?tab=team) counts as the default sub-item.
+  const subActive = (i: Item, sub: Sub) =>
+    active(i) && (tab === sub.tab || (sub.tab === null && !(i.subs ?? []).some((x) => x.tab !== null && x.tab === tab)))
+
   // Side menu open or folded (desktop); drawer (small screens).
   const [pref, setPref] = useState<NavPref>(null)
   const [wide, setWide] = useState(true)
@@ -204,6 +311,10 @@ export function ConsoleShell({
     } catch {}
   }
   useEffect(() => setDrawer(false), [pathname, tab])
+  // A long menu (sub-menus open) scrolls: keep the current page in view.
+  useEffect(() => {
+    document.querySelectorAll('[data-console-nav] [aria-current="page"]').forEach((el) => el.scrollIntoView({ block: 'nearest' }))
+  }, [pathname, tab, drawer])
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const el = e.target as HTMLElement | null
@@ -232,7 +343,7 @@ export function ConsoleShell({
   }
 
   const menu = (wideMenu: boolean) => (
-    <nav aria-label={tr(consoleCopy.backOffice)} className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-2 py-3">
+    <nav data-console-nav aria-label={tr(consoleCopy.backOffice)} className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-2 py-3">
       {groups.map((g, gi) => (
         <div key={g.key} className={cn(gi > 0 && 'mt-2.5')}>
           {g.label &&
@@ -244,7 +355,50 @@ export function ConsoleShell({
           <ul className="space-y-0.5">
             {g.items.map((i) => (
               <li key={i.key}>
-                <NavLink item={i} wide={wideMenu} active={active(i)} count={i.badge ? i.badge(alerts) : 0} label={tr(i.label)} soon={tr(consoleCopy.soon)} />
+                {wideMenu && subsOf(i).length > 0 ? (
+                  <>
+                    <div className="flex items-center gap-0.5">
+                      <div className="min-w-0 flex-1">
+                        <NavLink item={i} wide active={active(i) && !subsOpen(i)} current={active(i)} count={i.badge ? i.badge(alerts) : 0} label={tr(i.label)} soon={tr(consoleCopy.soon)} />
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => toggleSubs(i)}
+                        aria-expanded={subsOpen(i)}
+                        aria-label={`${tr(subsOpen(i) ? t.hideSubs : t.showSubs)} · ${tr(i.label)}`}
+                        title={tr(subsOpen(i) ? t.hideSubs : t.showSubs)}
+                        className="flex h-9 w-7 shrink-0 items-center justify-center rounded-lg text-muted-foreground hover:bg-secondary hover:text-foreground"
+                      >
+                        {subsOpen(i) ? <ChevronDown className="h-4 w-4" aria-hidden="true" /> : <ChevronRight className="h-4 w-4" aria-hidden="true" />}
+                      </button>
+                    </div>
+                    {subsOpen(i) && (
+                      <ul className="mt-0.5 mb-1 ml-[21px] space-y-0.5 border-l border-border pl-2.5">
+                        {subsOf(i).map((s) => {
+                          const on = subActive(i, s)
+                          const n = s.badge ? s.badge(alerts) : 0
+                          return (
+                            <li key={s.key}>
+                              <Link
+                                href={s.tab ? `${i.href}?tab=${s.tab}` : i.href!}
+                                aria-current={on ? 'page' : undefined}
+                                className={cn(
+                                  'flex h-8 items-center gap-2 rounded-lg px-2.5 text-[13px]',
+                                  on ? 'bg-primary/10 font-bold text-primary' : 'text-foreground/70 hover:bg-secondary hover:text-foreground',
+                                )}
+                              >
+                                <span className="min-w-0 flex-1 truncate">{tr(s.label)}</span>
+                                {n > 0 && <span className="shrink-0 rounded-full bg-primary px-1.5 py-px text-[10px] font-bold text-primary-foreground tabular-nums">{n}</span>}
+                              </Link>
+                            </li>
+                          )
+                        })}
+                      </ul>
+                    )}
+                  </>
+                ) : (
+                  <NavLink item={i} wide={wideMenu} active={active(i)} count={i.badge ? i.badge(alerts) : 0} label={tr(i.label)} soon={tr(consoleCopy.soon)} />
+                )}
               </li>
             ))}
           </ul>
@@ -403,7 +557,25 @@ export function ConsoleShell({
   )
 }
 
-function NavLink({ item, wide, active, count, label, soon }: { item: Item; wide: boolean; active: boolean; count: number; label: string; soon: string }) {
+// active = filled highlight; current = this page (bold red text only, when
+// its sub-menu is open and the sub-item carries the highlight).
+function NavLink({
+  item,
+  wide,
+  active,
+  current = active,
+  count,
+  label,
+  soon,
+}: {
+  item: Item
+  wide: boolean
+  active: boolean
+  current?: boolean
+  count: number
+  label: string
+  soon: string
+}) {
   const Icon = item.icon
   const base = cn('relative flex h-9 items-center gap-3 rounded-xl text-sm transition-colors', wide ? 'px-3' : 'justify-center')
   if (!item.href) {
@@ -424,7 +596,10 @@ function NavLink({ item, wide, active, count, label, soon }: { item: Item; wide:
       href={item.href}
       aria-current={active ? 'page' : undefined}
       title={wide ? undefined : count ? `${label} (${count})` : label}
-      className={cn(base, active ? 'bg-primary/10 font-bold text-primary' : 'font-medium text-foreground/80 hover:bg-secondary hover:text-foreground')}
+      className={cn(
+        base,
+        active ? 'bg-primary/10 font-bold text-primary' : current ? 'font-bold text-primary hover:bg-secondary' : 'font-medium text-foreground/80 hover:bg-secondary hover:text-foreground',
+      )}
     >
       <Icon className="h-[18px] w-[18px] shrink-0" aria-hidden="true" />
       {wide && <span className="min-w-0 flex-1 truncate">{label}</span>}
