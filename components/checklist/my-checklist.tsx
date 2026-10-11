@@ -94,16 +94,27 @@ export function MyChecklist({
 
       {mode === 'scan' && (
         <div className="rounded-2xl border border-border bg-card p-3">
-          <div className="mb-2 flex items-center justify-between">
-            <span className="text-sm font-semibold">{tr(c.scanHint)}</span>
-            <button type="button" onClick={() => setMode('list')} aria-label="close" className="rounded-full p-1 text-muted-foreground hover:bg-secondary">
-              <X className="h-5 w-5" aria-hidden="true" />
-            </button>
-          </div>
-          <div className="relative">
-            <QrScanner onCode={onCode} paused={pending} autoStart hint={null} />
+          <p className="mb-3 text-center text-sm font-semibold">{tr(c.scanHint)}</p>
+          <div className="relative mx-auto w-full max-w-[min(18rem,72vw)]">
+            <QrScanner
+              onCode={onCode}
+              paused={pending}
+              autoStart
+              hint={null}
+              corner={
+                <button
+                  type="button"
+                  onClick={() => setMode('list')}
+                  aria-label={tr(c.close)}
+                  title={tr(c.close)}
+                  className="flex h-12 w-12 items-center justify-center rounded-full border-4 border-card bg-primary text-primary-foreground shadow-md"
+                >
+                  <X className="h-5 w-5" aria-hidden="true" />
+                </button>
+              }
+            />
             {pending && (
-              <div className="absolute inset-0 flex items-center justify-center rounded-xl bg-card/60">
+              <div className="absolute inset-0 flex aspect-square items-center justify-center rounded-full bg-card/60">
                 <Spinner className="h-8 w-8 text-primary" />
               </div>
             )}

@@ -124,6 +124,7 @@ export const checklistCopy = {
   today: { th: 'เช็คลิสต์วันนี้', en: 'Today’s checklists' },
   scan: { th: 'สแกน QR ที่จุด', en: 'Scan a point’s QR' },
   scanHint: { th: 'ส่องกล้องไปที่ QR ที่ติดไว้ตามจุด', en: 'Point the camera at the QR sticker' },
+  close: { th: 'ปิดกล้อง', en: 'Close camera' },
   done: { th: 'ครบแล้ว', en: 'Done' },
   open: { th: 'ถึงเวลาแล้ว', en: 'Due now' },
   upcoming: { th: 'ยังไม่ถึงเวลา', en: 'Later' },

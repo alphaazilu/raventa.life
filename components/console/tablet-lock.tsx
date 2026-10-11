@@ -219,7 +219,7 @@ export function TabletLock({
             </button>
             <p className="mt-3 text-xs text-muted-foreground">{tr(c.lkIdleHint)}</p>
           </div>
-          <div className="mx-auto w-full max-w-[min(36rem,calc((100dvh-22rem)*4/3))] md:landscape:max-w-[min(36rem,calc((100dvh-9rem)*4/3))]">
+          <div className="mx-auto w-full max-w-[min(26rem,calc(100dvh-22rem))] md:landscape:max-w-[min(30rem,calc(100dvh-9rem))]">
             <QrScanner autoStart onCode={onCode} paused={busy || opening} pausedText={tr(opening ? c.lockWelcome : c.lockChecking)} hint={null} />
           </div>
         </div>

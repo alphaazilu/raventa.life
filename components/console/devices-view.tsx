@@ -89,19 +89,21 @@ export function DevicesView({
 
         <div className="mt-4">
           {scan ? (
-            <QrScanner
-              paused={busy}
-              pausedText={tr(consoleCopy.register)}
-              hint={null}
-              autoStart
-              onCode={(text) => {
-                const c = codeFrom(text)
-                if (c) {
-                  setCode(c)
-                  setScan(false)
-                }
-              }}
-            />
+            <div className="mx-auto w-full max-w-[16rem]">
+              <QrScanner
+                paused={busy}
+                pausedText={tr(consoleCopy.register)}
+                hint={null}
+                autoStart
+                onCode={(text) => {
+                  const c = codeFrom(text)
+                  if (c) {
+                    setCode(c)
+                    setScan(false)
+                  }
+                }}
+              />
+            </div>
           ) : (
             <button
               type="button"

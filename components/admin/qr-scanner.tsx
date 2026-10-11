@@ -30,7 +30,7 @@ export function QrScanner({
   pausedText,
   hint,
   autoStart = false,
-  round = false,
+  round = true,
   cover,
   corner,
 }: {
@@ -42,7 +42,8 @@ export function QrScanner({
   autoStart?: boolean
   // Shown over the camera while paused, e.g. "Paused — tap Next guest".
   pausedText?: string
-  // Front desk: a small round viewfinder instead of the 4:3 box.
+  // Round viewfinder — the standard everywhere since v0.30.3; false = the
+  // old 4:3 box. Width comes from the parent. Decoding uses the whole frame.
   round?: boolean
   // Laid over the viewfinder (e.g. the guest's photo once scanned). The
   // camera keeps running underneath, so going back needs no new permission.
