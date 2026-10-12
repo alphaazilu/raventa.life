@@ -2220,3 +2220,50 @@ create index if not exists checklist_scans_point_idx on public.checklist_scans (
 create index if not exists checklist_scans_staff_idx on public.checklist_scans (staff_id, scanned_at desc);
 alter table public.checklist_scans enable row level security;
 revoke all on public.checklist_scans from anon, authenticated;
+
+
+-- 30. Cash drawer and shift close (v0.31). Someone at the counter opens the
+-- drawer with the float, then closes it by counting the notes and coins
+-- without seeing what should be there (blind count). The server works out
+-- what should be there — float + cash bills taken − cash bills voided while
+-- the drawer was open — and keeps the difference. A shortfall or surplus
+-- needs a reason; a closed count is never changed (an admin adds a review
+-- note instead). One drawer open at a time. Server (service-role) only.
+--   status  open      drawer in use
+--           counted   count sent, waiting for the reason / confirm
+--           closed    done
+create table if not exists public.cash_sessions (
+  id uuid primary key default gen_random_uuid(),
+  status text not null default 'open' check (status in ('open', 'counted', 'closed')),
+  opened_at timestamptz not null default now(),
+  opened_by uuid references auth.users(id) on delete set null,
+  float_amount integer not null check (float_amount between 0 and 1000000),
+  counted_at timestamptz,
+  counted_by uuid references auth.users(id) on delete set null,
+  counted jsonb,                                          -- {"1000": 3, "500": 4, …} notes and coins
+  counted_total integer check (counted_total >= 0),
+  expected_cash integer,                                  -- float + cash in − cash voided, at count time
+  cash_in integer,
+  cash_out integer,
+  transfer_total integer,                                 -- for the admin to compare with the bank app
+  card_total integer,                                     -- … and with the card machine's slip
+  diff integer,                                           -- counted − expected (minus = short)
+  reason text check (char_length(reason) <= 500),
+  closed_at timestamptz,
+  closed_by uuid references auth.users(id) on delete set null,
+  device_id uuid,                                         -- the tablet it was opened on, if any
+  reviewed_at timestamptz,                                -- admin looked at it
+  reviewed_by uuid references auth.users(id) on delete set null,
+  review_note text check (char_length(review_note) <= 500)
+);
+create unique index if not exists cash_sessions_one_open on public.cash_sessions ((true)) where status <> 'closed';
+create index if not exists cash_sessions_opened_idx on public.cash_sessions (opened_at desc);
+create index if not exists sales_created_idx on public.sales (created_at);
+create index if not exists sales_voided_idx on public.sales (voided_at) where voided_at is not null;
+alter table public.cash_sessions enable row level security;
+revoke all on public.cash_sessions from anon, authenticated;
+
+-- Settings › Shop & accounts: the float put in the drawer each time, and how
+-- big a difference shows up in the admin's To do box.
+alter table public.app_settings add column if not exists cash_float integer not null default 2000 check (cash_float between 0 and 100000);
+alter table public.app_settings add column if not exists cash_alert integer not null default 100 check (cash_alert between 0 and 100000);

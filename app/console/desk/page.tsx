@@ -7,6 +7,7 @@ import { getDeskCatalog, getFloor } from './actions'
 import { getCurrentDevice } from '@/lib/console/device'
 import { deskAllowed } from '@/lib/console/settings'
 import { DeskTabletOnly } from '@/components/console/desk-tablet-only'
+import { getCashRules, getCurrentSession } from '@/lib/console/cash'
 
 export const metadata: Metadata = {
   title: 'ขาย + เช็คอิน | RAVENTA Back Office',
@@ -23,7 +24,9 @@ export default async function DeskPage({ searchParams }: { searchParams: Promise
   const onTablet = Boolean(await getCurrentDevice().catch(() => null))
   if (!(await deskAllowed({ userId: user.id, admin: isAdmin(role), onTablet }))) return <DeskTabletOnly />
 
-  const [floor, catalog] = await Promise.all([getFloor(), getDeskCatalog()])
+  const [floor, catalog, cash, drawer] = await Promise.all([getFloor(), getDeskCatalog(), getCashRules(), getCurrentSession().catch(() => undefined)])
+  // Cash taken with no drawer open isn't in any shift close (§30, v0.31).
+  const drawerWarn = cash.setUp && drawer !== undefined && drawer?.status !== 'open'
 
   return (
     <main>
@@ -33,6 +36,7 @@ export default async function DeskPage({ searchParams }: { searchParams: Promise
         initialError={floor.ok ? null : floor.error}
         initialCatalog={catalog.ok ? catalog.data : null}
         initialView={view === 'floor' ? 'floor' : 'desk'}
+        drawerWarn={drawerWarn}
       />
     </main>
   )

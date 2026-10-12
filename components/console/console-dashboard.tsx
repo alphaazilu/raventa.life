@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation'
 import { AlertTriangle, BarChart3, CheckCircle2, ChevronRight, Clock, ListChecks, Package, Receipt, Settings, UserCog, Users, type LucideIcon } from 'lucide-react'
 import { useLanguage } from '@/components/language-provider'
 import { consoleCopy } from '@/lib/console/copy'
-import { CATALOG_PATH, CHECKLIST_PATH, DESK_PATH, MEMBERS_PATH, REPORTS_PATH, SETTINGS_PATH, TEAM_PATH, TIME_PATH } from '@/lib/auth/roles'
+import { CASH_PATH, CATALOG_PATH, CHECKLIST_PATH, DESK_PATH, MEMBERS_PATH, REPORTS_PATH, SETTINGS_PATH, TEAM_PATH, TIME_PATH } from '@/lib/auth/roles'
 import type { ConsoleAlerts } from '@/lib/console/alerts'
 import { bangkokTime, FLOOR_CAPACITY } from '@/lib/check-in/day'
 import { formatMemberNo } from '@/lib/format-date'
@@ -137,6 +137,8 @@ function ToDo({ alerts }: { alerts: ConsoleAlerts }) {
     { n: alerts.checklistIssues, text: consoleCopy.todoIssues, href: CHECKLIST_PATH, red: true },
     { n: alerts.checklistMissed, text: consoleCopy.todoMissed, href: CHECKLIST_PATH },
     { n: alerts.forgotClockOut, text: consoleCopy.todoForgot, href: TIME_PATH },
+    { n: alerts.cashReview, text: consoleCopy.todoCashReview, href: `${CASH_PATH}?tab=history`, red: true },
+    { n: alerts.cashOpenLong, text: consoleCopy.todoCashOpen, href: CASH_PATH, red: true },
     { n: alerts.unsetPay, text: consoleCopy.todoPay, href: TEAM_PATH },
   ].filter((r) => r.n > 0)
   if (rows.length === 0) {

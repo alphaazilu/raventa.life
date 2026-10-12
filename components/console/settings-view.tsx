@@ -13,7 +13,8 @@ import type { AppSettings } from '@/lib/console/settings'
 import { cycleOf, type DailyCycle } from '@/lib/console/pay-cycle'
 import { formatMemberDate } from '@/lib/format-date'
 import { bangkokToday } from '@/lib/check-in/day'
-import { saveAccessSettings, savePayCycle, setPhoneAccess } from '@/app/console/settings/actions'
+import { saveAccessSettings, saveCashRules, savePayCycle, setPhoneAccess } from '@/app/console/settings/actions'
+import type { CashRules } from '@/lib/cash'
 import { saveTimeSettings } from '@/app/console/time/shift-actions'
 import { shiftErrors, timeCopy } from '@/lib/console/copy'
 import type { TimeSettings } from '@/lib/console/shift-math'
@@ -83,6 +84,7 @@ export function SettingsView({
   setUp,
   initialTab = 'team',
   timeRules,
+  cash,
 }: {
   settings: AppSettings
   staff: { id: string; name: string }[]
@@ -91,6 +93,8 @@ export function SettingsView({
   initialTab?: SettingsTab
   // Late / OT / minimum people a day (§17, §26) — moved here from Time (v0.30).
   timeRules: TimeSettings
+  // Cash drawer (§30, v0.31)
+  cash: CashRules & { setUp: boolean }
 }) {
   const { tr, lang } = useLanguage()
   const router = useRouter()
@@ -105,6 +109,8 @@ export function SettingsView({
   }, [tabParam])
   const [form, setForm] = useState(settings)
   const [rules, setRules] = useState(timeRules)
+  const [cashForm, setCashForm] = useState<CashRules>({ float: cash.float, alert: cash.alert })
+  const cashDirty = cashForm.float !== cash.float || cashForm.alert !== cash.alert
   const [error, setError] = useState<string | null>(null)
   const [saved, setSaved] = useState(false)
   const [busyId, setBusyId] = useState<string | null>(null)
@@ -122,11 +128,11 @@ export function SettingsView({
       form.staffIdleMinutes !== settings.staffIdleMinutes ||
       form.adminIdleMinutes !== settings.adminIdleMinutes,
     work: !same(form.leave, settings.leave) || !same(form.pay, settings.pay) || !same(rules, timeRules),
-    shop: form.vatRegistered !== settings.vatRegistered,
+    shop: form.vatRegistered !== settings.vatRegistered || cashDirty,
   }
   const dirty = SETTINGS_TABS.some((k) => dirtyBy[k])
   const payDirty = !same(form.pay, settings.pay)
-  const restDirty = dirtyBy.team || dirtyBy.shop || !same(form.leave, settings.leave)
+  const restDirty = dirtyBy.team || form.vatRegistered !== settings.vatRegistered || !same(form.leave, settings.leave)
 
   const go = (k: SettingsTab) => {
     setTab(k)
@@ -145,6 +151,10 @@ export function SettingsView({
       }
       if (payDirty) {
         const r = await savePayCycle(form.pay)
+        if (!r.ok) return setError(r.error)
+      }
+      if (cashDirty) {
+        const r = await saveCashRules(cashForm.float, cashForm.alert)
         if (!r.ok) return setError(r.error)
       }
       if (!same(rules, timeRules)) {
@@ -415,6 +425,37 @@ export function SettingsView({
         <div className="grid items-start gap-5 xl:grid-cols-2">
           <section className={card}>
             <h2 className="flex items-center gap-2 text-base font-bold">
+              <Wallet className="h-4 w-4" aria-hidden="true" /> {tr(c.cashHeading)}
+            </h2>
+            {cash.setUp ? (
+              <div className="mt-3 grid gap-4 sm:grid-cols-2">
+                <label className="flex flex-col gap-1 text-sm">
+                  <span className="font-semibold">{tr(c.cashFloat)}</span>
+                  <input
+                    className={cn(input, 'w-32')}
+                    inputMode="numeric"
+                    value={cashForm.float}
+                    onChange={(e) => setCashForm({ ...cashForm, float: Math.min(100000, Number(e.target.value.replace(/\D/g, '')) || 0) })}
+                  />
+                  <span className="text-xs text-muted-foreground">{tr(c.cashFloatHint)}</span>
+                </label>
+                <label className="flex flex-col gap-1 text-sm">
+                  <span className="font-semibold">{tr(c.cashAlert)}</span>
+                  <input
+                    className={cn(input, 'w-32')}
+                    inputMode="numeric"
+                    value={cashForm.alert}
+                    onChange={(e) => setCashForm({ ...cashForm, alert: Math.min(100000, Number(e.target.value.replace(/\D/g, '')) || 0) })}
+                  />
+                  <span className="text-xs text-muted-foreground">{tr(c.cashAlertHint)}</span>
+                </label>
+              </div>
+            ) : (
+              <p className="mt-2 text-sm text-muted-foreground">{tr(c.cashNotSetUp)}</p>
+            )}
+          </section>
+          <section className={card}>
+            <h2 className="flex items-center gap-2 text-base font-bold">
               <Receipt className="h-4 w-4" aria-hidden="true" /> {tr(c.accountingHeading)}
             </h2>
             <div className="mt-1 divide-y divide-border">
@@ -444,6 +485,7 @@ export function SettingsView({
                   onClick={() => {
                     setForm(settings)
                     setRules(timeRules)
+                    setCashForm({ float: cash.float, alert: cash.alert })
                     setError(null)
                   }}
                   className="h-10 rounded-full border border-border px-4 text-sm font-semibold"

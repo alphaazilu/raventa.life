@@ -71,6 +71,26 @@ export async function setPhoneAccess(staffId: string, allowed: boolean): Promise
   return { ok: true }
 }
 
+// Cash drawer float and alert size (§30, v0.31).
+export async function saveCashRules(float: number, alert: number): Promise<SettingsResult> {
+  const ctx = await requireAdmin()
+  if ('error' in ctx) return { ok: false, error: ctx.error }
+  const f = Number(float)
+  const a = Number(alert)
+  if (!Number.isInteger(f) || f < 0 || f > 100000 || !Number.isInteger(a) || a < 0 || a > 100000) return { ok: false, error: 'bad_cash' }
+  const row = { cash_float: f, cash_alert: a, updated_by: ctx.userId, updated_at: new Date().toISOString() }
+  const admin = createAdminClient()
+  const { data, error } = await admin.from('app_settings').update(row).eq('id', 1).select('id')
+  if (error) return error.code === '42703' || error.code === 'PGRST204' ? { ok: false, error: 'cash_not_set_up' } : fail(error)
+  if (!data?.length) {
+    const { error: e } = await admin.from('app_settings').insert({ id: 1, ...row })
+    if (e) return fail(e)
+  }
+  await admin.from('staff_actions').insert({ actor_id: ctx.userId, action: 'settings_cash', detail: { cash_float: f, cash_alert: a } })
+  revalidatePath(SETTINGS_PATH)
+  return { ok: true }
+}
+
 // Where pay periods end (§28, v0.28): saved apart from the rest so the
 // other settings still save before that SQL is run.
 export async function savePayCycle(input: PayCycleRules): Promise<SettingsResult> {

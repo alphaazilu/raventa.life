@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useState, useTransition } from 'react'
+import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
 import { Gift, LogIn, Lock, LogOut, RotateCcw, Search, ShoppingBag, Undo2, X } from 'lucide-react'
 import { useLanguage } from '@/components/language-provider'
@@ -15,7 +16,8 @@ import { bangkokTime, FLOOR_CAPACITY } from '@/lib/check-in/day'
 import { formatMemberDate, formatMemberNo } from '@/lib/format-date'
 import { receiptLabel } from '@/lib/console/catalog'
 import { cn } from '@/lib/utils'
-import { DESK_PATH } from '@/lib/auth/roles'
+import { CASH_PATH, DESK_PATH } from '@/lib/auth/roles'
+import { cashCopy } from '@/lib/cash'
 import { isGift } from '@/lib/packages'
 import {
   cancelVisit,
@@ -53,6 +55,7 @@ export function CheckInDesk({
   initialMember = null,
   initialCatalog = null,
   initialView = 'desk',
+  drawerWarn = false,
 }: {
   // Day totals are for admins only; staff see each visit's method, not sums.
   showTakings: boolean
@@ -61,6 +64,8 @@ export function CheckInDesk({
   initialMember?: DeskMember | null
   initialCatalog?: DeskCatalog
   initialView?: 'desk' | 'floor'
+  // No cash drawer open (§30) — say so above the bill.
+  drawerWarn?: boolean
 }) {
   const { tr } = useLanguage()
   const [panel, setPanel] = useState<Panel>(initialMember ? { kind: 'member', member: initialMember } : { kind: 'empty' })
@@ -216,6 +221,15 @@ export function CheckInDesk({
           {tr(deskCopy.tabFloor)} ({inside}/{FLOOR_CAPACITY})
         </button>
       </div>
+
+      {drawerWarn && (
+        <div className="mb-3 flex flex-wrap items-center gap-x-3 gap-y-1 rounded-2xl bg-amber-500/15 px-4 py-2.5 text-sm font-semibold text-amber-900 dark:text-amber-200">
+          <span className="min-w-0 flex-1">{tr(cashCopy.sellWarn)}</span>
+          <Link href={CASH_PATH} className="shrink-0 rounded-full bg-foreground px-3 py-1 text-xs font-bold text-background">
+            {tr(cashCopy.sellWarnLink)}
+          </Link>
+        </div>
+      )}
 
       {notice && (
         <div role="status" className="mb-3 rounded-2xl bg-accent/15 px-4 py-3 text-sm font-semibold text-accent">

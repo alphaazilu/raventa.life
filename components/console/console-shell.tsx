@@ -28,6 +28,7 @@ import {
   UserCircle,
   UserCog,
   Users,
+  Wallet,
   Wrench,
   X,
   type LucideIcon,
@@ -35,6 +36,7 @@ import {
 import { useLanguage } from '@/components/language-provider'
 import { consoleCopy } from '@/lib/console/copy'
 import {
+  CASH_PATH,
   CATALOG_PATH,
   CHECKLIST_PATH,
   CONSOLE_PATH,
@@ -56,7 +58,7 @@ import { cn } from '@/lib/utils'
 //   1024–1279 icons only by default; tap ☰ to open it over the page
 //   <1024px  hidden; ☰ in the top bar slides it in from the left
 // The choice is remembered per device. Staff on the counter tablet always
-// get the icon rail (3 icons) so the sell screen keeps its width.
+// get the icon rail (4 icons) so the sell screen keeps its width.
 // The top bar keeps its old height (57px / 65px at xl) — sticky parts of
 // pages are placed under it.
 
@@ -87,6 +89,9 @@ const t = {
   overview: { th: 'ภาพรวม', en: 'Overview' },
   desk: { th: 'ขาย + เช็คอิน', en: 'Sell + check-in' },
   members: { th: 'ลูกค้า', en: 'Members' },
+  cash: { th: 'ปิดกะ', en: 'Shift close' },
+  drawer: { th: 'ลิ้นชักเงินสด', en: 'Cash drawer' },
+  cashHistory: { th: 'ประวัติปิดกะ', en: 'History' },
   time: { th: 'ลงเวลาและกะ', en: 'Time & shifts' },
   teamRoles: { th: 'ทีมงานและสิทธิ์', en: 'Team & roles' },
   checklist: { th: 'เช็คลิสต์', en: 'Checklists' },
@@ -137,6 +142,17 @@ const GROUPS: Group[] = [
         subs: [
           { key: 'sell', label: t.sell, tab: null },
           { key: 'floor', label: t.floor, tab: 'floor' },
+        ],
+      },
+      {
+        key: 'cash',
+        label: t.cash,
+        icon: Wallet,
+        href: CASH_PATH,
+        badge: (a) => a.cashReview + a.cashOpenLong,
+        subs: [
+          { key: 'drawer', label: t.drawer, tab: null, badge: (a) => a.cashOpenLong },
+          { key: 'history', label: t.cashHistory, tab: 'history', badge: (a) => a.cashReview },
         ],
       },
       { key: 'members', label: t.members, icon: Users, href: MEMBERS_PATH, adminOnly: true, staffOnTablet: true },
