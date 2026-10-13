@@ -398,7 +398,8 @@ function BookFlow({
                   !s.time && 'col-span-4',
                 )}
               >
-                {s.time || `${tr(c.allDay)} · ${full ? tr(c.full) : tr(c.left).replace('{n}', String(s.left))}`}
+                {s.time || (full ? `${tr(c.allDay)} · ${tr(c.full)}` : s.near ? `${tr(c.allDay)} · ${tr(c.nearFull)}` : tr(c.allDay))}
+                {s.time && s.near && !full && <span className="block text-[10px] font-semibold text-amber-600">{tr(c.nearFull)}</span>}
               </button>
             )
           })}

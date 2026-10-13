@@ -6,7 +6,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { isMissingTable } from '@/lib/console/db-errors'
 import { bangkokToday } from '@/lib/check-in/day'
 import { daysFree, listTypes, memberNoShow, sendBookingEmail, slotsFor } from '@/lib/console/booking'
-import { addDays, type EmptyReason, type Slot } from '@/lib/booking'
+import { addDays, isNear, type EmptyReason, type Slot } from '@/lib/booking'
 import { MY_BOOKINGS_PATH } from '@/lib/auth/roles'
 
 // A member books / cancels for themselves (§34, v0.35). Everything is
@@ -41,7 +41,13 @@ export async function memberSlots(typeId: string, day: string): Promise<MemberBo
   const today = bangkokToday()
   if (day < today) return { ok: false, error: 'too_soon' }
   if (day > addDays(today, r.t.advanceDays)) return { ok: false, error: 'too_far' }
-  return { ok: true, data: await slotsFor(r.t, day, 'member') }
+  const res = await slotsFor(r.t, day, 'member')
+  // Members don't see how many places are left — only "almost full" (v0.35.7).
+  const cap = (n: number) => Math.min(n, r.t.maxParty)
+  return {
+    ok: true,
+    data: { ...res, slots: res.slots.map((s) => ({ ...s, left: cap(s.left), near: isNear(s.left, r.t.capacity), resources: s.resources.map((x) => ({ ...x, left: cap(x.left) })) })) },
+  }
 }
 
 // Places left on each day a member can book (dim full days, open on the first free one).
@@ -50,7 +56,9 @@ export async function memberDays(typeId: string): Promise<MemberBookResult<Recor
   const r = await bookableType(typeId)
   if ('error' in r) return { ok: false, error: r.error as string }
   const today = bangkokToday()
-  return { ok: true, data: await daysFree(r.t, today, addDays(today, r.t.advanceDays), 'member') }
+  const days = await daysFree(r.t, today, addDays(today, r.t.advanceDays), 'member')
+  // -1 closed, 0 full, 1 open, 2 almost full — no counts for members.
+  return { ok: true, data: Object.fromEntries(Object.entries(days).map(([d, v]) => [d, v <= 0 ? v : isNear(v, r.t.capacity) ? 2 : 1])) }
 }
 
 export async function memberBook(input: { typeId: string; start: string; resourceId: string | null; party: number; note: string; arriveTime?: string | null }): Promise<MemberBookResult<{ id: string }>> {

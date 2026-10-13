@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { useLanguage } from '@/components/language-provider'
-import { addDays, bkCopy as c } from '@/lib/booking'
+import { addDays, bkCopy as c, isNear } from '@/lib/booking'
 import { cn } from '@/lib/utils'
 
 // A month to pick a booking day from (v0.35.5): Monday first, each day
@@ -41,6 +41,7 @@ export function MonthPicker({
   capacity,
   wholeDay,
   onMonth,
+  showCounts = false,
 }: {
   value: string
   onChange: (day: string) => void
@@ -52,6 +53,8 @@ export function MonthPicker({
   wholeDay: boolean
   // The month shown changed (to load its days).
   onMonth?: (month: string) => void
+  // Team: places left as numbers. Members: free / almost full only (free: 1 = open, 2 = almost full).
+  showCounts?: boolean
 }) {
   const { tr, lang } = useLanguage()
   const [month, setMonth] = useState(monthOf(value))
@@ -97,7 +100,7 @@ export function MonthPicker({
           const left = known ? (free as Record<string, number>)[d] : null
           const out = d < min || d > max
           const disabled = out || (left !== null && left <= 0)
-          const near = left !== null && left > 0 && left < Math.max(1, capacity * 0.2)
+          const near = left !== null && (showCounts ? isNear(left, capacity) : left === 2)
           const selected = d === value
           return (
             <button
@@ -114,10 +117,12 @@ export function MonthPicker({
             >
               {Number(d.slice(8))}
               {!disabled && left !== null && (
-                wholeDay ? (
+                showCounts && wholeDay ? (
                   <span className={cn('text-[10px] font-semibold leading-tight', selected ? 'opacity-90' : near ? 'text-amber-600' : 'text-accent')}>
                     {tr(c.left).replace('{n}', String(left))}
                   </span>
+                ) : near && !showCounts ? (
+                  <span className={cn('text-[10px] font-semibold leading-tight', selected ? 'opacity-90' : 'text-amber-600')}>{tr(c.nearFull)}</span>
                 ) : (
                   <span className={cn('mt-0.5 h-1.5 w-1.5 rounded-full', selected ? 'bg-primary-foreground' : near ? 'bg-amber-500' : 'bg-accent')} />
                 )

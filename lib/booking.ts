@@ -81,7 +81,11 @@ export type Booking = {
 }
 
 export type SlotResource = { id: string; label: string; left: number }
-export type Slot = { start: string; time: string; left: number; resources: SlotResource[]; arrivals?: string[] }
+export type Slot = { start: string; time: string; left: number; resources: SlotResource[]; arrivals?: string[]; near?: boolean }
+
+// "Nearly full" (v0.35.7): under 20% or 5 places left. Members see this
+// instead of numbers; the team sees the numbers.
+export const isNear = (left: number, capacity: number) => left > 0 && (left < capacity * 0.2 || left <= 5)
 
 export type NoShowRules = { lateMin: number; windowDays: number; warn: number; block: number; blockDays: number; lateCancelWeight: number }
 export const DEFAULT_NOSHOW_RULES: NoShowRules = { lateMin: 15, windowDays: 60, warn: 2, block: 3, blockDays: 30, lateCancelWeight: 0.5 }
@@ -379,6 +383,7 @@ export const bkCopy = {
   hintBuffer: L('พัก/ทำความสะอาดก่อนรับคิวถัดไป เช่น 15', 'Break / clean-up before the next booking, e.g. 15'),
   hintMaxParty: L('จอง 1 ครั้งพาคนมาได้กี่คน (ตัวต่อตัว = 1)', 'People one booking can bring (one-to-one = 1)'),
   allDay: L('ทั้งวัน', 'All day'),
+  nearFull: L('ใกล้เต็ม', 'Almost full'),
   pickArrival: L('ให้ลูกค้าเลือกเวลาที่จะมา', 'Guests say what time they’ll come'),
   pickArrivalHint: L('ไว้ให้ร้านรู้ล่วงหน้า · ที่ว่างยังนับต่อวัน · เวลาให้เลือกทุกๆ “รอบเวลา” ในช่วงเปิด', 'So the shop knows · places stay per day · times every “start every” through the open hours'),
   arriveAt: L('เวลาที่จะมา', 'Arriving at'),

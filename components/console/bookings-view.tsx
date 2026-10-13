@@ -693,6 +693,7 @@ export function BookForm({
             capacity={type.capacity}
             wholeDay={type.wholeDay}
             onMonth={(m) => setShownMonth(m)}
+            showCounts
           />
         )}
       </div>
