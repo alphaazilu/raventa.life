@@ -14,7 +14,6 @@ import {
   bkErrors,
   bkkHm,
   isLate,
-  kindLabel,
   statusLabel,
   typeName,
   who,
@@ -223,7 +222,7 @@ function DayView({
               <div className="flex flex-wrap items-baseline justify-between gap-x-2">
                 <h2 className="font-display text-lg font-bold">{typeName(t, lang)}</h2>
                 <span className="text-xs text-muted-foreground">
-                  {tr(kindLabel[t.kind])} · {tr(c.min).replace('{n}', String(t.durationMin))}
+                  {tr(c.min).replace('{n}', String(t.durationMin))} · {tr(c.placesPer).replace('{n}', String(t.capacity))}
                 </span>
               </div>
               <div className="mt-2 divide-y divide-border">

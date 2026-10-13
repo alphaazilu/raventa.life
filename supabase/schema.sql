@@ -2615,3 +2615,9 @@ on conflict (id) do update set
   public = excluded.public,
   file_size_limit = excluded.file_size_limit,
   allowed_mime_types = excluded.allowed_mime_types;
+
+-- No fixed "kinds" any more (v0.35.2): what used to come with a kind is set
+-- per item. null = not set yet → worked out from the old kind.
+alter table public.booking_types add column if not exists member_pick boolean;        -- members choose the person/room
+alter table public.booking_types add column if not exists arrive_on_checkin boolean;  -- a Day Pass check-in marks it "arrived"
+alter table public.booking_types alter column kind set default 'service';

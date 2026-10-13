@@ -6,16 +6,13 @@ import { ArrowDown, ArrowUp, Copy, ImagePlus, Pencil, Plus, Trash2, X } from 'lu
 import { useLanguage } from '@/components/language-provider'
 import { Spinner } from '@/components/ui/spinner'
 import {
-  BOOKING_KINDS,
   bkCopy as c,
   bkErrors,
-  kindHint,
-  kindLabel,
+  PRESETS,
   STEP_OPTIONS,
   typeName,
   WEEKDAYS,
   type BookingCategory,
-  type BookingKind,
   type BookingType,
   type NoShowRules,
 } from '@/lib/booking'
@@ -37,16 +34,10 @@ const card = 'rounded-2xl border border-border bg-card p-4 md:p-5'
 const input = 'h-10 w-full rounded-xl border border-border bg-background px-3 text-sm outline-none focus:border-primary'
 const label = 'mb-1 block text-xs font-semibold text-muted-foreground'
 
-const DEFAULTS: Record<BookingKind, Partial<TypeInput>> = {
-  service: { durationMin: 60, bufferMin: 15, capacity: 1, stepMin: 30, maxParty: 1 },
-  class: { durationMin: 60, bufferMin: 0, capacity: 12, stepMin: 60, maxParty: 4 },
-  entry: { durationMin: 180, bufferMin: 0, capacity: 20, stepMin: 60, maxParty: 6 },
-  room: { durationMin: 90, bufferMin: 15, capacity: 1, stepMin: 30, maxParty: 6 },
-}
-
-const blank = (kind: BookingKind = 'service', categoryId: string | null = null): TypeInput => ({
-  kind,
+const blank = (categoryId: string | null = null): TypeInput => ({
   categoryId,
+  memberPick: true,
+  arriveOnCheckin: false,
   nameTh: '',
   nameEn: '',
   description: '',
@@ -64,13 +55,13 @@ const blank = (kind: BookingKind = 'service', categoryId: string | null = null):
   sort: 0,
   resources: [],
   hours: [1, 2, 3, 4, 5, 6, 0].map((weekday) => ({ weekday, start: '10:00', end: '20:00' })),
-  ...DEFAULTS[kind],
 })
 
 const fromType = (t: BookingType): TypeInput => ({
   id: t.id,
-  kind: t.kind,
   categoryId: t.categoryId,
+  memberPick: t.memberPick,
+  arriveOnCheckin: t.arriveOnCheckin,
   nameTh: t.nameTh,
   nameEn: t.nameEn,
   description: t.description ?? '',
@@ -146,7 +137,7 @@ export function BookingSetup({
                     <span className="min-w-0">
                       <span className="block truncate font-semibold">{typeName(t, lang)}</span>
                       <span className="block text-xs text-muted-foreground">
-                        {tr(kindLabel[t.kind])} · {tr(c.min).replace('{n}', String(t.durationMin))}
+                        {tr(c.min).replace('{n}', String(t.durationMin))} · {tr(c.placesPer).replace('{n}', String(t.capacity))}
                         {t.resources.filter((r) => r.active).length > 0 && ` · ${t.resources.filter((r) => r.active).length} ${tr(c.resources)}`}
                       </span>
                     </span>
@@ -166,7 +157,7 @@ export function BookingSetup({
       </div>
       <TypeForm
         key={current?.id ?? `new-${fresh}`}
-        initial={current ? fromType(current) : blank('service', categories[0]?.id ?? null)}
+        initial={current ? fromType(current) : blank(categories[0]?.id ?? null)}
         categories={categories}
         staff={staff}
         products={products}
@@ -225,21 +216,33 @@ function TypeForm({
     <section className={card}>
       <h2 className="font-display text-lg font-bold">{f.id ? f.nameTh || '—' : tr(c.addType)}</h2>
 
-      {!f.id && (
-        <div className="mt-3 grid grid-cols-2 gap-2">
-          {BOOKING_KINDS.map((k) => (
-            <button
-              key={k}
-              type="button"
-              onClick={() => setF({ ...blank(k, f.categoryId), nameTh: f.nameTh, nameEn: f.nameEn, description: f.description })}
-              className={cn('rounded-xl border px-3 py-2 text-left', f.kind === k ? 'border-primary bg-primary/5' : 'border-border hover:border-primary/40')}
-            >
-              <span className="block text-sm font-semibold">{tr(kindLabel[k])}</span>
-              <span className="block text-[11px] text-muted-foreground">{tr(kindHint[k])}</span>
-            </button>
+      <label className="mt-3 block">
+        <span className={label}>{tr(c.preset)}</span>
+        <select
+          value=""
+          onChange={(e) => {
+            const p = PRESETS.find((x) => x.key === e.target.value)
+            if (p)
+              set({
+                durationMin: p.durationMin,
+                bufferMin: p.bufferMin,
+                capacity: p.capacity,
+                stepMin: p.stepMin,
+                maxParty: p.maxParty,
+                memberPick: p.memberPick,
+                arriveOnCheckin: p.arriveOnCheckin,
+              })
+          }}
+          className={input}
+        >
+          <option value="">{tr(c.presetNone)}</option>
+          {PRESETS.map((p) => (
+            <option key={p.key} value={p.key}>
+              {tr(p.label)}
+            </option>
           ))}
-        </div>
-      )}
+        </select>
+      </label>
 
       <div className="mt-4 grid gap-3 sm:grid-cols-2">
         <label>
@@ -389,6 +392,17 @@ function TypeForm({
           {tr(c.copyHours)}
         </button>
       )}
+
+      <div className="mt-5 flex flex-col gap-2">
+        <label className="flex items-center gap-2 text-sm font-semibold">
+          <input type="checkbox" checked={f.memberPick} onChange={(e) => set({ memberPick: e.target.checked })} className="h-4 w-4" />
+          {tr(c.memberPick)}
+        </label>
+        <label className="flex items-center gap-2 text-sm font-semibold">
+          <input type="checkbox" checked={f.arriveOnCheckin} onChange={(e) => set({ arriveOnCheckin: e.target.checked })} className="h-4 w-4" />
+          {tr(c.arriveOnCheckin)}
+        </label>
+      </div>
 
       {/* Member booking */}
       <div className="mt-5 grid gap-3 sm:grid-cols-3">

@@ -6,7 +6,7 @@ import { canUseDesk, isAdmin, BOOKINGS_PATH } from '@/lib/auth/roles'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { isMissingTable } from '@/lib/console/db-errors'
 import { getBooking, listTypes, memberNoShow, sendBookingEmail, slotsFor } from '@/lib/console/booking'
-import { BOOKING_KINDS, CATEGORY_BUCKET, STEP_OPTIONS, type BookingKind, type NoShowRules, type NoShowStatus, type Slot } from '@/lib/booking'
+import { CATEGORY_BUCKET, kindFor, STEP_OPTIONS, type NoShowRules, type NoShowStatus, type Slot } from '@/lib/booking'
 
 // Back Office › Bookings (§34, v0.35). Staff book for anyone and change
 // statuses; setup and no-show rules are admin only. Written with the
@@ -170,8 +170,9 @@ async function admin(): Promise<{ userId: string } | { error: string }> {
 
 export type TypeInput = {
   id?: string
-  kind: BookingKind
   categoryId: string | null
+  memberPick: boolean
+  arriveOnCheckin: boolean
   nameTh: string
   nameEn: string
   description: string
@@ -200,7 +201,6 @@ export async function saveBookingType(input: TypeInput): Promise<BkResult<{ id: 
   if ('error' in ctx) return { ok: false, error: ctx.error }
   const nameTh = input.nameTh.trim()
   if (
-    !(BOOKING_KINDS as readonly string[]).includes(input.kind) ||
     nameTh.length < 1 ||
     nameTh.length > 60 ||
     input.nameEn.trim().length > 60 ||
@@ -219,7 +219,9 @@ export async function saveBookingType(input: TypeInput): Promise<BkResult<{ id: 
 
   const db = createAdminClient()
   const row = {
-    kind: input.kind,
+    kind: kindFor(input),
+    member_pick: Boolean(input.memberPick),
+    arrive_on_checkin: Boolean(input.arriveOnCheckin),
     name_th: nameTh,
     ...(input.categoryId !== undefined ? { category_id: input.categoryId || null } : {}),
     name_en: input.nameEn.trim(),
@@ -241,7 +243,8 @@ export async function saveBookingType(input: TypeInput): Promise<BkResult<{ id: 
   let id = input.id
   // Before §35 there's no category column: save without it.
   const noColumn = (e: { code?: string } | null) => e?.code === 'PGRST204' || e?.code === '42703'
-  const { category_id: _cat, ...rowNoCat } = row as typeof row & { category_id?: string | null }
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const { category_id: _cat, member_pick: _p, arrive_on_checkin: _a, ...rowNoCat } = row as typeof row & { category_id?: string | null }
   if (id) {
     let { error } = await db.from('booking_types').update(row).eq('id', id)
     if (noColumn(error)) ({ error } = await db.from('booking_types').update(rowNoCat).eq('id', id))

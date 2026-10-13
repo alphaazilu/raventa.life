@@ -23,8 +23,10 @@ export function sortByCategory<T extends { categoryId: string | null; sort: numb
 
 export type BookingType = {
   id: string
-  kind: BookingKind
+  kind: BookingKind // kept for old rows only — behaviour comes from the settings below (v0.35.2)
   categoryId: string | null
+  memberPick: boolean // members choose the person/room
+  arriveOnCheckin: boolean // a Day Pass check-in marks the booking "arrived"
   nameTh: string
   nameEn: string
   description: string | null
@@ -49,6 +51,7 @@ export type Booking = {
   typeId: string
   typeName: { th: string; en: string }
   kind: BookingKind
+  arriveOnCheckin: boolean
   productId: string | null
   resourceId: string | null
   resourceLabel: string | null
@@ -171,18 +174,18 @@ export const isLate = (b: Pick<Booking, 'status' | 'start'>, lateMin: number, no
 
 const L = (th: string, en: string) => ({ th, en })
 
-export const kindLabel: Record<BookingKind, { th: string; en: string }> = {
-  service: L('บริการรายคน', 'Service'),
-  class: L('คลาส/กิจกรรมกลุ่ม', 'Class'),
-  entry: L('รอบเข้าใช้ Day Pass', 'Entry window'),
-  room: L('ห้อง/โซนส่วนตัว', 'Private room'),
-}
-export const kindHint: Record<BookingKind, { th: string; en: string }> = {
-  service: L('เลือกเวลา (และคนให้บริการ) · 1 คิวต่อคนให้บริการ · กันเวลาซ้อน', 'Pick a time (and who) · one guest per person · no overlaps'),
-  class: L('รอบเวลา + จำนวนที่นั่ง', 'Set times + seats'),
-  entry: L('ช่วงเวลาเข้าร้าน + จำนวนที่รับ · walk-in ยังเข้าได้ถ้าที่เหลือ', 'An entry window + how many · walk-ins fill what’s left'),
-  room: L('จองเป็นช่วง + เวลาเผื่อทำความสะอาด', 'Booked as a block + clean-up time'),
-}
+// Quick-fill numbers for a new item (v0.35.2) — nothing is locked by them.
+export type BookingPreset = { key: string; label: { th: string; en: string }; durationMin: number; bufferMin: number; capacity: number; stepMin: number; maxParty: number; memberPick: boolean; arriveOnCheckin: boolean }
+export const PRESETS: BookingPreset[] = [
+  { key: 'one', label: L('ตัวต่อตัว (เช่น นวด 60 นาที)', 'One-to-one (e.g. a 60-min massage)'), durationMin: 60, bufferMin: 15, capacity: 1, stepMin: 30, maxParty: 1, memberPick: true, arriveOnCheckin: false },
+  { key: 'group', label: L('กลุ่ม (เช่น คลาส 12 ที่)', 'Group (e.g. a 12-seat class)'), durationMin: 60, bufferMin: 0, capacity: 12, stepMin: 60, maxParty: 4, memberPick: false, arriveOnCheckin: false },
+  { key: 'entry', label: L('รอบเข้าใช้ (เช่น 3 ชม. 20 คน)', 'Entry window (e.g. 3 h, 20 people)'), durationMin: 180, bufferMin: 0, capacity: 20, stepMin: 60, maxParty: 6, memberPick: false, arriveOnCheckin: true },
+  { key: 'room', label: L('เหมาห้อง (เช่น 90 นาที)', 'Private room (e.g. 90 min)'), durationMin: 90, bufferMin: 15, capacity: 1, stepMin: 30, maxParty: 6, memberPick: false, arriveOnCheckin: false },
+]
+// The old kind, kept in the database, from the settings.
+export const kindFor = (t: { memberPick: boolean; arriveOnCheckin: boolean; capacity: number }): BookingKind =>
+  t.arriveOnCheckin ? 'entry' : t.memberPick ? 'service' : t.capacity > 1 ? 'class' : 'room'
+
 export const statusLabel: Record<BookingStatus, { th: string; en: string }> = {
   booked: L('จองแล้ว', 'Booked'),
   arrived: L('มาแล้ว', 'Arrived'),
@@ -305,6 +308,11 @@ export const bkCopy = {
   booked: L('จองเรียบร้อย', 'You’re booked'),
   other: L('อื่นๆ', 'Other'),
   categories: L('หมวดหมู่', 'Categories'),
+  preset: L('ใช้ค่าตั้งต้น (เติมตัวเลขให้ แก้ได้ทุกช่อง)', 'Quick-fill (every field stays editable)'),
+  presetNone: L('— เลือกเพื่อเติมค่า —', '— choose to fill —'),
+  memberPick: L('ให้ลูกค้าเลือกคนให้บริการ/ห้องเองได้', 'Members choose the person/room'),
+  arriveOnCheckin: L('เช็คอิน Day Pass แล้วถือว่า “มาแล้ว”', 'A Day Pass check-in counts as “arrived”'),
+  placesPer: L('รับ {n} ต่อรอบ', '{n} per time'),
   categoriesHint: L('จัดกลุ่มสิ่งที่จองได้ให้ลูกค้าเลือกง่าย · เรียงลำดับเองได้ · ไม่ใส่ก็ได้', 'Group what can be booked so members find it · your order · optional'),
   addCategory: L('เพิ่มหมวดหมู่', 'Add a category'),
   category: L('หมวดหมู่', 'Category'),

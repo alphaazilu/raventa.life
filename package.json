@@ -1,6 +1,6 @@
 {
   "name": "my-project",
-  "version": "0.35.1",
+  "version": "0.35.2",
   "private": true,
   "packageManager": "pnpm@12.3.4",
   "scripts": {

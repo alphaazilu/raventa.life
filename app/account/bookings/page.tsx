@@ -44,7 +44,7 @@ export default async function MyBookingsPage({ searchParams }: { searchParams: P
       advanceDays: t.advanceDays,
       cancelHours: t.cancelHours,
       maxParty: t.maxParty,
-      resources: t.kind === 'service' ? t.resources.filter((r) => r.active).map((r) => ({ id: r.id, label: r.label })) : [],
+      resources: t.memberPick ? t.resources.filter((r) => r.active).map((r) => ({ id: r.id, label: r.label })) : [],
     }))
   const cancelHours = Object.fromEntries((types ?? []).map((t) => [t.id, t.cancelHours]))
 

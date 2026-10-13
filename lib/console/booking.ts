@@ -51,6 +51,8 @@ export async function listTypes(onlyActive = false): Promise<BookingType[] | nul
       id: x.id as string,
       kind: x.kind as BookingKind,
       categoryId: (x.category_id as string | null) ?? null,
+      memberPick: (x.member_pick as boolean | null | undefined) ?? x.kind === 'service',
+      arriveOnCheckin: (x.arrive_on_checkin as boolean | null | undefined) ?? x.kind === 'entry',
       nameTh: x.name_th as string,
       nameEn: (x.name_en as string) || '',
       description: (x.description as string | null) || null,
@@ -133,7 +135,7 @@ async function toBookings(rows: Row[]): Promise<Booking[]> {
   const resIds = [...new Set(rows.map((r) => r.resource_id).filter(Boolean) as string[])]
   const people = [...new Set(rows.flatMap((r) => [r.member_id, r.created_by]).filter(Boolean) as string[])]
   const [t, rs, p] = await Promise.all([
-    db().from('booking_types').select('id, kind, name_th, name_en, product_id').in('id', typeIds),
+    db().from('booking_types').select('*').in('id', typeIds),
     resIds.length ? db().from('booking_resources').select('id, label').in('id', resIds) : Promise.resolve({ data: [] as Row[] }),
     people.length ? db().from('profiles').select('id, first_name, last_name, email, member_no').in('id', people) : Promise.resolve({ data: [] as Row[] }),
   ])
@@ -149,6 +151,7 @@ async function toBookings(rows: Row[]): Promise<Booking[]> {
       typeId: r.type_id as string,
       typeName: { th: (ty?.name_th as string) ?? '—', en: ((ty?.name_en as string) || (ty?.name_th as string)) ?? '—' },
       kind: ((ty?.kind as BookingKind) ?? 'service') as BookingKind,
+      arriveOnCheckin: (ty?.arrive_on_checkin as boolean | null | undefined) ?? ty?.kind === 'entry',
       productId: (ty?.product_id as string | null) ?? null,
       resourceId: (r.resource_id as string | null) ?? null,
       resourceLabel: r.resource_id ? (res.get(r.resource_id as string) ?? null) : null,
@@ -323,7 +326,7 @@ export async function markArrived(memberId: string, ids: string[], saleId: strin
   try {
     const today = bangkokToday()
     const list = await memberToday(memberId)
-    const pick = list.filter((b) => b.status === 'booked' && (ids.includes(b.id) || (entryToo && b.kind === 'entry')))
+    const pick = list.filter((b) => b.status === 'booked' && (ids.includes(b.id) || (entryToo && b.arriveOnCheckin)))
     if (!pick.length) return
     await db()
       .from('bookings')
