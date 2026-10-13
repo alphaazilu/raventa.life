@@ -58,7 +58,7 @@ export type DeskMember = {
   bookingsToday: DeskBooking[]
 }
 
-export type DeskBooking = { id: string; name: { th: string; en: string }; start: string; end: string; productId: string | null; status: 'booked' | 'arrived'; kind: string; with: string | null }
+export type DeskBooking = { id: string; name: { th: string; en: string }; start: string; end: string; wholeDay: boolean; productId: string | null; status: 'booked' | 'arrived'; kind: string; with: string | null }
 
 export type MemberHit = { id: string; name: string; memberNo: string | null; phone: string | null; avatarUrl: string | null }
 
@@ -173,6 +173,7 @@ async function loadMember(supabase: Supabase, userId: string, memberId: string):
         name: b.typeName,
         start: b.start,
         end: b.end,
+        wholeDay: b.wholeDay,
         productId: b.productId,
         status: b.status as 'booked' | 'arrived',
         kind: b.kind,

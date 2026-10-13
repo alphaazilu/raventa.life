@@ -5,7 +5,7 @@ import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { isMissingTable } from '@/lib/console/db-errors'
 import { bangkokToday } from '@/lib/check-in/day'
-import { listTypes, memberNoShow, sendBookingEmail, slotsFor } from '@/lib/console/booking'
+import { daysFree, listTypes, memberNoShow, sendBookingEmail, slotsFor } from '@/lib/console/booking'
 import { addDays, type Slot } from '@/lib/booking'
 import { MY_BOOKINGS_PATH } from '@/lib/auth/roles'
 
@@ -44,6 +44,15 @@ export async function memberSlots(typeId: string, day: string): Promise<MemberBo
   return { ok: true, data: await slotsFor(r.t, day, 'member') }
 }
 
+// Places left on each day a member can book (dim full days, open on the first free one).
+export async function memberDays(typeId: string): Promise<MemberBookResult<Record<string, number>>> {
+  if (!(await me())) return { ok: false, error: 'not_signed_in' }
+  const r = await bookableType(typeId)
+  if ('error' in r) return { ok: false, error: r.error as string }
+  const today = bangkokToday()
+  return { ok: true, data: await daysFree(r.t, today, addDays(today, r.t.advanceDays), 'member') }
+}
+
 export async function memberBook(input: { typeId: string; start: string; resourceId: string | null; party: number; note: string }): Promise<MemberBookResult<{ id: string }>> {
   const userId = await me()
   if (!userId) return { ok: false, error: 'not_signed_in' }
@@ -52,7 +61,7 @@ export async function memberBook(input: { typeId: string; start: string; resourc
   const t = r.t
   const start = Date.parse(input.start)
   if (!Number.isFinite(start)) return { ok: false, error: 'bad_booking' }
-  if (start < Date.now() + t.minHours * 3_600_000) return { ok: false, error: 'too_soon' }
+  if (!t.wholeDay && start < Date.now() + t.minHours * 3_600_000) return { ok: false, error: 'too_soon' }
   const day = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Bangkok' }).format(new Date(start))
   if (day > addDays(bangkokToday(), t.advanceDays)) return { ok: false, error: 'too_far' }
   // The time must be one the type offers that day.
@@ -67,16 +76,15 @@ export async function memberBook(input: { typeId: string; start: string; resourc
   if (ns?.level === 'blocked') return { ok: false, error: 'blocked' }
 
   const db = createAdminClient()
-  const end = new Date(start + t.durationMin * 60_000).toISOString()
-  const { data: clash } = await db
-    .from('bookings')
-    .select('id')
-    .eq('member_id', userId)
-    .eq('status', 'booked')
-    .lt('start_at', end)
-    .gt('end_at', new Date(start).toISOString())
-    .limit(1)
-  if (clash?.length) return { ok: false, error: 'overlap' }
+  // Two timed bookings can't overlap; a whole-day one (a Day Pass) goes with anything,
+  // but not twice on the same day.
+  const allTypes = (await listTypes()) ?? []
+  const whole = new Set(allTypes.filter((x) => x.wholeDay).map((x) => x.id))
+  const end = t.wholeDay ? new Date(Date.parse(`${day}T00:00:00+07:00`) + 86_400_000).toISOString() : new Date(start + t.durationMin * 60_000).toISOString()
+  const from = t.wholeDay ? new Date(Date.parse(`${day}T00:00:00+07:00`)).toISOString() : new Date(start).toISOString()
+  const { data: near } = await db.from('bookings').select('id, type_id').eq('member_id', userId).eq('status', 'booked').lt('start_at', end).gt('end_at', from).limit(20)
+  const clash = (near ?? []).some((b) => (t.wholeDay ? b.type_id === t.id : !whole.has(b.type_id as string)))
+  if (clash) return { ok: false, error: 'overlap' }
 
   const { data, error } = await db.rpc('book_slot', {
     p_type_id: t.id,

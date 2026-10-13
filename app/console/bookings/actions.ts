@@ -5,7 +5,9 @@ import { getConsoleSession } from '@/lib/console/session'
 import { canUseDesk, isAdmin, BOOKINGS_PATH } from '@/lib/auth/roles'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { isMissingTable } from '@/lib/console/db-errors'
-import { getBooking, listTypes, memberNoShow, sendBookingEmail, slotsFor } from '@/lib/console/booking'
+import { daysFree, getBooking, listTypes, memberNoShow, sendBookingEmail, slotsFor } from '@/lib/console/booking'
+import { bangkokToday } from '@/lib/check-in/day'
+import { addDays } from '@/lib/booking'
 import { CATEGORY_BUCKET, kindFor, STEP_OPTIONS, TEMPLATE_KEYS, type NoShowRules, type NoShowStatus, type Slot } from '@/lib/booking'
 
 // Back Office › Bookings (§34, v0.35). Staff book for anyone and change
@@ -39,6 +41,17 @@ export async function staffSlots(typeId: string, day: string, ignore?: string): 
   const t = types?.find((x) => x.id === typeId)
   if (!t) return { ok: false, error: types ? 'bad_booking' : 'not_set_up' }
   return { ok: true, data: await slotsFor(t, day, 'staff', ignore) }
+}
+
+// Places left per day for the next weeks (staff).
+export async function staffDays(typeId: string, from: string, days = 21): Promise<BkResult<Record<string, number>>> {
+  const ctx = await team()
+  if ('error' in ctx) return { ok: false, error: ctx.error }
+  if (!DAY_RE.test(from)) return { ok: false, error: 'bad_booking' }
+  const t = (await listTypes(true))?.find((x) => x.id === typeId)
+  if (!t) return { ok: false, error: 'bad_booking' }
+  const start = from < bangkokToday() ? bangkokToday() : from
+  return { ok: true, data: await daysFree(t, start, addDays(start, Math.min(60, Math.max(1, days)) - 1), 'staff') }
 }
 
 export type MemberPick = { id: string; name: string; memberNo: string | null; phone: string | null; noShow: NoShowStatus | null }
@@ -173,6 +186,7 @@ export type TypeInput = {
   categoryId: string | null
   memberPick: boolean
   arriveOnCheckin: boolean
+  wholeDay: boolean
   nameTh: string
   nameEn: string
   description: string
@@ -222,6 +236,7 @@ export async function saveBookingType(input: TypeInput): Promise<BkResult<{ id: 
     kind: kindFor(input),
     member_pick: Boolean(input.memberPick),
     arrive_on_checkin: Boolean(input.arriveOnCheckin),
+    whole_day: Boolean(input.wholeDay),
     name_th: nameTh,
     ...(input.categoryId !== undefined ? { category_id: input.categoryId || null } : {}),
     name_en: input.nameEn.trim(),
@@ -244,7 +259,7 @@ export async function saveBookingType(input: TypeInput): Promise<BkResult<{ id: 
   // Before §35 there's no category column: save without it.
   const noColumn = (e: { code?: string } | null) => e?.code === 'PGRST204' || e?.code === '42703'
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const { category_id: _cat, member_pick: _p, arrive_on_checkin: _a, ...rowNoCat } = row as typeof row & { category_id?: string | null }
+  const { category_id: _cat, member_pick: _p, arrive_on_checkin: _a, whole_day: _w, ...rowNoCat } = row as typeof row & { category_id?: string | null }
   if (id) {
     let { error } = await db.from('booking_types').update(row).eq('id', id)
     if (noColumn(error)) ({ error } = await db.from('booking_types').update(rowNoCat).eq('id', id))

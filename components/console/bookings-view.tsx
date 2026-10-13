@@ -13,6 +13,7 @@ import {
   bkCopy as c,
   bkErrors,
   bkkHm,
+  timeRange,
   isLate,
   statusLabel,
   typeName,
@@ -34,6 +35,7 @@ import {
   pardonMember,
   setBookingStatus,
   staffBook,
+  staffDays,
   staffSlots,
   type MemberPick,
 } from '@/app/console/bookings/actions'
@@ -225,7 +227,9 @@ function DayView({
               <div className="flex flex-wrap items-baseline justify-between gap-x-2">
                 <h2 className="font-display text-lg font-bold">{typeName(t, lang)}</h2>
                 <span className="text-xs text-muted-foreground">
-                  {tr(c.min).replace('{n}', String(t.durationMin))} · {tr(c.placesPer).replace('{n}', String(t.capacity))}
+                  {t.wholeDay
+                    ? `${tr(c.allDay)} · ${mine.reduce((n, b) => n + b.party, 0)}/${t.capacity}`
+                    : `${tr(c.min).replace('{n}', String(t.durationMin))} · ${tr(c.placesPer).replace('{n}', String(t.capacity))}`}
                 </span>
               </div>
               <div className="mt-2 divide-y divide-border">
@@ -288,8 +292,14 @@ function BookingChip({ b, rules, onOpen, withType = false }: { b: Booking; rules
       )}
     >
       <span className="w-[5.5rem] shrink-0 font-semibold tabular-nums">
-        {bkkHm(b.start)}
-        <span className="text-xs font-normal text-muted-foreground">–{bkkHm(b.end)}</span>
+        {b.wholeDay ? (
+          tr(c.allDay)
+        ) : (
+          <>
+            {bkkHm(b.start)}
+            <span className="text-xs font-normal text-muted-foreground">–{bkkHm(b.end)}</span>
+          </>
+        )}
       </span>
       <span className="min-w-0 flex-1">
         <span className="block truncate font-semibold">
@@ -444,7 +454,7 @@ function BookingPanel({ b, admin, rules, onClose, onMove }: { b: Booking; admin:
         {b.noShowAuto && <span className="text-xs text-muted-foreground">{tr(c.autoNoShow)}</span>}
       </div>
       <div className="mt-3 divide-y divide-border">
-        {row(tr(c.when), `${formatMemberDate(`${b.day}T12:00:00+07:00`, lang, true) ?? b.day} · ${bkkHm(b.start)}–${bkkHm(b.end)}`)}
+        {row(tr(c.when), `${formatMemberDate(`${b.day}T12:00:00+07:00`, lang, true) ?? b.day} · ${timeRange(b, tr(c.allDay))}`)}
         {b.resourceLabel && row(tr(c.whoServes), b.resourceLabel)}
         {row(
           b.memberId ? tr(c.member) : tr(c.guest),
@@ -556,6 +566,8 @@ export function BookForm({
       if (r.ok) {
         setSlots(r.data.slots)
         setClosed(r.data.closed)
+        const t = types.find((x) => x.id === typeId)
+        if (t?.wholeDay && r.data.slots[0] && r.data.slots[0].left > 0) setSlot(r.data.slots[0])
       } else setError(r.error)
     })
     return () => {
@@ -565,6 +577,17 @@ export function BookForm({
   }, [typeId, day])
 
   const free = useMemo(() => (slot ? slot.resources.filter((r) => r.left >= party) : []), [slot, party])
+  // "Next free day" when this one has nothing.
+  const [seeking, setSeeking] = useState(false)
+  const findNext = () => {
+    setSeeking(true)
+    void staffDays(typeId, addDays(day, 1), 30).then((r) => {
+      setSeeking(false)
+      const d = r.ok ? Object.keys(r.data).sort().find((k) => r.data[k] >= party) : undefined
+      if (d) setDay(d)
+      else setError('no_free')
+    })
+  }
   const canBook = Boolean(type && slot && slot.left >= party && (move || (mode === 'member' ? member : guestName.trim())))
 
   const search = () =>
@@ -605,7 +628,7 @@ export function BookForm({
     <Panel title={tr(move ? c.move : c.newBooking)} onClose={onClose}>
       {move && (
         <p className="mb-4 rounded-xl bg-secondary px-3 py-2 text-sm">
-          <b>{who(move)}</b> · {bkkHm(move.start)} → ?
+          <b>{who(move)}</b> · {move.wholeDay ? `${move.day} ${tr(c.allDay)}` : bkkHm(move.start)} → ?
         </p>
       )}
       {!move && (
@@ -637,10 +660,14 @@ export function BookForm({
       <span className={label}>{tr(c.time)}</span>
       {loading ? (
         <Spinner className="my-3 h-5 w-5 text-primary" />
-      ) : closed ? (
-        <p className="mb-4 text-sm text-muted-foreground">{tr(c.closedDay)}</p>
-      ) : !slots || slots.length === 0 ? (
-        <p className="mb-4 text-sm text-muted-foreground">{tr(c.noSlots)}</p>
+      ) : closed || !slots || slots.length === 0 || slots.every((s) => s.left < party) ? (
+        <div className="mb-4 flex flex-wrap items-center gap-2">
+          <p className="text-sm text-muted-foreground">{tr(closed ? c.closedDay : c.noSlots)}</p>
+          <button type="button" disabled={seeking} onClick={findNext} className="inline-flex items-center gap-1 rounded-full bg-primary px-3 py-1.5 text-xs font-bold text-primary-foreground disabled:opacity-40">
+            {seeking && <Spinner className="h-3 w-3" />}
+            {tr(c.nextFree)} →
+          </button>
+        </div>
       ) : (
         <div className="mb-4 grid grid-cols-3 gap-2 sm:grid-cols-4">
           {slots.map((s) => {
@@ -658,9 +685,10 @@ export function BookForm({
                   'rounded-xl border px-2 py-2 text-center text-sm font-semibold tabular-nums',
                   slot?.start === s.start ? 'border-primary bg-primary text-primary-foreground' : 'border-border hover:border-primary/40',
                   full && 'opacity-35',
+                  !s.time && 'col-span-full',
                 )}
               >
-                {s.time}
+                {s.time || tr(c.allDay)}
                 <span className="block text-[11px] font-normal opacity-80">{full ? tr(c.full) : tr(c.left).replace('{n}', String(s.left))}</span>
               </button>
             )

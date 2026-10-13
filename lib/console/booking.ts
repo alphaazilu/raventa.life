@@ -2,7 +2,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { isMissingTable } from '@/lib/console/db-errors'
 import { bangkokToday } from '@/lib/check-in/day'
 import { listItems } from '@/lib/console/calendar'
-import { occurrences } from '@/lib/calendar'
+import { occurrences, type CalItem } from '@/lib/calendar'
 import { getResendClient } from '@/lib/resend'
 import { bookingEmail } from '@/lib/email-templates'
 import {
@@ -54,6 +54,7 @@ export async function listTypes(onlyActive = false): Promise<BookingType[] | nul
       categoryId: (x.category_id as string | null) ?? null,
       memberPick: (x.member_pick as boolean | null | undefined) ?? x.kind === 'service',
       arriveOnCheckin: (x.arrive_on_checkin as boolean | null | undefined) ?? x.kind === 'entry',
+      wholeDay: Boolean(x.whole_day),
       nameTh: x.name_th as string,
       nameEn: (x.name_en as string) || '',
       description: (x.description as string | null) || null,
@@ -160,6 +161,7 @@ async function toBookings(rows: Row[]): Promise<Booking[]> {
       typeName: { th: (ty?.name_th as string) ?? '—', en: ((ty?.name_en as string) || (ty?.name_th as string)) ?? '—' },
       kind: ((ty?.kind as BookingKind) ?? 'service') as BookingKind,
       arriveOnCheckin: (ty?.arrive_on_checkin as boolean | null | undefined) ?? ty?.kind === 'entry',
+      wholeDay: Boolean(ty?.whole_day),
       productId: (ty?.product_id as string | null) ?? null,
       resourceId: (r.resource_id as string | null) ?? null,
       resourceLabel: r.resource_id ? (res.get(r.resource_id as string) ?? null) : null,
@@ -221,8 +223,8 @@ export async function memberBookings(memberId: string): Promise<{ upcoming: Book
 
 // ---- closed days (calendar) ----
 
-export async function closedOn(day: string): Promise<Closed> {
-  const items = await listItems(day, day).catch(() => null)
+export async function closedOn(day: string, preloaded?: CalItem[] | null): Promise<Closed> {
+  const items = preloaded !== undefined ? preloaded : await listItems(day, day).catch(() => null)
   const out: Closed = { all: false, ranges: [] }
   for (const it of items ?? []) {
     if (it.kind !== 'closed') continue
@@ -254,6 +256,24 @@ export async function slotsFor(type: BookingType, day: string, who: 'member' | '
   // Members: at least min_hours ahead. Staff: anything not over yet.
   const notBefore = who === 'member' ? Date.now() + type.minHours * 3_600_000 : Date.now() - type.durationMin * 60_000
   return { slots: daySlots(type, day, taken, closed, notBefore, ignore), closed: false }
+}
+
+// Free places per day over a range, in one go (for the day chips and
+// "next free day"). day → places left (0 = full or closed).
+export async function daysFree(type: BookingType, from: string, to: string, who: 'member' | 'staff'): Promise<Record<string, number>> {
+  const [items, { data }] = await Promise.all([
+    listItems(from, to).catch(() => null),
+    db().from('bookings').select('*').eq('type_id', type.id).in('status', ['booked', 'arrived']).gte('day', addDays(from, -1)).lte('day', addDays(to, 1)),
+  ])
+  const taken = await toBookings((data ?? []) as Row[])
+  const notBefore = who === 'member' ? Date.now() + type.minHours * 3_600_000 : Date.now() - type.durationMin * 60_000
+  const out: Record<string, number> = {}
+  for (let d = from; d <= to; d = addDays(d, 1)) {
+    const closed = await closedOn(d, items)
+    const slots = daySlots(type, d, taken, closed, notBefore)
+    out[d] = slots.reduce((m, s) => Math.max(m, s.left), 0)
+  }
+  return out
 }
 
 // ---- no-shows ----
@@ -294,7 +314,7 @@ export async function sendBookingEmail(bookingId: string, kind: 'booked' | 'canc
       firstName: (p?.first_name as string | null) ?? null,
       what: b.typeName.th,
       day: b.day,
-      time: `${bkkHm(b.start)}–${bkkHm(b.end)}`,
+      time: b.wholeDay ? 'ทั้งวัน' : `${bkkHm(b.start)}–${bkkHm(b.end)}`,
       withWhom: b.resourceLabel,
       party: b.party,
       cancelBy: cancelBy ? `${new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Bangkok' }).format(new Date(cancelBy))} ${bkkHm(cancelBy)}` : null,

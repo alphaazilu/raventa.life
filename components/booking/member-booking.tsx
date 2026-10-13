@@ -7,8 +7,8 @@ import { useLanguage } from '@/components/language-provider'
 import { Spinner } from '@/components/ui/spinner'
 import { BackLink } from '@/components/account/account-view'
 import { formatMemberDate } from '@/lib/format-date'
-import { addDays, bkCopy as c, bkErrors, bkkHm, statusLabel, typeName, weekdayOf, WEEKDAYS, type Booking, type BookingKind, type Slot } from '@/lib/booking'
-import { memberBook, memberCancel, memberSlots } from '@/app/account/booking-actions'
+import { addDays, bkCopy as c, bkErrors, bkkHm, timeRange, statusLabel, typeName, weekdayOf, WEEKDAYS, type Booking, type BookingKind, type Slot } from '@/lib/booking'
+import { memberBook, memberCancel, memberDays, memberSlots } from '@/app/account/booking-actions'
 import { cn } from '@/lib/utils'
 
 // My account › Bookings (§34, v0.35).
@@ -17,6 +17,7 @@ export type PublicType = {
   id: string
   kind: BookingKind
   categoryId: string | null
+  wholeDay: boolean
   nameTh: string
   nameEn: string
   description: string | null
@@ -43,7 +44,7 @@ export function MemberBooking({
   warn,
   startType,
   // Injected only by design previews.
-  api = { memberSlots, memberBook, memberCancel },
+  api = { memberSlots, memberBook, memberCancel, memberDays },
 }: {
   setUp: boolean
   types: PublicType[]
@@ -55,7 +56,7 @@ export function MemberBooking({
   blockedUntil: string | null
   warn: { score: number; block: number; days: number } | null
   startType: string | null
-  api?: { memberSlots: typeof memberSlots; memberBook: typeof memberBook; memberCancel: typeof memberCancel }
+  api?: { memberSlots: typeof memberSlots; memberBook: typeof memberBook; memberCancel: typeof memberCancel; memberDays?: typeof memberDays }
 }) {
   const { tr, lang } = useLanguage()
   const [booking, setBooking] = useState<boolean>(Boolean(startType && types.some((t) => t.id === startType)))
@@ -141,7 +142,7 @@ export function MemberBooking({
                 <span className="min-w-0">
                   <span className="block truncate font-semibold">{tr(b.typeName)}</span>
                   <span className="block text-xs text-muted-foreground">
-                    {date(b.day)} · {bkkHm(b.start)}
+                    {date(b.day)} · {b.wholeDay ? tr(c.allDay) : bkkHm(b.start)}
                   </span>
                 </span>
                 <span className="shrink-0 text-xs font-semibold text-muted-foreground">{b.movedTo ? tr(c.moved) : tr(statusLabel[b.status])}</span>
@@ -173,7 +174,7 @@ function UpcomingCard({ b, cancelHours, date, cancel }: { b: Booking; cancelHour
           <span className="block font-display text-lg font-bold">{tr(b.typeName)}</span>
           <span className="mt-0.5 flex items-center gap-1 text-sm font-semibold">
             <Clock className="h-4 w-4 text-primary" aria-hidden="true" />
-            {date(b.day)} · {bkkHm(b.start)}–{bkkHm(b.end)}
+            {date(b.day)} · {timeRange(b, tr(c.allDay))}
           </span>
           <span className="block text-xs text-muted-foreground">
             {b.resourceLabel ? `${b.resourceLabel} · ` : ''}
@@ -232,7 +233,7 @@ function BookFlow({
   categories: PublicCategory[]
   today: string
   startType: string | null
-  api: { memberSlots: typeof memberSlots; memberBook: typeof memberBook }
+  api: { memberSlots: typeof memberSlots; memberBook: typeof memberBook; memberDays?: typeof memberDays }
   onBack: () => void
   onDone: () => void
 }) {
@@ -249,6 +250,24 @@ function BookFlow({
   const [party, setParty] = useState(1)
   const [note, setNote] = useState('')
   const [error, setError] = useState<string | null>(null)
+  // Places left per day: full days look faded; open on the first free day.
+  const [free, setFree] = useState<Record<string, number> | null>(null)
+  useEffect(() => {
+    if (!type || !api.memberDays) return
+    let alive = true
+    setFree(null)
+    void api.memberDays(type.id).then((r) => {
+      if (!alive || !r.ok) return
+      setFree(r.data)
+      const first = Object.keys(r.data).sort().find((d) => r.data[d] > 0)
+      setDay((cur) => ((r.data[cur] ?? 0) > 0 || !first ? cur : first))
+    })
+    return () => {
+      alive = false
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [type?.id])
+  const nextFree = free ? Object.keys(free).sort().find((d) => d > day && free[d] > 0) : undefined
 
   useEffect(() => {
     if (!type) return
@@ -263,6 +282,8 @@ function BookFlow({
       if (r.ok) {
         setSlots(r.data.slots)
         setClosed(r.data.closed)
+        // A whole-day booking has one choice: pick it.
+        if (type.wholeDay && r.data.slots[0] && r.data.slots[0].left > 0) setSlot(r.data.slots[0])
       } else {
         setSlots([])
         setError(r.error)
@@ -311,7 +332,7 @@ function BookFlow({
                   <li key={t.id}>
                     <button type="button" onClick={() => setType(t)} className={cn(card, 'w-full text-left hover:border-primary/40')}>
                       <span className="block font-display text-lg font-bold">{typeName(t, lang)}</span>
-                      <span className="block text-xs text-muted-foreground">{tr(c.min).replace('{n}', String(t.durationMin))}</span>
+                      <span className="block text-xs text-muted-foreground">{(t.wholeDay ? tr(c.allDay) : tr(c.min).replace('{n}', String(t.durationMin)))}</span>
                       {t.description && <span className="mt-1 block text-sm text-muted-foreground">{t.description}</span>}
                     </button>
                   </li>
@@ -322,14 +343,14 @@ function BookFlow({
       </>
     )
 
-  const free = slot ? slot.resources.filter((r) => r.left >= party) : []
+  const freeRes = slot ? slot.resources.filter((r) => r.left >= party) : []
 
   return (
     <>
       {back}
       <h1 className="mt-4 font-display text-2xl font-extrabold">{typeName(type, lang)}</h1>
       <p className="text-sm text-muted-foreground">
-        {tr(c.min).replace('{n}', String(type.durationMin))} · {tr(c.payAtShop)}
+        {(type.wholeDay ? tr(c.allDay) : tr(c.min).replace('{n}', String(type.durationMin)))} · {tr(c.payAtShop)}
       </p>
 
       <p className="mt-5 text-sm font-semibold">{tr(c.pickDay)}</p>
@@ -339,7 +360,11 @@ function BookFlow({
             key={d}
             type="button"
             onClick={() => setDay(d)}
-            className={cn('flex w-14 shrink-0 flex-col items-center rounded-2xl border py-2', day === d ? 'border-primary bg-primary text-primary-foreground' : 'border-border bg-card')}
+            className={cn(
+              'flex w-14 shrink-0 flex-col items-center rounded-2xl border py-2',
+              day === d ? 'border-primary bg-primary text-primary-foreground' : 'border-border bg-card',
+              free && (free[d] ?? 0) === 0 && day !== d && 'opacity-35',
+            )}
           >
             <span className="text-[11px] font-semibold opacity-80">{tr(WEEKDAYS[weekdayOf(d)])}</span>
             <span className="font-display text-lg font-extrabold leading-tight">{Number(d.slice(8))}</span>
@@ -347,13 +372,27 @@ function BookFlow({
         ))}
       </div>
 
-      <p className="mt-5 text-sm font-semibold">{tr(c.pickTime)}</p>
+      <p className="mt-5 text-sm font-semibold">{tr(type.wholeDay ? c.allDay : c.pickTime)}</p>
       {loading ? (
         <Spinner className="mt-3 h-5 w-5 text-primary" />
       ) : closed ? (
-        <p className="mt-2 text-sm text-muted-foreground">{tr(c.closedDay)}</p>
+        <div className="mt-2 flex flex-wrap items-center gap-2">
+          <p className="text-sm text-muted-foreground">{tr(c.closedDay)}</p>
+          {nextFree && (
+            <button type="button" onClick={() => setDay(nextFree)} className="rounded-full bg-primary px-3 py-1.5 text-xs font-bold text-primary-foreground">
+              {tr(c.nextFree)} →
+            </button>
+          )}
+        </div>
       ) : !slots || slots.length === 0 || slots.every((s) => s.left < party) ? (
-        <p className="mt-2 text-sm text-muted-foreground">{tr(c.noSlots)}</p>
+        <div className="mt-2 flex flex-wrap items-center gap-2">
+          <p className="text-sm text-muted-foreground">{tr(free && !Object.values(free).some((n) => n > 0) ? c.noFreeDays : c.noSlots)}</p>
+          {nextFree && (
+            <button type="button" onClick={() => setDay(nextFree)} className="rounded-full bg-primary px-3 py-1.5 text-xs font-bold text-primary-foreground">
+              {tr(c.nextFree)} →
+            </button>
+          )}
+        </div>
       ) : (
         <div className="mt-2 grid grid-cols-4 gap-2">
           {slots.map((s) => {
@@ -371,9 +410,10 @@ function BookFlow({
                   'rounded-xl border py-2.5 text-center text-sm font-bold tabular-nums',
                   slot?.start === s.start ? 'border-primary bg-primary text-primary-foreground' : 'border-border bg-card',
                   full && 'line-through opacity-35',
+                  !s.time && 'col-span-4',
                 )}
               >
-                {s.time}
+                {s.time || `${tr(c.allDay)} · ${full ? tr(c.full) : tr(c.left).replace('{n}', String(s.left))}`}
               </button>
             )
           })}
@@ -385,7 +425,7 @@ function BookFlow({
           <span className="mb-1 block text-sm font-semibold">{tr(c.whoServes)}</span>
           <select value={resourceId ?? ''} onChange={(e) => setResourceId(e.target.value || null)} className="h-11 w-full rounded-xl border border-border bg-background px-3 text-sm">
             <option value="">{tr(c.anyone)}</option>
-            {free.map((r) => (
+            {freeRes.map((r) => (
               <option key={r.id} value={r.id}>
                 {r.label}
               </option>
@@ -416,7 +456,7 @@ function BookFlow({
           <div className="mt-5 rounded-2xl bg-secondary p-4 text-sm">
             <p className="font-semibold">{tr(c.confirmTitle)}</p>
             <p className="mt-1">
-              {typeName(type, lang)} · {formatMemberDate(`${day}T12:00:00+07:00`, lang, true)} · {slot.time}
+              {typeName(type, lang)} · {formatMemberDate(`${day}T12:00:00+07:00`, lang, true)} · {slot.time || tr(c.allDay)}
               {resourceId ? ` · ${type.resources.find((r) => r.id === resourceId)?.label}` : ''}
               {party > 1 ? ` · ${tr(c.people).replace('{n}', String(party))}` : ''}
             </p>

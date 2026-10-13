@@ -41,6 +41,7 @@ const blank = (categoryId: string | null = null): TypeInput => ({
   categoryId,
   memberPick: true,
   arriveOnCheckin: false,
+  wholeDay: false,
   nameTh: '',
   nameEn: '',
   description: '',
@@ -65,6 +66,7 @@ const fromType = (t: BookingType): TypeInput => ({
   categoryId: t.categoryId,
   memberPick: t.memberPick,
   arriveOnCheckin: t.arriveOnCheckin,
+  wholeDay: t.wholeDay,
   nameTh: t.nameTh,
   nameEn: t.nameEn,
   description: t.description ?? '',
@@ -158,7 +160,7 @@ export function BookingSetup({
                     <span className="min-w-0">
                       <span className="block truncate font-semibold">{typeName(t, lang)}</span>
                       <span className="block text-xs text-muted-foreground">
-                        {tr(c.min).replace('{n}', String(t.durationMin))} · {tr(c.placesPer).replace('{n}', String(t.capacity))}
+                        {t.wholeDay ? `${tr(c.allDay)} · ${tr(c.placesPerDay).replace('{n}', String(t.capacity))}` : `${tr(c.min).replace('{n}', String(t.durationMin))} · ${tr(c.placesPer).replace('{n}', String(t.capacity))}`}
                         {t.resources.filter((r) => r.active).length > 0 && ` · ${t.resources.filter((r) => r.active).length} ${tr(c.resources)}`}
                       </span>
                     </span>
@@ -296,31 +298,49 @@ function TypeForm({
           <span className={label}>{tr(c.description)}</span>
           <textarea rows={2} value={f.description} maxLength={500} onChange={(e) => set({ description: e.target.value })} className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm" />
         </label>
-        <label>
-          <span className={label}>{tr(c.duration)}</span>
-          {numIn('durationMin', 10, 720, 5)}
+        <label className="flex items-start gap-2 text-sm font-semibold sm:col-span-2">
+          <input type="checkbox" checked={f.wholeDay} onChange={(e) => set({ wholeDay: e.target.checked })} className="mt-0.5 h-4 w-4" />
+          <span>
+            {tr(c.wholeDay)}
+            <span className="block text-xs font-normal text-muted-foreground">{tr(c.wholeDayHint)}</span>
+          </span>
         </label>
+        {!f.wholeDay && (
+          <>
+            <label>
+              <span className={label}>{tr(c.duration)}</span>
+              {numIn('durationMin', 10, 720, 5)}
+              <span className="mt-1 block text-[11px] text-muted-foreground">{tr(c.hintDuration)}</span>
+            </label>
+            <label>
+              <span className={label}>{tr(c.step)}</span>
+              <select value={f.stepMin} onChange={(e) => set({ stepMin: Number(e.target.value) })} className={input}>
+                {STEP_OPTIONS.map((s) => (
+                  <option key={s} value={s}>
+                    {s}
+                  </option>
+                ))}
+              </select>
+              <span className="mt-1 block text-[11px] text-muted-foreground">{tr(c.hintStep)}</span>
+            </label>
+          </>
+        )}
         <label>
-          <span className={label}>{tr(c.step)}</span>
-          <select value={f.stepMin} onChange={(e) => set({ stepMin: Number(e.target.value) })} className={input}>
-            {STEP_OPTIONS.map((s) => (
-              <option key={s} value={s}>
-                {s}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label>
-          <span className={label}>{tr(hasRes ? c.capacityRes : c.capacity)}</span>
+          <span className={label}>{tr(f.wholeDay ? c.capacityDay : hasRes ? c.capacityRes : c.capacity)}</span>
           {numIn('capacity', 1, 500)}
+          <span className="mt-1 block text-[11px] text-muted-foreground">{tr(f.wholeDay ? c.hintCapacityDay : c.hintCapacity)}</span>
         </label>
-        <label>
-          <span className={label}>{tr(c.buffer)}</span>
-          {numIn('bufferMin', 0, 120, 5)}
-        </label>
+        {!f.wholeDay && (
+          <label>
+            <span className={label}>{tr(c.buffer)}</span>
+            {numIn('bufferMin', 0, 120, 5)}
+            <span className="mt-1 block text-[11px] text-muted-foreground">{tr(c.hintBuffer)}</span>
+          </label>
+        )}
         <label>
           <span className={label}>{tr(c.maxParty)}</span>
           {numIn('maxParty', 1, 20)}
+          <span className="mt-1 block text-[11px] text-muted-foreground">{tr(c.hintMaxParty)}</span>
         </label>
         <label>
           <span className={label}>{tr(c.product)}</span>

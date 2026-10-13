@@ -663,7 +663,7 @@ function MemberInfo({
                 <li key={b.id} className="flex items-center gap-2 text-sm">
                   <span className="min-w-0 flex-1">
                     <span className="block truncate font-semibold">
-                      {bkkHm(b.start)} {tr(b.name)}
+                      {b.wholeDay ? tr(bkCopy.allDay) : bkkHm(b.start)} {tr(b.name)}
                     </span>
                     {b.with && <span className="block truncate text-xs text-muted-foreground">{b.with}</span>}
                   </span>

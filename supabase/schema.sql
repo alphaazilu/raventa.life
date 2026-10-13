@@ -2547,8 +2547,15 @@ begin
   if not found or p_party is null or p_party < 1 or p_party > v_t.max_party then
     raise exception 'bad_booking';
   end if;
-  v_end := p_start + make_interval(mins => v_t.duration_min);
   v_day := (p_start at time zone 'Asia/Bangkok')::date;
+  if v_t.whole_day then
+    -- The whole Bangkok day; every booking that day shares the places.
+    p_start := (v_day::timestamp at time zone 'Asia/Bangkok');
+    v_end := p_start + interval '1 day';
+    v_t.buffer_min := 0;
+  else
+    v_end := p_start + make_interval(mins => v_t.duration_min);
+  end if;
   perform pg_advisory_xact_lock(hashtext(p_type_id::text || v_day::text));
 
   select exists (select 1 from public.booking_resources where type_id = p_type_id and is_active) into v_has_res;
@@ -2633,3 +2640,7 @@ create table if not exists public.booking_templates (
 );
 alter table public.booking_templates enable row level security;
 revoke all on public.booking_templates from anon, authenticated;
+
+-- Booked for a whole day, no time to pick (v0.35.4) — e.g. a Day Pass:
+-- "places per time" becomes places per day.
+alter table public.booking_types add column if not exists whole_day boolean not null default false;

@@ -27,6 +27,7 @@ export type BookingType = {
   categoryId: string | null
   memberPick: boolean // members choose the person/room
   arriveOnCheckin: boolean // a Day Pass check-in marks the booking "arrived"
+  wholeDay: boolean // booked for the whole day, no time (v0.35.4); capacity = per day
   nameTh: string
   nameEn: string
   description: string | null
@@ -52,6 +53,7 @@ export type Booking = {
   typeName: { th: string; en: string }
   kind: BookingKind
   arriveOnCheckin: boolean
+  wholeDay: boolean
   productId: string | null
   resourceId: string | null
   resourceLabel: string | null
@@ -111,6 +113,16 @@ const active = (b: Pick<Booking, 'status'>) => b.status === 'booked' || b.status
 export function daySlots(t: BookingType, day: string, taken: Booking[], closed: Closed, notBefore: number, ignore?: string): Slot[] {
   if (closed.all) return []
   const wd = weekdayOf(day)
+  // Whole day: one "slot" if the day is open, until its last closing time.
+  if (t.wholeDay) {
+    const open = t.hours.filter((x) => x.weekday === wd)
+    if (!open.length) return []
+    const close = Math.max(...open.map((h) => toMin(h.end)))
+    if (Date.parse(bkkInstant(day, fromMin(Math.min(close, 23 * 60 + 59)))) < notBefore) return []
+    const start = bkkInstant(day, '00:00')
+    const used = taken.filter((b) => b.typeId === t.id && active(b) && b.id !== ignore && b.day === day).reduce((n, b) => n + b.party, 0)
+    return [{ start, time: '', left: Math.max(0, t.capacity - used), resources: [] }]
+  }
   const res = t.resources.filter((r) => r.active).sort((a, b) => a.sort - b.sort || a.label.localeCompare(b.label))
   const mine = taken.filter((b) => b.typeId === t.id && active(b) && b.id !== ignore)
   const buf = t.bufferMin * 60_000
@@ -168,7 +180,12 @@ export function noShowStatus(
 }
 
 // Late for a booking still "booked": started more than lateMin minutes ago.
-export const isLate = (b: Pick<Booking, 'status' | 'start'>, lateMin: number, now = Date.now()) => b.status === 'booked' && now > Date.parse(b.start) + lateMin * 60_000
+// Whole-day bookings are never "late" — they become no-shows when the day ends.
+export const isLate = (b: Pick<Booking, 'status' | 'start' | 'wholeDay'>, lateMin: number, now = Date.now()) =>
+  !b.wholeDay && b.status === 'booked' && now > Date.parse(b.start) + lateMin * 60_000
+
+// "10:00–11:00", or "all day".
+export const timeRange = (b: Pick<Booking, 'start' | 'end' | 'wholeDay'>, allDay: string) => (b.wholeDay ? allDay : `${bkkHm(b.start)}–${bkkHm(b.end)}`)
 
 // ---- copy ----
 
@@ -177,7 +194,7 @@ const L = (th: string, en: string) => ({ th, en })
 // An admin-saved starting point for new items (v0.35.3): the item's settings, no name.
 export type BookingTemplate = { id: string; name: string; data: Record<string, unknown> }
 export const TEMPLATE_KEYS = [
-  'categoryId', 'memberPick', 'arriveOnCheckin', 'description', 'durationMin', 'bufferMin', 'capacity', 'stepMin', 'productId',
+  'categoryId', 'memberPick', 'arriveOnCheckin', 'wholeDay', 'description', 'durationMin', 'bufferMin', 'capacity', 'stepMin', 'productId',
   'memberBooking', 'advanceDays', 'minHours', 'cancelHours', 'maxParty', 'resources', 'hours',
 ] as const
 
@@ -318,6 +335,19 @@ export const bkCopy = {
   memberPick: L('ให้ลูกค้าเลือกคนให้บริการ/ห้องเองได้', 'Members choose the person/room'),
   arriveOnCheckin: L('เช็คอิน Day Pass แล้วถือว่า “มาแล้ว”', 'A Day Pass check-in counts as “arrived”'),
   placesPer: L('รับ {n} ต่อรอบ', '{n} per time'),
+  placesPerDay: L('รับ {n} ต่อวัน', '{n} per day'),
+  wholeDay: L('จองเป็นรายวัน (ไม่ต้องเลือกเวลา)', 'Book by the day (no time to pick)'),
+  wholeDayHint: L('ลูกค้าเลือกแค่วัน · “รับได้” = ต่อวัน · เวลาเปิดรับจองใช้บอกว่าวันไหนเปิด', 'Members pick a day only · places are per day · open hours say which days are open'),
+  capacityDay: L('รับได้ต่อวัน', 'Places per day'),
+  hintDuration: L('หนึ่งคิวใช้เวลานานเท่าไร เช่น 60 = 10:00 จบ 11:00', 'How long one booking lasts, e.g. 60 = 10:00 to 11:00'),
+  hintStep: L('ระยะห่างของเวลาเริ่มที่ให้เลือก เช่น 30 = 10:00, 10:30, 11:00', 'How often a start time is offered, e.g. 30 = 10:00, 10:30, 11:00'),
+  hintCapacity: L('เวลาเดียวกันรับได้กี่คน (มีคนให้บริการ/ห้อง = นับต่อคน/ห้อง)', 'People at the same time (with people/rooms: per person/room)'),
+  hintCapacityDay: L('ทั้งวันรับได้กี่คน เต็มแล้วจองต่อไม่ได้', 'People for the whole day; full = no more bookings'),
+  hintBuffer: L('พัก/ทำความสะอาดก่อนรับคิวถัดไป เช่น 15', 'Break / clean-up before the next booking, e.g. 15'),
+  hintMaxParty: L('จอง 1 ครั้งพาคนมาได้กี่คน (ตัวต่อตัว = 1)', 'People one booking can bring (one-to-one = 1)'),
+  allDay: L('ทั้งวัน', 'All day'),
+  nextFree: L('ดูวันถัดไปที่ว่าง', 'Next free day'),
+  noFreeDays: L('ไม่มีคิวว่างในช่วงที่จองได้', 'Nothing free in the booking window'),
   categoriesHint: L('จัดกลุ่มสิ่งที่จองได้ให้ลูกค้าเลือกง่าย · เรียงลำดับเองได้ · ไม่ใส่ก็ได้', 'Group what can be booked so members find it · your order · optional'),
   addCategory: L('เพิ่มหมวดหมู่', 'Add a category'),
   category: L('หมวดหมู่', 'Category'),
@@ -370,6 +400,7 @@ export const bkErrors: Record<string, { th: string; en: string }> = {
   bad_status: L('การจองนี้เปลี่ยนสถานะไปแล้ว', 'This booking has already changed'),
   need_who: L('เลือกสมาชิก หรือใส่ชื่อลูกค้า', 'Choose a member or enter a name'),
   bad_type: L('ตรวจข้อมูลอีกครั้ง (ชื่อ ระยะเวลา จำนวน)', 'Check the details (name, length, places)'),
+  no_free: L('ไม่มีวันว่างใน 30 วันข้างหน้า', 'Nothing free in the next 30 days'),
   bad_category: L('ตรวจชื่อหมวดหมู่อีกครั้ง (1–40 ตัวอักษร)', 'Check the category name (1–40 characters)'),
   bad_image: L('ใช้รูป JPG/PNG/WebP ไม่เกิน 2 MB', 'Use a JPG/PNG/WebP up to 2 MB'),
   bad_hours: L('ตรวจเวลาเปิดรับจองอีกครั้ง (เวลาจบต้องหลังเวลาเริ่ม)', 'Check the open hours (end after start)'),
