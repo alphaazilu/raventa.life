@@ -110,6 +110,9 @@ const active = (b: Pick<Booking, 'status'>) => b.status === 'booked' || b.status
 // Every start time of a type on a day with what's left (per person/room).
 // `taken` = this type's bookings around that day. `notBefore` = earliest
 // start allowed (ms), e.g. now + min_hours for members.
+export const reasonText = (r: EmptyReason, tr: (v: { th: string; en: string }) => string) =>
+  tr(bkCopy[`why_${r.code}` as const]).replace('{d}', String(r.duration ?? '')).replace('{w}', String(r.window ?? ''))
+
 export function daySlots(t: BookingType, day: string, taken: Booking[], closed: Closed, notBefore: number, ignore?: string): Slot[] {
   if (closed.all) return []
   const wd = weekdayOf(day)
@@ -148,6 +151,21 @@ export function daySlots(t: BookingType, day: string, taken: Booking[], closed: 
     }
   }
   return out
+}
+
+// Why a day has nothing to book (v0.35.5) — said plainly instead of "no times".
+export type EmptyReason = { code: 'no_hours' | 'too_long' | 'day_off' | 'closed' | 'too_late' | 'full'; duration?: number; window?: number }
+export function emptyReason(t: BookingType, day: string, slots: Slot[], closed: boolean, party = 1): EmptyReason | null {
+  if (slots.some((s) => s.left >= party)) return null
+  if (!t.hours.length) return { code: 'no_hours' }
+  if (!t.wholeDay) {
+    const longest = Math.max(...t.hours.map((h) => toMin(h.end) - toMin(h.start)))
+    if (longest < t.durationMin) return { code: 'too_long', duration: t.durationMin, window: longest }
+  }
+  if (closed) return { code: 'closed' }
+  if (!t.hours.some((h) => h.weekday === weekdayOf(day))) return { code: 'day_off' }
+  if (!slots.length) return { code: 'too_late' }
+  return { code: 'full' }
 }
 
 // ---- no-shows ----
@@ -347,6 +365,14 @@ export const bkCopy = {
   hintMaxParty: L('จอง 1 ครั้งพาคนมาได้กี่คน (ตัวต่อตัว = 1)', 'People one booking can bring (one-to-one = 1)'),
   allDay: L('ทั้งวัน', 'All day'),
   nextFree: L('ดูวันถัดไปที่ว่าง', 'Next free day'),
+  why_no_hours: L('ยังไม่ได้ตั้งเวลาเปิดรับจอง (ตั้งค่าการจอง › เวลาเปิดรับจอง)', 'No open hours set yet (Bookings setup › Open hours)'),
+  why_too_long: L('ระยะเวลา ({d} นาที) ยาวกว่าช่วงเปิดรับจอง ({w} นาที) — ลดระยะเวลา ขยายเวลาเปิด หรือติ๊ก “จองเป็นรายวัน”', 'The length ({d} min) is longer than the open hours ({w} min) — shorten it, open longer, or tick “Book by the day”'),
+  why_day_off: L('วันนี้ไม่เปิดรับจอง', 'Not open for booking this day'),
+  why_closed: L('ร้านปิดตามปฏิทิน', 'Closed (calendar)'),
+  why_too_late: L('เลยเวลาที่จองได้ของวันนี้แล้ว', 'Too late to book this day'),
+  why_full: L('เต็มแล้ว', 'Fully booked'),
+  warnNoHours: L('ยังไม่มีเวลาเปิดรับจอง — ลูกค้าจะจองไม่ได้', 'No open hours — nobody can book this'),
+  warnTooLong: L('ระยะเวลายาวกว่าช่วงเปิดรับจองทุกวัน — จะไม่มีเวลาให้จอง', 'Longer than every open window — there will be no times to book'),
   noFreeDays: L('ไม่มีคิวว่างในช่วงที่จองได้', 'Nothing free in the booking window'),
   categoriesHint: L('จัดกลุ่มสิ่งที่จองได้ให้ลูกค้าเลือกง่าย · เรียงลำดับเองได้ · ไม่ใส่ก็ได้', 'Group what can be booked so members find it · your order · optional'),
   addCategory: L('เพิ่มหมวดหมู่', 'Add a category'),
@@ -400,6 +426,7 @@ export const bkErrors: Record<string, { th: string; en: string }> = {
   bad_status: L('การจองนี้เปลี่ยนสถานะไปแล้ว', 'This booking has already changed'),
   need_who: L('เลือกสมาชิก หรือใส่ชื่อลูกค้า', 'Choose a member or enter a name'),
   bad_type: L('ตรวจข้อมูลอีกครั้ง (ชื่อ ระยะเวลา จำนวน)', 'Check the details (name, length, places)'),
+  needs_sql: L('ต้องรัน schema.sql ล่าสุดก่อน (§35) — ยังบันทึก “จองเป็นรายวัน” / หมวดหมู่ไม่ได้', 'Run the latest schema.sql (§35) first — “Book by the day” / categories can’t be saved yet'),
   no_free: L('ไม่มีวันว่างใน 30 วันข้างหน้า', 'Nothing free in the next 30 days'),
   bad_category: L('ตรวจชื่อหมวดหมู่อีกครั้ง (1–40 ตัวอักษร)', 'Check the category name (1–40 characters)'),
   bad_image: L('ใช้รูป JPG/PNG/WebP ไม่เกิน 2 MB', 'Use a JPG/PNG/WebP up to 2 MB'),

@@ -6,7 +6,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { isMissingTable } from '@/lib/console/db-errors'
 import { bangkokToday } from '@/lib/check-in/day'
 import { daysFree, listTypes, memberNoShow, sendBookingEmail, slotsFor } from '@/lib/console/booking'
-import { addDays, type Slot } from '@/lib/booking'
+import { addDays, type EmptyReason, type Slot } from '@/lib/booking'
 import { MY_BOOKINGS_PATH } from '@/lib/auth/roles'
 
 // A member books / cancels for themselves (§34, v0.35). Everything is
@@ -33,7 +33,7 @@ async function bookableType(typeId: string) {
   return t ? { t } : { error: 'not_bookable' as const }
 }
 
-export async function memberSlots(typeId: string, day: string): Promise<MemberBookResult<{ slots: Slot[]; closed: boolean }>> {
+export async function memberSlots(typeId: string, day: string): Promise<MemberBookResult<{ slots: Slot[]; closed: boolean; reason: EmptyReason | null }>> {
   if (!(await me())) return { ok: false, error: 'not_signed_in' }
   if (!DAY_RE.test(day)) return { ok: false, error: 'bad_booking' }
   const r = await bookableType(typeId)

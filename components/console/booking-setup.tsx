@@ -9,6 +9,7 @@ import {
   bkCopy as c,
   bkErrors,
   TEMPLATE_KEYS,
+  toMin,
   STEP_OPTIONS,
   typeName,
   WEEKDAYS,
@@ -424,6 +425,14 @@ function TypeForm({
           )
         })}
       </ul>
+      {f.hours.length === 0 ? (
+        <p className="mt-2 rounded-xl bg-amber-500/15 px-3 py-2 text-xs font-semibold text-amber-900 dark:text-amber-200">{tr(c.warnNoHours)}</p>
+      ) : (
+        !f.wholeDay &&
+        Math.max(...f.hours.map((h) => toMin(h.end) - toMin(h.start))) < f.durationMin && (
+          <p className="mt-2 rounded-xl bg-amber-500/15 px-3 py-2 text-xs font-semibold text-amber-900 dark:text-amber-200">{tr(c.warnTooLong)}</p>
+        )
+      )}
       {f.hours.length > 0 && (
         <button
           type="button"

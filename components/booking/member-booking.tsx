@@ -7,7 +7,8 @@ import { useLanguage } from '@/components/language-provider'
 import { Spinner } from '@/components/ui/spinner'
 import { BackLink } from '@/components/account/account-view'
 import { formatMemberDate } from '@/lib/format-date'
-import { addDays, bkCopy as c, bkErrors, bkkHm, timeRange, statusLabel, typeName, weekdayOf, WEEKDAYS, type Booking, type BookingKind, type Slot } from '@/lib/booking'
+import { MonthPicker } from '@/components/booking/month-picker'
+import { addDays, bkCopy as c, bkErrors, bkkHm, reasonText, timeRange, type EmptyReason, statusLabel, typeName, weekdayOf, WEEKDAYS, type Booking, type BookingKind, type Slot } from '@/lib/booking'
 import { memberBook, memberCancel, memberDays, memberSlots } from '@/app/account/booking-actions'
 import { cn } from '@/lib/utils'
 
@@ -18,6 +19,7 @@ export type PublicType = {
   kind: BookingKind
   categoryId: string | null
   wholeDay: boolean
+  capacity: number
   nameTh: string
   nameEn: string
   description: string | null
@@ -244,6 +246,7 @@ function BookFlow({
   const [day, setDay] = useState(today)
   const [slots, setSlots] = useState<Slot[] | null>(null)
   const [closed, setClosed] = useState(false)
+  const [reason, setReason] = useState<EmptyReason | null>(null)
   const [loading, setLoading] = useState(false)
   const [slot, setSlot] = useState<Slot | null>(null)
   const [resourceId, setResourceId] = useState<string | null>(null)
@@ -282,6 +285,7 @@ function BookFlow({
       if (r.ok) {
         setSlots(r.data.slots)
         setClosed(r.data.closed)
+        setReason(r.data.reason ?? null)
         // A whole-day booking has one choice: pick it.
         if (type.wholeDay && r.data.slots[0] && r.data.slots[0].left > 0) setSlot(r.data.slots[0])
       } else {
@@ -295,7 +299,6 @@ function BookFlow({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [type?.id, day])
 
-  const days = type ? Array.from({ length: type.advanceDays + 1 }, (_, i) => addDays(today, i)) : []
   const back = (
     <button type="button" onClick={type && types.length > 1 && !startType ? () => setType(null) : onBack} className="inline-flex items-center gap-1 text-sm font-semibold text-muted-foreground hover:text-foreground">
       <ChevronLeft className="h-4 w-4" aria-hidden="true" />
@@ -354,39 +357,18 @@ function BookFlow({
       </p>
 
       <p className="mt-5 text-sm font-semibold">{tr(c.pickDay)}</p>
-      <div className="-mx-4 mt-2 flex gap-2 overflow-x-auto px-4 pb-1">
-        {days.map((d) => (
-          <button
-            key={d}
-            type="button"
-            onClick={() => setDay(d)}
-            className={cn(
-              'flex w-14 shrink-0 flex-col items-center rounded-2xl border py-2',
-              day === d ? 'border-primary bg-primary text-primary-foreground' : 'border-border bg-card',
-              free && (free[d] ?? 0) === 0 && day !== d && 'opacity-35',
-            )}
-          >
-            <span className="text-[11px] font-semibold opacity-80">{tr(WEEKDAYS[weekdayOf(d)])}</span>
-            <span className="font-display text-lg font-extrabold leading-tight">{Number(d.slice(8))}</span>
-          </button>
-        ))}
+      <div className="mt-2">
+        <MonthPicker value={day} onChange={setDay} free={free} min={today} max={addDays(today, type.advanceDays)} capacity={type.capacity} wholeDay={type.wholeDay} />
       </div>
 
       <p className="mt-5 text-sm font-semibold">{tr(type.wholeDay ? c.allDay : c.pickTime)}</p>
       {loading ? (
         <Spinner className="mt-3 h-5 w-5 text-primary" />
-      ) : closed ? (
+      ) : closed || !slots || slots.length === 0 || slots.every((s) => s.left < party) ? (
         <div className="mt-2 flex flex-wrap items-center gap-2">
-          <p className="text-sm text-muted-foreground">{tr(c.closedDay)}</p>
-          {nextFree && (
-            <button type="button" onClick={() => setDay(nextFree)} className="rounded-full bg-primary px-3 py-1.5 text-xs font-bold text-primary-foreground">
-              {tr(c.nextFree)} →
-            </button>
-          )}
-        </div>
-      ) : !slots || slots.length === 0 || slots.every((s) => s.left < party) ? (
-        <div className="mt-2 flex flex-wrap items-center gap-2">
-          <p className="text-sm text-muted-foreground">{tr(free && !Object.values(free).some((n) => n > 0) ? c.noFreeDays : c.noSlots)}</p>
+          <p className="text-sm text-muted-foreground">
+            {reason ? reasonText(reason, tr) : tr(free && !Object.values(free).some((n) => n > 0) ? c.noFreeDays : c.noSlots)}
+          </p>
           {nextFree && (
             <button type="button" onClick={() => setDay(nextFree)} className="rounded-full bg-primary px-3 py-1.5 text-xs font-bold text-primary-foreground">
               {tr(c.nextFree)} →

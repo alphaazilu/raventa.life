@@ -16,6 +16,9 @@ import {
   type BookingKind,
   type BookingCategory,
   type BookingTemplate,
+  type EmptyReason,
+  emptyReason,
+  weekdayOf,
   CATEGORY_BUCKET,
   type BookingStatus,
   type BookingType,
@@ -242,9 +245,9 @@ export async function closedOn(day: string, preloaded?: CalItem[] | null): Promi
 
 // ---- availability ----
 
-export async function slotsFor(type: BookingType, day: string, who: 'member' | 'staff', ignore?: string): Promise<{ slots: Slot[]; closed: boolean }> {
+export async function slotsFor(type: BookingType, day: string, who: 'member' | 'staff', ignore?: string): Promise<{ slots: Slot[]; closed: boolean; reason: EmptyReason | null }> {
   const closed = await closedOn(day)
-  if (closed.all) return { slots: [], closed: true }
+  if (closed.all) return { slots: [], closed: true, reason: emptyReason(type, day, [], true) }
   const { data } = await db()
     .from('bookings')
     .select('*')
@@ -255,7 +258,8 @@ export async function slotsFor(type: BookingType, day: string, who: 'member' | '
   const taken = await toBookings((data ?? []) as Row[])
   // Members: at least min_hours ahead. Staff: anything not over yet.
   const notBefore = who === 'member' ? Date.now() + type.minHours * 3_600_000 : Date.now() - type.durationMin * 60_000
-  return { slots: daySlots(type, day, taken, closed, notBefore, ignore), closed: false }
+  const slots = daySlots(type, day, taken, closed, notBefore, ignore)
+  return { slots, closed: false, reason: emptyReason(type, day, slots, false) }
 }
 
 // Free places per day over a range, in one go (for the day chips and
@@ -270,8 +274,10 @@ export async function daysFree(type: BookingType, from: string, to: string, who:
   const out: Record<string, number> = {}
   for (let d = from; d <= to; d = addDays(d, 1)) {
     const closed = await closedOn(d, items)
+    const open = !closed.all && type.hours.some((h) => h.weekday === weekdayOf(d))
     const slots = daySlots(type, d, taken, closed, notBefore)
-    out[d] = slots.reduce((m, s) => Math.max(m, s.left), 0)
+    // -1 = closed / not open / too late; 0 = full
+    out[d] = !open || !slots.length ? -1 : slots.reduce((m, s) => Math.max(m, s.left), 0)
   }
   return out
 }

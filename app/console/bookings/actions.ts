@@ -8,7 +8,7 @@ import { isMissingTable } from '@/lib/console/db-errors'
 import { daysFree, getBooking, listTypes, memberNoShow, sendBookingEmail, slotsFor } from '@/lib/console/booking'
 import { bangkokToday } from '@/lib/check-in/day'
 import { addDays } from '@/lib/booking'
-import { CATEGORY_BUCKET, kindFor, STEP_OPTIONS, TEMPLATE_KEYS, type NoShowRules, type NoShowStatus, type Slot } from '@/lib/booking'
+import { CATEGORY_BUCKET, kindFor, STEP_OPTIONS, TEMPLATE_KEYS, type EmptyReason, type NoShowRules, type NoShowStatus, type Slot } from '@/lib/booking'
 
 // Back Office › Bookings (§34, v0.35). Staff book for anyone and change
 // statuses; setup and no-show rules are admin only. Written with the
@@ -33,7 +33,7 @@ const DAY_RE = /^\d{4}-\d{2}-\d{2}$/
 
 // ---- availability + booking ----
 
-export async function staffSlots(typeId: string, day: string, ignore?: string): Promise<BkResult<{ slots: Slot[]; closed: boolean }>> {
+export async function staffSlots(typeId: string, day: string, ignore?: string): Promise<BkResult<{ slots: Slot[]; closed: boolean; reason: EmptyReason | null }>> {
   const ctx = await team()
   if ('error' in ctx) return { ok: false, error: ctx.error }
   if (!DAY_RE.test(day)) return { ok: false, error: 'bad_booking' }
@@ -262,11 +262,18 @@ export async function saveBookingType(input: TypeInput): Promise<BkResult<{ id: 
   const { category_id: _cat, member_pick: _p, arrive_on_checkin: _a, whole_day: _w, ...rowNoCat } = row as typeof row & { category_id?: string | null }
   if (id) {
     let { error } = await db.from('booking_types').update(row).eq('id', id)
-    if (noColumn(error)) ({ error } = await db.from('booking_types').update(rowNoCat).eq('id', id))
+    if (noColumn(error)) {
+      // Don't lose a setting silently: whole-day / category need §35.
+      if (input.wholeDay || input.categoryId) return { ok: false, error: 'needs_sql' }
+      ;({ error } = await db.from('booking_types').update(rowNoCat).eq('id', id))
+    }
     if (error) return { ok: false, error: rpcError(error) }
   } else {
     let { data, error } = await db.from('booking_types').insert(row).select('id').single()
-    if (noColumn(error)) ({ data, error } = await db.from('booking_types').insert(rowNoCat).select('id').single())
+    if (noColumn(error)) {
+      if (input.wholeDay || input.categoryId) return { ok: false, error: 'needs_sql' }
+      ;({ data, error } = await db.from('booking_types').insert(rowNoCat).select('id').single())
+    }
     if (error || !data) return { ok: false, error: rpcError(error) }
     id = data.id as string
   }

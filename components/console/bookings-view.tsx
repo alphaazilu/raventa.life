@@ -14,6 +14,8 @@ import {
   bkErrors,
   bkkHm,
   timeRange,
+  reasonText,
+  type EmptyReason,
   isLate,
   statusLabel,
   typeName,
@@ -40,6 +42,7 @@ import {
   type MemberPick,
 } from '@/app/console/bookings/actions'
 import { BookingSetup } from '@/components/console/booking-setup'
+import { gridStart, MonthPicker } from '@/components/booking/month-picker'
 import { cn } from '@/lib/utils'
 
 export type BookingsTab = 'day' | 'list' | 'stats' | 'setup'
@@ -524,14 +527,14 @@ export function BookForm({
   onClose,
   windowDays = 60,
   // Injected only by design previews.
-  api = { staffSlots, staffBook, moveBooking, findMembers },
+  api = { staffSlots, staffBook, moveBooking, findMembers, staffDays },
 }: {
   types: BookingType[]
   day: string
   move?: Booking
   onClose: () => void
   windowDays?: number
-  api?: { staffSlots: typeof staffSlots; staffBook: typeof staffBook; moveBooking: typeof moveBooking; findMembers: typeof findMembers }
+  api?: { staffSlots: typeof staffSlots; staffBook: typeof staffBook; moveBooking: typeof moveBooking; findMembers: typeof findMembers; staffDays?: typeof staffDays }
 }) {
   const { tr, lang } = useLanguage()
   const router = useRouter()
@@ -566,6 +569,7 @@ export function BookForm({
       if (r.ok) {
         setSlots(r.data.slots)
         setClosed(r.data.closed)
+        setReason(r.data.reason ?? null)
         const t = types.find((x) => x.id === typeId)
         if (t?.wholeDay && r.data.slots[0] && r.data.slots[0].left > 0) setSlot(r.data.slots[0])
       } else setError(r.error)
@@ -576,7 +580,22 @@ export function BookForm({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [typeId, day])
 
-  const free = useMemo(() => (slot ? slot.resources.filter((r) => r.left >= party) : []), [slot, party])
+  const freeRes = useMemo(() => (slot ? slot.resources.filter((r) => r.left >= party) : []), [slot, party])
+  // Places left per day for the month on screen.
+  const todayStr = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Bangkok' }).format(new Date())
+  const [reason, setReason] = useState<EmptyReason | null>(null)
+  const [shownMonth, setShownMonth] = useState(`${day.slice(0, 7)}-01`)
+  const [free, setFree] = useState<Record<string, number> | null>(null)
+  useEffect(() => {
+    if (!typeId) return
+    let alive = true
+    void api.staffDays?.(typeId, gridStart(shownMonth), 42).then((r) => alive && r.ok && setFree(r.data))
+    return () => {
+      alive = false
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [typeId, shownMonth])
+
   // "Next free day" when this one has nothing.
   const [seeking, setSeeking] = useState(false)
   const findNext = () => {
@@ -652,17 +671,28 @@ export function BookForm({
         </>
       )}
 
-      <label className="mb-4 block">
+      <div className="mb-4">
         <span className={label}>{tr(c.when)}</span>
-        <input type="date" value={day} onChange={(e) => e.target.value && setDay(e.target.value)} className={input} />
-      </label>
+        {type && (
+          <MonthPicker
+            value={day}
+            onChange={setDay}
+            free={free}
+            min={todayStr}
+            max={addDays(todayStr, 365)}
+            capacity={type.capacity}
+            wholeDay={type.wholeDay}
+            onMonth={(m) => setShownMonth(m)}
+          />
+        )}
+      </div>
 
       <span className={label}>{tr(c.time)}</span>
       {loading ? (
         <Spinner className="my-3 h-5 w-5 text-primary" />
       ) : closed || !slots || slots.length === 0 || slots.every((s) => s.left < party) ? (
         <div className="mb-4 flex flex-wrap items-center gap-2">
-          <p className="text-sm text-muted-foreground">{tr(closed ? c.closedDay : c.noSlots)}</p>
+          <p className="text-sm text-muted-foreground">{reason ? reasonText(reason, tr) : tr(closed ? c.closedDay : c.noSlots)}</p>
           <button type="button" disabled={seeking} onClick={findNext} className="inline-flex items-center gap-1 rounded-full bg-primary px-3 py-1.5 text-xs font-bold text-primary-foreground disabled:opacity-40">
             {seeking && <Spinner className="h-3 w-3" />}
             {tr(c.nextFree)} →
@@ -701,7 +731,7 @@ export function BookForm({
           <span className={label}>{tr(c.whoServes)}</span>
           <select value={resourceId ?? ''} onChange={(e) => setResourceId(e.target.value || null)} className={input}>
             <option value="">{tr(c.anyone)}</option>
-            {free.map((r) => (
+            {freeRes.map((r) => (
               <option key={r.id} value={r.id}>
                 {r.label}
               </option>
