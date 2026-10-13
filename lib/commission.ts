@@ -11,7 +11,8 @@ export type CommissionPerson = { id: string; name: string }
 
 // What the counter needs (null = §33 not run, or nobody earns yet).
 export type DeskCommission = {
-  staff: CommissionPerson[]
+  ready: boolean // someone earns and a rate is set
+  staff: CommissionPerson[] // who can be picked (not the person selling)
   productIds: string[] // products with their own rate
   kinds: string[] // kinds with a default rate
   dayPassId: string | null
@@ -91,8 +92,8 @@ export const cmCopy = {
   saved: L('บันทึกแล้ว', 'Saved'),
   remove: L('ลบอัตรา', 'Remove rate'),
   howItWorks: L(
-    'คนรับค่าคอม: คนที่กดรับเงิน — ถ้าสแกนผู้แนะนำไว้ ผู้แนะนำได้ทั้งบิล — เลือกคนรับแยกบางรายการได้ที่บิล · ยอดคิดตอนจ่ายเงินและเก็บไว้ (เปลี่ยนอัตราภายหลังไม่กระทบบิลเก่า) · บิลที่ยกเลิกไม่นับ',
-    'Who earns: whoever takes the payment — a scanned referrer gets the whole bill instead — or pick someone per line on the bill · worked out and kept when paid (rate changes don’t touch old bills) · voided bills don’t count',
+    'ค่าคอมรายบิลเป็นของผู้แนะนำ: สแกน QR บัตรพนักงานที่แนะนำที่หน้าขาย (ได้ทั้งบิล) หรือเลือกคนรับแยกรายการ · ไม่มีผู้แนะนำ = ไม่มีค่าคอม · คนกดขาย/เช็คอินไม่ได้คอมรายบิล · ยอดคิดตอนจ่ายเงินและเก็บไว้ (เปลี่ยนอัตราภายหลังไม่กระทบบิลเก่า) · บิลที่ยกเลิกไม่นับ',
+    'Per-bill commission goes to the referrer: scan the referring team member’s card QR at the desk (whole bill) or pick someone per line · no referrer = no commission · the person ringing up doesn’t earn per bill · worked out and kept when paid (rate changes don’t touch old bills) · voided bills don’t count',
   ),
   on: L('รับคอม', 'Earns'),
   off: L('ไม่รับ', 'Off'),
@@ -109,7 +110,7 @@ export const cmCopy = {
   colLine: L('รายการ', 'Item'),
   colRate: L('อัตรา', 'Rate'),
   colHow: L('ได้จาก', 'From'),
-  src_cashier: L('ขายเอง', 'Sold'),
+  src_cashier: L('ขายเอง (ก่อน v0.34.1)', 'Sold (before v0.34.1)'),
   src_referrer: L('แนะนำ', 'Referred'),
   src_line: L('เลือกที่รายการ', 'Picked'),
   total: L('รวม', 'Total'),
@@ -128,7 +129,8 @@ export const cmErrors: Record<string, { th: string; en: string }> = {
   bad_rate: L('ตรวจอัตราอีกครั้ง (มากกว่า 0 · เปอร์เซ็นต์ไม่เกิน 100)', 'Check the rate (above 0 · a percentage up to 100)'),
   not_staff_member: L('คนนี้ไม่ใช่พนักงาน', 'This person isn’t on the team'),
   not_earner: L('คนนี้ยังไม่ได้เปิดรับค่าคอม (สินค้าและราคา › ค่าคอมมิชชั่น)', 'This person doesn’t earn commission yet (Products › Commission)'),
-  self_referrer: L('ตั้งตัวเองเป็นผู้แนะนำไม่ได้ — บิลที่คุณขายเป็นของคุณอยู่แล้ว', 'You can’t refer yourself — bills you sell are already yours'),
+  self_referrer: L('ตั้งตัวเองเป็นผู้แนะนำไม่ได้ — ให้คนอื่นกดขาย หรือให้แอดมินเลือกคนรับ', 'You can’t be the referrer on a bill you sell — let someone else ring it up'),
+  not_ready: L('ยังไม่ได้ตั้งค่าคอม — แอดมินเปิดคนรับคอมและตั้งอัตราที่ สินค้าและราคา › ค่าคอมมิชชั่น', 'Commission isn’t set up — an admin turns people on and sets rates in Products › Commission'),
   qr_invalid: L('อ่าน QR ไม่ได้ — ใช้ QR บัตรสมาชิก', 'Couldn’t read that QR — use the member card QR'),
   qr_expired: L('QR หมดอายุ — ให้เปิดบัตรใหม่', 'That QR has expired — open the card again'),
   failed: L('ทำไม่สำเร็จ ลองใหม่อีกครั้ง', 'Something went wrong — try again'),

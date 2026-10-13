@@ -165,7 +165,7 @@ export function CheckInDesk({
       () => lookupByToken(token),
       (m) => {
         // A team member who earns: most likely here to refer this bill.
-        if (commission && !m.isSelf && commission.staff.some((p) => p.id === m.id)) {
+        if (commission?.ready && !m.isSelf && commission.staff.some((p) => p.id === m.id)) {
           setPanel({ kind: 'staff', member: m })
           return
         }
@@ -213,6 +213,10 @@ export function CheckInDesk({
   }
 
   const scanReferrer = () => {
+    if (!commission?.ready) {
+      setError('not_ready')
+      return
+    }
     setError(null)
     closeSearch()
     setScanFor('referrer')

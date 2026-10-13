@@ -52,14 +52,21 @@ export async function isEarner(id: string): Promise<boolean | null> {
   return m ? m.has(id) : null
 }
 
-// What the counter needs to show referrer / per-line pickers.
+// What the counter needs to show referrer / per-line pickers. null = §33
+// not run; ready = someone earns and a rate is set (v0.34.1: the button
+// shows as soon as §33 is run, and says what's missing until then).
 export async function loadDeskCommission(me: string): Promise<DeskCommission> {
   try {
     const [earners, rules] = await Promise.all([enabledEarners(), listRules()])
-    if (!earners || !rules || earners.size === 0 || rules.length === 0) return null
+    if (!earners || !rules) return null
     const { data: dp } = await createAdminClient().from('products').select('id').eq('kind', 'day_pass').maybeSingle()
     return {
-      staff: [...earners].map(([id, name]) => ({ id, name })).sort((a, b) => a.name.localeCompare(b.name, 'th')),
+      ready: earners.size > 0 && rules.length > 0,
+      // The person selling doesn't earn per bill — not in the pickers.
+      staff: [...earners]
+        .filter(([id]) => id !== me)
+        .map(([id, name]) => ({ id, name }))
+        .sort((a, b) => a.name.localeCompare(b.name, 'th')),
       productIds: rules.filter((r) => r.productId).map((r) => r.productId as string),
       kinds: rules.filter((r) => r.kind).map((r) => r.kind as string),
       dayPassId: (dp?.id as string | undefined) ?? null,
@@ -71,6 +78,9 @@ export async function loadDeskCommission(me: string): Promise<DeskCommission> {
 }
 
 // After a bill is paid: work out each line's commission and keep it.
+// Commission per bill goes to whoever referred the guest (v0.34.1): the
+// person picked for a line, else the bill's scanned referrer, else nobody.
+// The person taking the payment never earns here.
 // Never fails the sale — a problem here is logged and the bill stands.
 export async function recordCommissions(input: {
   saleId: string
@@ -97,8 +107,7 @@ export async function recordCommissions(input: {
       const base = Number(l.line_total) - shares[i]
       if (base <= 0) return []
       const picked = input.lineStaff[lineKey(l.kind as string, l.product_id as string, (l.variant_id as string | null) ?? null)]
-      const [staffId, source] =
-        picked && earners.has(picked) ? [picked, 'line'] : referrer ? [referrer, 'referrer'] : earners.has(input.cashierId) ? [input.cashierId, 'cashier'] : [null, '']
+      const [staffId, source] = picked && picked !== input.cashierId && earners.has(picked) ? [picked, 'line'] : referrer ? [referrer, 'referrer'] : [null, '']
       if (!staffId) return []
       const amount = lineAmount(base, Number(l.qty), rule.mode, rule.value)
       if (amount <= 0) return []

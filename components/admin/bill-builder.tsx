@@ -170,8 +170,9 @@ export function BillBuilder({
         ? tr(deskCopy.checkInFree)
         : fill(tr(dayPass === 'none' ? deskCopy.payOnly : deskCopy.payAndCheckIn), { price: total.toLocaleString() })
 
-  const cm = commission?.data ?? null
-  const defaultEarner = commission?.referrer?.name ?? cm?.staff.find((p) => p.id === cm.me)?.name ?? null
+  const cm = commission?.data.ready ? commission.data : null
+  // No referrer → nobody earns (the person selling doesn't, v0.34.1).
+  const defaultEarner = commission?.referrer?.name ?? null
   const earnerPick = (key: string) =>
     cm ? (
       <EarnerPick
