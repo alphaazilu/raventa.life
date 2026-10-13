@@ -6,7 +6,7 @@ import { canUseDesk, isAdmin, BOOKINGS_PATH } from '@/lib/auth/roles'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { isMissingTable } from '@/lib/console/db-errors'
 import { getBooking, listTypes, memberNoShow, sendBookingEmail, slotsFor } from '@/lib/console/booking'
-import { CATEGORY_BUCKET, kindFor, STEP_OPTIONS, type NoShowRules, type NoShowStatus, type Slot } from '@/lib/booking'
+import { CATEGORY_BUCKET, kindFor, STEP_OPTIONS, TEMPLATE_KEYS, type NoShowRules, type NoShowStatus, type Slot } from '@/lib/booking'
 
 // Back Office › Bookings (§34, v0.35). Staff book for anyone and change
 // statuses; setup and no-show rules are admin only. Written with the
@@ -405,6 +405,33 @@ export async function setCategoryImage(id: string, form: FormData | null): Promi
   const { error } = await db.from('booking_categories').update({ image_path: path }).eq('id', id)
   if (error) return { ok: false, error: rpcError(error) }
   if (c.image_path) await db.storage.from(CATEGORY_BUCKET).remove([c.image_path as string])
+  revalidatePath(BOOKINGS_PATH)
+  return { ok: true, data: null }
+}
+
+// ---- admin: templates (v0.35.3) ----
+
+export async function saveTemplate(name: string, data: Record<string, unknown>): Promise<BkResult<{ id: string }>> {
+  const ctx = await admin()
+  if ('error' in ctx) return { ok: false, error: ctx.error }
+  const n = name.trim()
+  if (n.length < 1 || n.length > 40) return { ok: false, error: 'bad_category' }
+  // Only the known settings; no ids of people/rooms.
+  const clean: Record<string, unknown> = {}
+  for (const k of TEMPLATE_KEYS) if (k in data) clean[k] = data[k]
+  if (Array.isArray(clean.resources)) clean.resources = (clean.resources as Record<string, unknown>[]).slice(0, 50).map((r) => ({ label: String(r.label ?? '').slice(0, 40), staffId: r.staffId ?? null, active: true }))
+  if (JSON.stringify(clean).length > 15000) return { ok: false, error: 'bad_type' }
+  const { data: row, error } = await createAdminClient().from('booking_templates').insert({ name: n, data: clean, created_by: ctx.userId }).select('id').single()
+  if (error) return { ok: false, error: rpcError(error) }
+  revalidatePath(BOOKINGS_PATH)
+  return { ok: true, data: { id: row.id as string } }
+}
+
+export async function deleteTemplate(id: string): Promise<BkResult> {
+  const ctx = await admin()
+  if ('error' in ctx) return { ok: false, error: ctx.error }
+  const { error } = await createAdminClient().from('booking_templates').delete().eq('id', id)
+  if (error) return { ok: false, error: rpcError(error) }
   revalidatePath(BOOKINGS_PATH)
   return { ok: true, data: null }
 }

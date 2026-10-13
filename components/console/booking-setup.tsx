@@ -2,27 +2,30 @@
 
 import { useRouter } from 'next/navigation'
 import { useState, useTransition } from 'react'
-import { ArrowDown, ArrowUp, Copy, ImagePlus, Pencil, Plus, Trash2, X } from 'lucide-react'
+import { ArrowDown, ArrowUp, Copy, CopyPlus, ImagePlus, Pencil, Plus, Trash2, X } from 'lucide-react'
 import { useLanguage } from '@/components/language-provider'
 import { Spinner } from '@/components/ui/spinner'
 import {
   bkCopy as c,
   bkErrors,
-  PRESETS,
+  TEMPLATE_KEYS,
   STEP_OPTIONS,
   typeName,
   WEEKDAYS,
   type BookingCategory,
+  type BookingTemplate,
   type BookingType,
   type NoShowRules,
 } from '@/lib/booking'
 import {
   deleteBookingType,
   deleteCategory,
+  deleteTemplate,
   orderCategories,
   saveBookingType,
   saveCategory,
   saveNoShowRules,
+  saveTemplate,
   setCategoryImage,
   type TypeInput,
 } from '@/app/console/bookings/actions'
@@ -84,6 +87,7 @@ const fromType = (t: BookingType): TypeInput => ({
 export function BookingSetup({
   types,
   categories = [],
+  templates = [],
   rules,
   staff,
   products,
@@ -92,6 +96,7 @@ export function BookingSetup({
 }: {
   types: BookingType[]
   categories?: BookingCategory[]
+  templates?: BookingTemplate[]
   rules: NoShowRules
   staff: { id: string; name: string }[]
   products: { id: string; name: string; active: boolean }[]
@@ -100,7 +105,15 @@ export function BookingSetup({
   const { tr, lang } = useLanguage()
   const [sel, setSel] = useState<string | 'new'>(types[0]?.id ?? 'new')
   const [fresh, setFresh] = useState(0)
+  // "Copy": a new item that starts from an existing one.
+  const [seed, setSeed] = useState<TypeInput | null>(null)
   const current = types.find((t) => t.id === sel) ?? null
+  const copyOf = (t: BookingType) => {
+    const f = fromType(t)
+    setSeed({ ...f, id: undefined, nameTh: tr(c.copyOf).replace('{n}', t.nameTh).slice(0, 60), nameEn: '', resources: f.resources.map((r) => ({ label: r.label, staffId: r.staffId, active: true })) })
+    setSel('new')
+    setFresh((n) => n + 1)
+  }
   // Types grouped by category, in the categories' order; no category last.
   const groups = [
     ...categories.map((cat) => ({ id: cat.id as string | null, name: lang === 'en' && cat.nameEn ? cat.nameEn : cat.nameTh, list: types.filter((t) => t.categoryId === cat.id) })),
@@ -114,7 +127,15 @@ export function BookingSetup({
         <section className={card}>
           <div className="flex items-center justify-between">
             <h2 className="font-display text-lg font-bold">{tr(c.types)}</h2>
-            <button type="button" onClick={() => setSel('new')} className="inline-flex items-center gap-1 text-sm font-semibold text-primary">
+            <button
+              type="button"
+              onClick={() => {
+                setSeed(null)
+                setSel('new')
+                setFresh((n) => n + 1)
+              }}
+              className="inline-flex items-center gap-1 text-sm font-semibold text-primary"
+            >
               <Plus className="h-4 w-4" aria-hidden="true" />
               {tr(c.addType)}
             </button>
@@ -128,11 +149,11 @@ export function BookingSetup({
               {g.name && <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">{g.name}</p>}
             <ul className="divide-y divide-border">
               {g.list.map((t) => (
-                <li key={t.id}>
+                <li key={t.id} className="flex items-center gap-1">
                   <button
                     type="button"
                     onClick={() => setSel(t.id)}
-                    className={cn('flex w-full items-center justify-between gap-2 rounded-lg px-2 py-2.5 text-left text-sm', sel === t.id ? 'bg-secondary' : 'hover:bg-secondary/50', !t.active && 'opacity-60')}
+                    className={cn('flex min-w-0 flex-1 items-center justify-between gap-2 rounded-lg px-2 py-2.5 text-left text-sm', sel === t.id ? 'bg-secondary' : 'hover:bg-secondary/50', !t.active && 'opacity-60')}
                   >
                     <span className="min-w-0">
                       <span className="block truncate font-semibold">{typeName(t, lang)}</span>
@@ -145,6 +166,9 @@ export function BookingSetup({
                       {t.active ? tr(c.active) : '—'}
                     </span>
                   </button>
+                  <button type="button" onClick={() => copyOf(t)} aria-label={tr(c.copy)} title={tr(c.copy)} className="shrink-0 rounded-full p-2 text-muted-foreground hover:bg-secondary hover:text-foreground">
+                    <CopyPlus className="h-4 w-4" aria-hidden="true" />
+                  </button>
                 </li>
               ))}
             </ul>
@@ -153,16 +177,19 @@ export function BookingSetup({
             </div>
           )}
         </section>
+        <TemplateList templates={templates} />
         <RulesForm rules={rules} save={api.saveNoShowRules} />
       </div>
       <TypeForm
         key={current?.id ?? `new-${fresh}`}
-        initial={current ? fromType(current) : blank(categories[0]?.id ?? null)}
+        initial={current ? fromType(current) : (seed ?? blank(categories[0]?.id ?? null))}
         categories={categories}
+        templates={templates}
         staff={staff}
         products={products}
         api={api}
         onSaved={(id) => {
+          setSeed(null)
           setSel(id)
           setFresh((n) => n + 1)
         }}
@@ -175,6 +202,7 @@ export function BookingSetup({
 function TypeForm({
   initial,
   categories,
+  templates,
   staff,
   products,
   api,
@@ -183,6 +211,7 @@ function TypeForm({
 }: {
   initial: TypeInput
   categories: BookingCategory[]
+  templates: BookingTemplate[]
   staff: { id: string; name: string }[]
   products: { id: string; name: string; active: boolean }[]
   api: { saveBookingType: typeof saveBookingType; deleteBookingType: typeof deleteBookingType }
@@ -216,33 +245,29 @@ function TypeForm({
     <section className={card}>
       <h2 className="font-display text-lg font-bold">{f.id ? f.nameTh || '—' : tr(c.addType)}</h2>
 
-      <label className="mt-3 block">
-        <span className={label}>{tr(c.preset)}</span>
-        <select
-          value=""
-          onChange={(e) => {
-            const p = PRESETS.find((x) => x.key === e.target.value)
-            if (p)
-              set({
-                durationMin: p.durationMin,
-                bufferMin: p.bufferMin,
-                capacity: p.capacity,
-                stepMin: p.stepMin,
-                maxParty: p.maxParty,
-                memberPick: p.memberPick,
-                arriveOnCheckin: p.arriveOnCheckin,
-              })
-          }}
-          className={input}
-        >
-          <option value="">{tr(c.presetNone)}</option>
-          {PRESETS.map((p) => (
-            <option key={p.key} value={p.key}>
-              {tr(p.label)}
-            </option>
-          ))}
-        </select>
-      </label>
+      {!f.id && templates.length > 0 && (
+        <label className="mt-3 block">
+          <span className={label}>{tr(c.useTemplate)}</span>
+          <select
+            value=""
+            onChange={(e) => {
+              const t = templates.find((x) => x.id === e.target.value)
+              if (!t) return
+              const p: Partial<TypeInput> = {}
+              for (const k of TEMPLATE_KEYS) if (k in t.data) (p as Record<string, unknown>)[k] = t.data[k]
+              set(p)
+            }}
+            className={input}
+          >
+            <option value="">{tr(c.templateNone)}</option>
+            {templates.map((t) => (
+              <option key={t.id} value={t.id}>
+                {t.name}
+              </option>
+            ))}
+          </select>
+        </label>
+      )}
 
       <div className="mt-4 grid gap-3 sm:grid-cols-2">
         <label>
@@ -450,6 +475,7 @@ function TypeForm({
           {tr(c.save)}
         </button>
         {saved && <span className="text-sm font-semibold text-accent">{tr(c.saved)}</span>}
+        <TemplateSave f={f} />
         {f.id && (
           <button
             type="button"
@@ -696,5 +722,80 @@ function CategoryForm({
         </span>
       </div>
     </div>
+  )
+}
+
+// ---------------- Templates (v0.35.3) ----------------
+
+function TemplateSave({ f }: { f: TypeInput }) {
+  const { tr } = useLanguage()
+  const router = useRouter()
+  const [pending, start] = useTransition()
+  const [open, setOpen] = useState(false)
+  const [name, setName] = useState('')
+  const [msg, setMsg] = useState<string | null>(null)
+  if (!open)
+    return (
+      <button type="button" onClick={() => setOpen(true)} className="inline-flex items-center gap-1 text-sm font-semibold text-primary">
+        <Copy className="h-4 w-4" aria-hidden="true" />
+        {msg === 'saved' ? tr(c.templateSaved) : tr(c.saveTemplate)}
+      </button>
+    )
+  return (
+    <span className="flex flex-wrap items-center gap-2">
+      <input value={name} onChange={(e) => setName(e.target.value)} maxLength={40} placeholder={tr(c.templateName)} className="h-9 w-44 rounded-full border border-border bg-background px-3 text-sm" autoFocus />
+      <button
+        type="button"
+        disabled={pending || !name.trim()}
+        onClick={() =>
+          start(async () => {
+            const data: Record<string, unknown> = {}
+            for (const k of TEMPLATE_KEYS) data[k] = f[k]
+            const r = await saveTemplate(name, data)
+            if (r.ok) {
+              setMsg('saved')
+              setOpen(false)
+              setName('')
+              router.refresh()
+            } else setMsg(r.error)
+          })
+        }
+        className="h-9 rounded-full bg-foreground px-4 text-sm font-bold text-background disabled:opacity-40"
+      >
+        {tr(c.save)}
+      </button>
+      <button type="button" onClick={() => setOpen(false)} aria-label={tr(c.close)} className="p-1 text-muted-foreground">
+        <X className="h-4 w-4" aria-hidden="true" />
+      </button>
+      {msg && msg !== 'saved' && <span className="text-xs font-semibold text-destructive">{tr(bkErrors[msg] ?? bkErrors.failed)}</span>}
+    </span>
+  )
+}
+
+export function TemplateList({ templates }: { templates: BookingTemplate[] }) {
+  const { tr } = useLanguage()
+  const router = useRouter()
+  const [pending, start] = useTransition()
+  if (!templates.length) return null
+  return (
+    <section className={card}>
+      <h2 className="font-display text-lg font-bold">{tr(c.templates)}</h2>
+      <ul className="mt-2 flex flex-wrap gap-2">
+        {templates.map((t) => (
+          <li key={t.id} className="inline-flex items-center gap-1 rounded-full border border-border py-1 pl-3 pr-1 text-sm">
+            {t.name}
+            <button
+              type="button"
+              disabled={pending}
+              onClick={() => start(async () => void ((await deleteTemplate(t.id)).ok && router.refresh()))}
+              aria-label={tr(c.remove)}
+              className="rounded-full p-1 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+            >
+              <X className="h-3.5 w-3.5" aria-hidden="true" />
+            </button>
+          </li>
+        ))}
+      </ul>
+    </section>
   )
 }

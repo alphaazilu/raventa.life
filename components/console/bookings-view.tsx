@@ -19,6 +19,7 @@ import {
   who,
   type Booking,
   type BookingCategory,
+  type BookingTemplate,
   type BookingStatus,
   type BookingType,
   type NoShowRules,
@@ -67,6 +68,7 @@ export function BookingsView({
   setUp,
   types,
   categories = [],
+  templates = [],
   bookings,
   day,
   today,
@@ -81,6 +83,7 @@ export function BookingsView({
   setUp: boolean
   types: BookingType[]
   categories?: BookingCategory[]
+  templates?: BookingTemplate[]
   bookings: Booking[]
   day: string
   today: string
@@ -133,7 +136,7 @@ export function BookingsView({
       {!setUp ? (
         <p className="rounded-2xl bg-amber-500/15 p-4 text-sm font-semibold text-amber-800 dark:text-amber-300">{tr(c.notSetUp)}</p>
       ) : tab === 'setup' ? (
-        <BookingSetup types={types} categories={categories} rules={rules} staff={staff} products={products} />
+        <BookingSetup types={types} categories={categories} templates={templates} rules={rules} staff={staff} products={products} />
       ) : types.length === 0 ? (
         <p className="rounded-2xl border border-dashed border-border p-6 text-sm text-muted-foreground">{tr(c.noTypes)}</p>
       ) : tab === 'stats' ? (

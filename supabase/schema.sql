@@ -2621,3 +2621,15 @@ on conflict (id) do update set
 alter table public.booking_types add column if not exists member_pick boolean;        -- members choose the person/room
 alter table public.booking_types add column if not exists arrive_on_checkin boolean;  -- a Day Pass check-in marks it "arrived"
 alter table public.booking_types alter column kind set default 'service';
+
+-- Templates for new bookable items, saved by an admin (v0.35.3): the
+-- settings of an item (length, places, hours, rules …) under a name.
+create table if not exists public.booking_templates (
+  id uuid primary key default gen_random_uuid(),
+  name text not null check (char_length(btrim(name)) between 1 and 40),
+  data jsonb not null default '{}'::jsonb check (pg_column_size(data) < 20000),
+  created_by uuid references auth.users(id) on delete set null,
+  created_at timestamptz not null default now()
+);
+alter table public.booking_templates enable row level security;
+revoke all on public.booking_templates from anon, authenticated;

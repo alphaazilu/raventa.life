@@ -15,6 +15,7 @@ import {
   type Booking,
   type BookingKind,
   type BookingCategory,
+  type BookingTemplate,
   CATEGORY_BUCKET,
   type BookingStatus,
   type BookingType,
@@ -96,6 +97,13 @@ export async function listCategories(onlyActive = false): Promise<BookingCategor
     sort: Number(c.sort),
     active: Boolean(c.is_active),
   }))
+}
+
+// Admin-saved templates (§35, v0.35.3). [] when not set up.
+export async function listTemplates(): Promise<BookingTemplate[]> {
+  const { data, error } = await db().from('booking_templates').select('id, name, data').order('name')
+  if (error) return []
+  return (data ?? []).map((t) => ({ id: t.id as string, name: t.name as string, data: (t.data as Record<string, unknown>) ?? {} }))
 }
 
 export async function getRules(): Promise<NoShowRules> {

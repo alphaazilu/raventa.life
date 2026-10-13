@@ -174,14 +174,13 @@ export const isLate = (b: Pick<Booking, 'status' | 'start'>, lateMin: number, no
 
 const L = (th: string, en: string) => ({ th, en })
 
-// Quick-fill numbers for a new item (v0.35.2) — nothing is locked by them.
-export type BookingPreset = { key: string; label: { th: string; en: string }; durationMin: number; bufferMin: number; capacity: number; stepMin: number; maxParty: number; memberPick: boolean; arriveOnCheckin: boolean }
-export const PRESETS: BookingPreset[] = [
-  { key: 'one', label: L('ตัวต่อตัว (เช่น นวด 60 นาที)', 'One-to-one (e.g. a 60-min massage)'), durationMin: 60, bufferMin: 15, capacity: 1, stepMin: 30, maxParty: 1, memberPick: true, arriveOnCheckin: false },
-  { key: 'group', label: L('กลุ่ม (เช่น คลาส 12 ที่)', 'Group (e.g. a 12-seat class)'), durationMin: 60, bufferMin: 0, capacity: 12, stepMin: 60, maxParty: 4, memberPick: false, arriveOnCheckin: false },
-  { key: 'entry', label: L('รอบเข้าใช้ (เช่น 3 ชม. 20 คน)', 'Entry window (e.g. 3 h, 20 people)'), durationMin: 180, bufferMin: 0, capacity: 20, stepMin: 60, maxParty: 6, memberPick: false, arriveOnCheckin: true },
-  { key: 'room', label: L('เหมาห้อง (เช่น 90 นาที)', 'Private room (e.g. 90 min)'), durationMin: 90, bufferMin: 15, capacity: 1, stepMin: 30, maxParty: 6, memberPick: false, arriveOnCheckin: false },
-]
+// An admin-saved starting point for new items (v0.35.3): the item's settings, no name.
+export type BookingTemplate = { id: string; name: string; data: Record<string, unknown> }
+export const TEMPLATE_KEYS = [
+  'categoryId', 'memberPick', 'arriveOnCheckin', 'description', 'durationMin', 'bufferMin', 'capacity', 'stepMin', 'productId',
+  'memberBooking', 'advanceDays', 'minHours', 'cancelHours', 'maxParty', 'resources', 'hours',
+] as const
+
 // The old kind, kept in the database, from the settings.
 export const kindFor = (t: { memberPick: boolean; arriveOnCheckin: boolean; capacity: number }): BookingKind =>
   t.arriveOnCheckin ? 'entry' : t.memberPick ? 'service' : t.capacity > 1 ? 'class' : 'room'
@@ -308,8 +307,14 @@ export const bkCopy = {
   booked: L('จองเรียบร้อย', 'You’re booked'),
   other: L('อื่นๆ', 'Other'),
   categories: L('หมวดหมู่', 'Categories'),
-  preset: L('ใช้ค่าตั้งต้น (เติมตัวเลขให้ แก้ได้ทุกช่อง)', 'Quick-fill (every field stays editable)'),
-  presetNone: L('— เลือกเพื่อเติมค่า —', '— choose to fill —'),
+  useTemplate: L('เริ่มจากแม่แบบ (เติมค่าให้ แก้ได้ทุกช่อง)', 'Start from a template (every field stays editable)'),
+  templateNone: L('— เลือกแม่แบบ —', '— choose a template —'),
+  saveTemplate: L('บันทึกเป็นแม่แบบ', 'Save as a template'),
+  templateName: L('ชื่อแม่แบบ', 'Template name'),
+  templates: L('แม่แบบ', 'Templates'),
+  templateSaved: L('บันทึกแม่แบบแล้ว', 'Template saved'),
+  copy: L('คัดลอก', 'Copy'),
+  copyOf: L('{n} (สำเนา)', '{n} (copy)'),
   memberPick: L('ให้ลูกค้าเลือกคนให้บริการ/ห้องเองได้', 'Members choose the person/room'),
   arriveOnCheckin: L('เช็คอิน Day Pass แล้วถือว่า “มาแล้ว”', 'A Day Pass check-in counts as “arrived”'),
   placesPer: L('รับ {n} ต่อรอบ', '{n} per time'),
