@@ -10,9 +10,21 @@ export const STEP_OPTIONS = [10, 15, 20, 30, 45, 60, 90, 120, 180, 240] as const
 export type BookingResource = { id: string; label: string; staffId: string | null; active: boolean; sort: number }
 export type BookingHours = { weekday: number; start: string; end: string }
 
+// Admin-named groups (§35, v0.35.1).
+export type BookingCategory = { id: string; nameTh: string; nameEn: string; description: string | null; imageUrl: string | null; sort: number; active: boolean }
+export const CATEGORY_BUCKET = 'booking-images'
+
+// Types in their categories' order (then their own), no category last.
+export function sortByCategory<T extends { categoryId: string | null; sort: number; nameTh: string }>(types: T[], cats: { id: string; sort: number }[]): T[] {
+  const rank = new Map(cats.map((c, i) => [c.id, i]))
+  const r = (t: T) => (t.categoryId && rank.has(t.categoryId) ? (rank.get(t.categoryId) as number) : 9999)
+  return [...types].sort((a, b) => r(a) - r(b) || a.sort - b.sort || a.nameTh.localeCompare(b.nameTh, 'th'))
+}
+
 export type BookingType = {
   id: string
   kind: BookingKind
+  categoryId: string | null
   nameTh: string
   nameEn: string
   description: string | null
@@ -291,6 +303,23 @@ export const bkCopy = {
   pickTime: L('เลือกเวลา', 'Choose a time'),
   confirmTitle: L('ยืนยันการจอง', 'Confirm'),
   booked: L('จองเรียบร้อย', 'You’re booked'),
+  other: L('อื่นๆ', 'Other'),
+  categories: L('หมวดหมู่', 'Categories'),
+  categoriesHint: L('จัดกลุ่มสิ่งที่จองได้ให้ลูกค้าเลือกง่าย · เรียงลำดับเองได้ · ไม่ใส่ก็ได้', 'Group what can be booked so members find it · your order · optional'),
+  addCategory: L('เพิ่มหมวดหมู่', 'Add a category'),
+  category: L('หมวดหมู่', 'Category'),
+  noCategory: L('ไม่ระบุ', 'None'),
+  catName: L('ชื่อหมวดหมู่', 'Category name'),
+  catDesc: L('คำอธิบายสั้นๆ (ลูกค้าเห็น)', 'A short line (members see it)'),
+  image: L('รูป', 'Picture'),
+  addImage: L('ใส่รูป', 'Add a picture'),
+  changeImage: L('เปลี่ยนรูป', 'Change picture'),
+  removeImage: L('ลบรูป', 'Remove picture'),
+  moveUp: L('เลื่อนขึ้น', 'Move up'),
+  moveDown: L('เลื่อนลง', 'Move down'),
+  edit: L('แก้ไข', 'Edit'),
+  cancelEdit: L('ยกเลิก', 'Cancel'),
+  itemsIn: L('{n} รายการ', '{n} items'),
   bookedSub: L('ส่งอีเมลยืนยันให้แล้ว · ชำระเงินที่หน้าร้านตอนมา', 'We’ve emailed you · pay at the counter when you come'),
   upcoming: L('นัดที่กำลังจะถึง', 'Coming up'),
   past: L('ที่ผ่านมา', 'Past'),
@@ -328,6 +357,8 @@ export const bkErrors: Record<string, { th: string; en: string }> = {
   bad_status: L('การจองนี้เปลี่ยนสถานะไปแล้ว', 'This booking has already changed'),
   need_who: L('เลือกสมาชิก หรือใส่ชื่อลูกค้า', 'Choose a member or enter a name'),
   bad_type: L('ตรวจข้อมูลอีกครั้ง (ชื่อ ระยะเวลา จำนวน)', 'Check the details (name, length, places)'),
+  bad_category: L('ตรวจชื่อหมวดหมู่อีกครั้ง (1–40 ตัวอักษร)', 'Check the category name (1–40 characters)'),
+  bad_image: L('ใช้รูป JPG/PNG/WebP ไม่เกิน 2 MB', 'Use a JPG/PNG/WebP up to 2 MB'),
   bad_hours: L('ตรวจเวลาเปิดรับจองอีกครั้ง (เวลาจบต้องหลังเวลาเริ่ม)', 'Check the open hours (end after start)'),
   in_use: L('มีการจองใช้อยู่ — ปิดรับจองแทนการลบ', 'It has bookings — turn it off instead'),
   failed: L('ทำไม่สำเร็จ ลองใหม่อีกครั้ง', 'Something went wrong — try again'),

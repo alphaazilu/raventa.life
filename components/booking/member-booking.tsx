@@ -16,6 +16,7 @@ import { cn } from '@/lib/utils'
 export type PublicType = {
   id: string
   kind: BookingKind
+  categoryId: string | null
   nameTh: string
   nameEn: string
   description: string | null
@@ -28,9 +29,12 @@ export type PublicType = {
 
 const card = 'rounded-2xl border border-border bg-card p-4'
 
+export type PublicCategory = { id: string; nameTh: string; nameEn: string; description: string | null; imageUrl: string | null }
+
 export function MemberBooking({
   setUp,
   types,
+  categories = [],
   upcoming,
   past,
   cancelHours,
@@ -43,6 +47,7 @@ export function MemberBooking({
 }: {
   setUp: boolean
   types: PublicType[]
+  categories?: PublicCategory[]
   upcoming: Booking[]
   past: Booking[]
   cancelHours: Record<string, number>
@@ -73,6 +78,7 @@ export function MemberBooking({
     return (
       <BookFlow
         types={types}
+        categories={categories}
         today={today}
         startType={startType}
         api={api}
@@ -215,6 +221,7 @@ function UpcomingCard({ b, cancelHours, date, cancel }: { b: Booking; cancelHour
 
 function BookFlow({
   types,
+  categories,
   today,
   startType,
   api,
@@ -222,6 +229,7 @@ function BookFlow({
   onDone,
 }: {
   types: PublicType[]
+  categories: PublicCategory[]
   today: string
   startType: string | null
   api: { memberSlots: typeof memberSlots; memberBook: typeof memberBook }
@@ -279,17 +287,38 @@ function BookFlow({
       <>
         {back}
         <h1 className="mt-4 font-display text-3xl font-extrabold">{tr(c.pickWhat)}</h1>
-        <ul className="mt-4 flex flex-col gap-2">
-          {types.map((t) => (
-            <li key={t.id}>
-              <button type="button" onClick={() => setType(t)} className={cn(card, 'w-full text-left hover:border-primary/40')}>
-                <span className="block font-display text-lg font-bold">{typeName(t, lang)}</span>
-                <span className="block text-xs text-muted-foreground">{tr(c.min).replace('{n}', String(t.durationMin))}</span>
-                {t.description && <span className="mt-1 block text-sm text-muted-foreground">{t.description}</span>}
-              </button>
-            </li>
+        {[
+          ...categories.map((cat) => ({ cat, list: types.filter((t) => t.categoryId === cat.id) })),
+          { cat: null, list: types.filter((t) => !t.categoryId || !categories.some((x) => x.id === t.categoryId)) },
+        ]
+          .filter((g) => g.list.length > 0)
+          .map((g) => (
+            <section key={g.cat?.id ?? 'none'} className="mt-6">
+              {g.cat ? (
+                <div className="mb-2">
+                  {g.cat.imageUrl && (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={g.cat.imageUrl} alt="" className="mb-2 aspect-[5/2] w-full rounded-2xl object-cover" />
+                  )}
+                  <h2 className="font-display text-xl font-extrabold">{lang === 'en' && g.cat.nameEn ? g.cat.nameEn : g.cat.nameTh}</h2>
+                  {g.cat.description && <p className="text-sm text-muted-foreground">{g.cat.description}</p>}
+                </div>
+              ) : (
+                categories.length > 0 && <h2 className="mb-2 font-display text-xl font-extrabold">{tr(c.other)}</h2>
+              )}
+              <ul className="flex flex-col gap-2">
+                {g.list.map((t) => (
+                  <li key={t.id}>
+                    <button type="button" onClick={() => setType(t)} className={cn(card, 'w-full text-left hover:border-primary/40')}>
+                      <span className="block font-display text-lg font-bold">{typeName(t, lang)}</span>
+                      <span className="block text-xs text-muted-foreground">{tr(c.min).replace('{n}', String(t.durationMin))}</span>
+                      {t.description && <span className="mt-1 block text-sm text-muted-foreground">{t.description}</span>}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </section>
           ))}
-        </ul>
       </>
     )
 

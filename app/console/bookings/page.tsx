@@ -3,8 +3,8 @@ import { redirect } from 'next/navigation'
 import { getConsoleSession } from '@/lib/console/session'
 import { BOOKINGS_PATH, canUseDesk, isAdmin } from '@/lib/auth/roles'
 import { bangkokToday } from '@/lib/check-in/day'
-import { bookingStats, getRules, listBookings, listTypes } from '@/lib/console/booking'
-import { addDays } from '@/lib/booking'
+import { bookingStats, getRules, listBookings, listCategories, listTypes } from '@/lib/console/booking'
+import { addDays, sortByCategory } from '@/lib/booking'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { BookingsView, type BookingsTab } from '@/components/console/bookings-view'
 
@@ -39,7 +39,7 @@ export default async function BookingsPage({ searchParams }: { searchParams: Pro
     console.error('booking types failed', err)
     return null
   })
-  const [bookings, rules, stats, extra] = await Promise.all([
+  const [bookings, rules, stats, extra, categories] = await Promise.all([
     types && (tab === 'day' || tab === 'list') ? listBookings(tab === 'day' ? day : from, tab === 'day' ? day : to).catch(() => []) : Promise.resolve([]),
     getRules(),
     types && tab === 'stats' ? bookingStats(from, to).catch(() => null) : Promise.resolve(null),
@@ -49,6 +49,7 @@ export default async function BookingsPage({ searchParams }: { searchParams: Pro
           createAdminClient().from('products').select('id, name_th, kind, is_active').order('sort'),
         ])
       : Promise.resolve(null),
+    types ? listCategories().catch(() => null) : Promise.resolve(null),
   ])
   const staff = (extra?.[0].data ?? []).map((p) => ({ id: p.id as string, name: [p.first_name, p.last_name].filter(Boolean).join(' ') || (p.email as string) || '—' }))
   const products = (extra?.[1].data ?? []).map((p) => ({ id: p.id as string, name: p.name_th as string, active: Boolean(p.is_active) }))
@@ -59,7 +60,8 @@ export default async function BookingsPage({ searchParams }: { searchParams: Pro
         tab={tab}
         admin={admin}
         setUp={types !== null}
-        types={types ?? []}
+        types={sortByCategory(types ?? [], categories ?? [])}
+        categories={categories ?? []}
         bookings={bookings ?? []}
         day={day}
         today={today}

@@ -14,6 +14,8 @@ import {
   toMin,
   type Booking,
   type BookingKind,
+  type BookingCategory,
+  CATEGORY_BUCKET,
   type BookingStatus,
   type BookingType,
   type Closed,
@@ -48,6 +50,7 @@ export async function listTypes(onlyActive = false): Promise<BookingType[] | nul
     .map((x) => ({
       id: x.id as string,
       kind: x.kind as BookingKind,
+      categoryId: (x.category_id as string | null) ?? null,
       nameTh: x.name_th as string,
       nameEn: (x.name_en as string) || '',
       description: (x.description as string | null) || null,
@@ -70,6 +73,27 @@ export async function listTypes(onlyActive = false): Promise<BookingType[] | nul
         .filter((y) => y.type_id === x.id)
         .map((y) => ({ weekday: Number(y.weekday), start: (y.start_time as string).slice(0, 5), end: (y.end_time as string).slice(0, 5) })),
     }))
+}
+
+// Categories in their order (§35). null = §35 not run.
+export async function listCategories(onlyActive = false): Promise<BookingCategory[] | null> {
+  let q = db().from('booking_categories').select('*').order('sort').order('name_th')
+  if (onlyActive) q = q.eq('is_active', true)
+  const { data, error } = await q
+  if (error) {
+    if (isMissingTable(error)) return null
+    throw error
+  }
+  const store = db().storage.from(CATEGORY_BUCKET)
+  return (data ?? []).map((c) => ({
+    id: c.id as string,
+    nameTh: c.name_th as string,
+    nameEn: (c.name_en as string) || '',
+    description: (c.description as string | null) || null,
+    imageUrl: c.image_path ? store.getPublicUrl(c.image_path as string).data.publicUrl : null,
+    sort: Number(c.sort),
+    active: Boolean(c.is_active),
+  }))
 }
 
 export async function getRules(): Promise<NoShowRules> {

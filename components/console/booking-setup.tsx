@@ -2,7 +2,7 @@
 
 import { useRouter } from 'next/navigation'
 import { useState, useTransition } from 'react'
-import { Copy, Plus, Trash2, X } from 'lucide-react'
+import { ArrowDown, ArrowUp, Copy, ImagePlus, Pencil, Plus, Trash2, X } from 'lucide-react'
 import { useLanguage } from '@/components/language-provider'
 import { Spinner } from '@/components/ui/spinner'
 import {
@@ -14,11 +14,21 @@ import {
   STEP_OPTIONS,
   typeName,
   WEEKDAYS,
+  type BookingCategory,
   type BookingKind,
   type BookingType,
   type NoShowRules,
 } from '@/lib/booking'
-import { deleteBookingType, saveBookingType, saveNoShowRules, type TypeInput } from '@/app/console/bookings/actions'
+import {
+  deleteBookingType,
+  deleteCategory,
+  orderCategories,
+  saveBookingType,
+  saveCategory,
+  saveNoShowRules,
+  setCategoryImage,
+  type TypeInput,
+} from '@/app/console/bookings/actions'
 import { cn } from '@/lib/utils'
 
 // Bookings › Setup (admin): what can be booked, and the no-show rules.
@@ -34,8 +44,9 @@ const DEFAULTS: Record<BookingKind, Partial<TypeInput>> = {
   room: { durationMin: 90, bufferMin: 15, capacity: 1, stepMin: 30, maxParty: 6 },
 }
 
-const blank = (kind: BookingKind = 'service'): TypeInput => ({
+const blank = (kind: BookingKind = 'service', categoryId: string | null = null): TypeInput => ({
   kind,
+  categoryId,
   nameTh: '',
   nameEn: '',
   description: '',
@@ -59,6 +70,7 @@ const blank = (kind: BookingKind = 'service'): TypeInput => ({
 const fromType = (t: BookingType): TypeInput => ({
   id: t.id,
   kind: t.kind,
+  categoryId: t.categoryId,
   nameTh: t.nameTh,
   nameEn: t.nameEn,
   description: t.description ?? '',
@@ -80,6 +92,7 @@ const fromType = (t: BookingType): TypeInput => ({
 
 export function BookingSetup({
   types,
+  categories = [],
   rules,
   staff,
   products,
@@ -87,6 +100,7 @@ export function BookingSetup({
   api = { saveBookingType, deleteBookingType, saveNoShowRules },
 }: {
   types: BookingType[]
+  categories?: BookingCategory[]
   rules: NoShowRules
   staff: { id: string; name: string }[]
   products: { id: string; name: string; active: boolean }[]
@@ -96,10 +110,16 @@ export function BookingSetup({
   const [sel, setSel] = useState<string | 'new'>(types[0]?.id ?? 'new')
   const [fresh, setFresh] = useState(0)
   const current = types.find((t) => t.id === sel) ?? null
+  // Types grouped by category, in the categories' order; no category last.
+  const groups = [
+    ...categories.map((cat) => ({ id: cat.id as string | null, name: lang === 'en' && cat.nameEn ? cat.nameEn : cat.nameTh, list: types.filter((t) => t.categoryId === cat.id) })),
+    { id: null, name: categories.length ? tr(c.other) : '', list: types.filter((t) => !t.categoryId || !categories.some((cat) => cat.id === t.categoryId)) },
+  ].filter((g) => g.list.length > 0)
 
   return (
     <div className="grid items-start gap-5 xl:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
       <div className="flex flex-col gap-5">
+        <Categories categories={categories} types={types} />
         <section className={card}>
           <div className="flex items-center justify-between">
             <h2 className="font-display text-lg font-bold">{tr(c.types)}</h2>
@@ -111,8 +131,12 @@ export function BookingSetup({
           {types.length === 0 ? (
             <p className="mt-3 text-sm text-muted-foreground">{tr(c.noTypes)}</p>
           ) : (
-            <ul className="mt-2 divide-y divide-border">
-              {types.map((t) => (
+            <div className="mt-2 flex flex-col gap-3">
+              {groups.map((g) => (
+              <div key={g.id ?? 'none'}>
+              {g.name && <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">{g.name}</p>}
+            <ul className="divide-y divide-border">
+              {g.list.map((t) => (
                 <li key={t.id}>
                   <button
                     type="button"
@@ -133,13 +157,17 @@ export function BookingSetup({
                 </li>
               ))}
             </ul>
+              </div>
+              ))}
+            </div>
           )}
         </section>
         <RulesForm rules={rules} save={api.saveNoShowRules} />
       </div>
       <TypeForm
         key={current?.id ?? `new-${fresh}`}
-        initial={current ? fromType(current) : blank()}
+        initial={current ? fromType(current) : blank('service', categories[0]?.id ?? null)}
+        categories={categories}
         staff={staff}
         products={products}
         api={api}
@@ -155,6 +183,7 @@ export function BookingSetup({
 
 function TypeForm({
   initial,
+  categories,
   staff,
   products,
   api,
@@ -162,6 +191,7 @@ function TypeForm({
   onDeleted,
 }: {
   initial: TypeInput
+  categories: BookingCategory[]
   staff: { id: string; name: string }[]
   products: { id: string; name: string; active: boolean }[]
   api: { saveBookingType: typeof saveBookingType; deleteBookingType: typeof deleteBookingType }
@@ -201,7 +231,7 @@ function TypeForm({
             <button
               key={k}
               type="button"
-              onClick={() => setF({ ...blank(k), nameTh: f.nameTh, nameEn: f.nameEn, description: f.description })}
+              onClick={() => setF({ ...blank(k, f.categoryId), nameTh: f.nameTh, nameEn: f.nameEn, description: f.description })}
               className={cn('rounded-xl border px-3 py-2 text-left', f.kind === k ? 'border-primary bg-primary/5' : 'border-border hover:border-primary/40')}
             >
               <span className="block text-sm font-semibold">{tr(kindLabel[k])}</span>
@@ -220,6 +250,20 @@ function TypeForm({
           <span className={label}>{tr(c.nameEn)}</span>
           <input value={f.nameEn} maxLength={60} onChange={(e) => set({ nameEn: e.target.value })} className={input} />
         </label>
+        {categories.length > 0 && (
+          <label className="sm:col-span-2">
+            <span className={label}>{tr(c.category)}</span>
+            <select value={f.categoryId ?? ''} onChange={(e) => set({ categoryId: e.target.value || null })} className={input}>
+              <option value="">{tr(c.noCategory)}</option>
+              {categories.map((cat) => (
+                <option key={cat.id} value={cat.id}>
+                  {cat.nameTh}
+                  {cat.active ? '' : ' (—)'}
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
         <label className="sm:col-span-2">
           <span className={label}>{tr(c.description)}</span>
           <textarea rows={2} value={f.description} maxLength={500} onChange={(e) => set({ description: e.target.value })} className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm" />
@@ -474,5 +518,169 @@ function RulesForm({ rules, save }: { rules: NoShowRules; save: typeof saveNoSho
         )}
       </div>
     </section>
+  )
+}
+
+// ---------------- Categories (§35) ----------------
+
+// The browser shrinks a picture to at most 1200px wide JPEG before upload.
+async function shrink(file: File): Promise<Blob> {
+  const bitmap = await createImageBitmap(file)
+  const scale = Math.min(1, 1200 / bitmap.width)
+  const canvas = document.createElement('canvas')
+  canvas.width = Math.round(bitmap.width * scale)
+  canvas.height = Math.round(bitmap.height * scale)
+  const ctx = canvas.getContext('2d')
+  if (!ctx) throw new Error('no canvas')
+  ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height)
+  bitmap.close()
+  return new Promise((resolve, reject) => canvas.toBlob((b) => (b ? resolve(b) : reject(new Error('encode failed'))), 'image/jpeg', 0.82))
+}
+
+function Categories({ categories, types }: { categories: BookingCategory[]; types: BookingType[] }) {
+  const { tr } = useLanguage()
+  const router = useRouter()
+  const [pending, start] = useTransition()
+  const [edit, setEdit] = useState<string | 'new' | null>(null)
+  const [error, setError] = useState<string | null>(null)
+  const run = (fn: () => Promise<{ ok: boolean; error?: string }>, after?: () => void) =>
+    start(async () => {
+      setError(null)
+      const r = await fn()
+      if (r.ok) {
+        after?.()
+        router.refresh()
+      } else setError((r as { error: string }).error)
+    })
+  const move = (i: number, d: number) => {
+    const ids = categories.map((x) => x.id)
+    const j = i + d
+    if (j < 0 || j >= ids.length) return
+    ;[ids[i], ids[j]] = [ids[j], ids[i]]
+    run(() => orderCategories(ids))
+  }
+  const pick = (id: string) => {
+    const el = document.createElement('input')
+    el.type = 'file'
+    el.accept = 'image/jpeg,image/png,image/webp'
+    el.onchange = () => {
+      const f = el.files?.[0]
+      if (!f) return
+      run(async () => {
+        const blob = await shrink(f).catch(() => f)
+        const fd = new FormData()
+        fd.append('file', new File([blob], 'picture.jpg', { type: blob.type || 'image/jpeg' }))
+        return setCategoryImage(id, fd)
+      })
+    }
+    el.click()
+  }
+
+  return (
+    <section className={card}>
+      <div className="flex items-center justify-between">
+        <h2 className="font-display text-lg font-bold">{tr(c.categories)}</h2>
+        <button type="button" onClick={() => setEdit('new')} className="inline-flex items-center gap-1 text-sm font-semibold text-primary">
+          <Plus className="h-4 w-4" aria-hidden="true" />
+          {tr(c.addCategory)}
+        </button>
+      </div>
+      <p className="mt-1 text-xs text-muted-foreground">{tr(c.categoriesHint)}</p>
+      {error && <p className="mt-2 rounded-xl bg-destructive/10 px-3 py-2 text-sm font-semibold text-destructive">{tr(bkErrors[error] ?? bkErrors.failed)}</p>}
+      <ul className="mt-3 flex flex-col gap-2">
+        {categories.map((cat, i) =>
+          edit === cat.id ? (
+            <li key={cat.id}>
+              <CategoryForm cat={cat} pending={pending} onCancel={() => setEdit(null)} onSave={(v) => run(() => saveCategory({ ...v, id: cat.id }), () => setEdit(null))} />
+            </li>
+          ) : (
+            <li key={cat.id} className={cn('flex items-center gap-3 rounded-xl border border-border p-2', !cat.active && 'opacity-60')}>
+              <button type="button" onClick={() => pick(cat.id)} disabled={pending} title={tr(cat.imageUrl ? c.changeImage : c.addImage)} className="relative h-14 w-20 shrink-0 overflow-hidden rounded-lg bg-secondary">
+                {cat.imageUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={cat.imageUrl} alt="" className="h-full w-full object-cover" />
+                ) : (
+                  <ImagePlus className="mx-auto h-5 w-5 text-muted-foreground" aria-hidden="true" />
+                )}
+              </button>
+              <span className="min-w-0 flex-1">
+                <span className="block truncate text-sm font-semibold">{cat.nameTh}</span>
+                <span className="block truncate text-xs text-muted-foreground">
+                  {tr(c.itemsIn).replace('{n}', String(types.filter((t) => t.categoryId === cat.id).length))}
+                  {cat.description ? ` · ${cat.description}` : ''}
+                </span>
+              </span>
+              <span className="flex shrink-0 items-center">
+                <button type="button" disabled={pending || i === 0} onClick={() => move(i, -1)} aria-label={tr(c.moveUp)} className="p-1.5 text-muted-foreground disabled:opacity-30">
+                  <ArrowUp className="h-4 w-4" aria-hidden="true" />
+                </button>
+                <button type="button" disabled={pending || i === categories.length - 1} onClick={() => move(i, 1)} aria-label={tr(c.moveDown)} className="p-1.5 text-muted-foreground disabled:opacity-30">
+                  <ArrowDown className="h-4 w-4" aria-hidden="true" />
+                </button>
+                <button type="button" onClick={() => setEdit(cat.id)} aria-label={tr(c.edit)} className="p-1.5 text-muted-foreground">
+                  <Pencil className="h-4 w-4" aria-hidden="true" />
+                </button>
+              </span>
+            </li>
+          ),
+        )}
+        {edit === 'new' && (
+          <li>
+            <CategoryForm cat={null} pending={pending} onCancel={() => setEdit(null)} onSave={(v) => run(() => saveCategory(v), () => setEdit(null))} />
+          </li>
+        )}
+      </ul>
+      {edit && edit !== 'new' && (
+        <div className="mt-2 flex flex-wrap gap-3 text-xs font-semibold">
+          {categories.find((x) => x.id === edit)?.imageUrl && (
+            <button type="button" disabled={pending} onClick={() => run(() => setCategoryImage(edit, null))} className="text-muted-foreground underline">
+              {tr(c.removeImage)}
+            </button>
+          )}
+          <button type="button" disabled={pending} onClick={() => run(() => deleteCategory(edit), () => setEdit(null))} className="text-destructive underline">
+            {tr(c.remove)}
+          </button>
+        </div>
+      )}
+    </section>
+  )
+}
+
+function CategoryForm({
+  cat,
+  pending,
+  onSave,
+  onCancel,
+}: {
+  cat: BookingCategory | null
+  pending: boolean
+  onSave: (v: { nameTh: string; nameEn: string; description: string; active: boolean }) => void
+  onCancel: () => void
+}) {
+  const { tr } = useLanguage()
+  const [v, setV] = useState({ nameTh: cat?.nameTh ?? '', nameEn: cat?.nameEn ?? '', description: cat?.description ?? '', active: cat?.active ?? true })
+  return (
+    <div className="flex flex-col gap-2 rounded-xl border border-primary/40 p-3">
+      <div className="grid grid-cols-2 gap-2">
+        <input value={v.nameTh} maxLength={40} placeholder={tr(c.catName)} onChange={(e) => setV({ ...v, nameTh: e.target.value })} className={input} autoFocus />
+        <input value={v.nameEn} maxLength={40} placeholder={tr(c.nameEn)} onChange={(e) => setV({ ...v, nameEn: e.target.value })} className={input} />
+      </div>
+      <input value={v.description} maxLength={300} placeholder={tr(c.catDesc)} onChange={(e) => setV({ ...v, description: e.target.value })} className={input} />
+      <div className="flex flex-wrap items-center gap-3">
+        <label className="flex items-center gap-2 text-sm font-semibold">
+          <input type="checkbox" checked={v.active} onChange={(e) => setV({ ...v, active: e.target.checked })} className="h-4 w-4" />
+          {tr(c.active)}
+        </label>
+        <span className="ml-auto flex gap-2">
+          <button type="button" onClick={onCancel} className="h-9 rounded-full border border-border px-4 text-sm font-semibold">
+            {tr(c.cancelEdit)}
+          </button>
+          <button type="button" disabled={pending || !v.nameTh.trim()} onClick={() => onSave(v)} className="inline-flex h-9 items-center gap-1.5 rounded-full bg-primary px-4 text-sm font-bold text-primary-foreground disabled:opacity-40">
+            {pending && <Spinner className="h-3.5 w-3.5" />}
+            {tr(c.save)}
+          </button>
+        </span>
+      </div>
+    </div>
   )
 }

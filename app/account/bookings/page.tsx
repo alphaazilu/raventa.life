@@ -4,7 +4,8 @@ import { SiteHeader } from '@/components/site-header'
 import { SiteFooter } from '@/components/site-footer'
 import { createClient } from '@/lib/supabase/server'
 import { bangkokToday } from '@/lib/check-in/day'
-import { getRules, listTypes, memberBookings, memberNoShow } from '@/lib/console/booking'
+import { getRules, listCategories, listTypes, memberBookings, memberNoShow } from '@/lib/console/booking'
+import { sortByCategory } from '@/lib/booking'
 import { MY_BOOKINGS_PATH } from '@/lib/auth/roles'
 import { MemberBooking, type PublicType } from '@/components/booking/member-booking'
 
@@ -22,14 +23,20 @@ export default async function MyBookingsPage({ searchParams }: { searchParams: P
   } = await supabase.auth.getUser()
   if (!user) redirect(`/login?next=${encodeURIComponent(MY_BOOKINGS_PATH)}`)
   const q = await searchParams
-  const [types, mine, rules] = await Promise.all([listTypes(true).catch(() => null), memberBookings(user.id).catch(() => null), getRules()])
+  const [types, mine, rules, cats] = await Promise.all([
+    listTypes(true).catch(() => null),
+    memberBookings(user.id).catch(() => null),
+    getRules(),
+    listCategories(true).catch(() => null),
+  ])
   const noShow = types ? await memberNoShow(user.id, rules).catch(() => null) : null
   // Only what members may see of each type.
-  const open: PublicType[] = (types ?? [])
+  const open: PublicType[] = sortByCategory(types ?? [], cats ?? [])
     .filter((t) => t.memberBooking)
     .map((t) => ({
       id: t.id,
       kind: t.kind,
+      categoryId: t.categoryId,
       nameTh: t.nameTh,
       nameEn: t.nameEn,
       description: t.description,
@@ -49,6 +56,7 @@ export default async function MyBookingsPage({ searchParams }: { searchParams: P
           <MemberBooking
             setUp={types !== null}
             types={open}
+            categories={(cats ?? []).map((x) => ({ id: x.id, nameTh: x.nameTh, nameEn: x.nameEn, description: x.description, imageUrl: x.imageUrl }))}
             upcoming={mine?.upcoming ?? []}
             past={mine?.past ?? []}
             cancelHours={cancelHours}

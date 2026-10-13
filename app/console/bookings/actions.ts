@@ -6,7 +6,7 @@ import { canUseDesk, isAdmin, BOOKINGS_PATH } from '@/lib/auth/roles'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { isMissingTable } from '@/lib/console/db-errors'
 import { getBooking, listTypes, memberNoShow, sendBookingEmail, slotsFor } from '@/lib/console/booking'
-import { BOOKING_KINDS, STEP_OPTIONS, type BookingKind, type NoShowRules, type NoShowStatus, type Slot } from '@/lib/booking'
+import { BOOKING_KINDS, CATEGORY_BUCKET, STEP_OPTIONS, type BookingKind, type NoShowRules, type NoShowStatus, type Slot } from '@/lib/booking'
 
 // Back Office › Bookings (§34, v0.35). Staff book for anyone and change
 // statuses; setup and no-show rules are admin only. Written with the
@@ -171,6 +171,7 @@ async function admin(): Promise<{ userId: string } | { error: string }> {
 export type TypeInput = {
   id?: string
   kind: BookingKind
+  categoryId: string | null
   nameTh: string
   nameEn: string
   description: string
@@ -220,6 +221,7 @@ export async function saveBookingType(input: TypeInput): Promise<BkResult<{ id: 
   const row = {
     kind: input.kind,
     name_th: nameTh,
+    ...(input.categoryId !== undefined ? { category_id: input.categoryId || null } : {}),
     name_en: input.nameEn.trim(),
     description: input.description.trim().slice(0, 500) || null,
     duration_min: input.durationMin,
@@ -237,12 +239,17 @@ export async function saveBookingType(input: TypeInput): Promise<BkResult<{ id: 
     updated_at: new Date().toISOString(),
   }
   let id = input.id
+  // Before §35 there's no category column: save without it.
+  const noColumn = (e: { code?: string } | null) => e?.code === 'PGRST204' || e?.code === '42703'
+  const { category_id: _cat, ...rowNoCat } = row as typeof row & { category_id?: string | null }
   if (id) {
-    const { error } = await db.from('booking_types').update(row).eq('id', id)
+    let { error } = await db.from('booking_types').update(row).eq('id', id)
+    if (noColumn(error)) ({ error } = await db.from('booking_types').update(rowNoCat).eq('id', id))
     if (error) return { ok: false, error: rpcError(error) }
   } else {
-    const { data, error } = await db.from('booking_types').insert(row).select('id').single()
-    if (error) return { ok: false, error: rpcError(error) }
+    let { data, error } = await db.from('booking_types').insert(row).select('id').single()
+    if (noColumn(error)) ({ data, error } = await db.from('booking_types').insert(rowNoCat).select('id').single())
+    if (error || !data) return { ok: false, error: rpcError(error) }
     id = data.id as string
   }
   // People / rooms: update the kept ones, add new ones; ones removed are
@@ -324,4 +331,77 @@ export async function bookingDetail(id: string): Promise<BkResult<{ noShow: NoSh
   const b = await getBooking(id)
   if (!b) return { ok: false, error: 'not_yours' }
   return { ok: true, data: { noShow: b.memberId ? await memberNoShow(b.memberId) : null } }
+}
+
+// ---- admin: categories (§35, v0.35.1) ----
+
+export async function saveCategory(input: { id?: string; nameTh: string; nameEn: string; description: string; active: boolean }): Promise<BkResult<{ id: string }>> {
+  const ctx = await admin()
+  if ('error' in ctx) return { ok: false, error: ctx.error }
+  const nameTh = input.nameTh.trim()
+  if (nameTh.length < 1 || nameTh.length > 40 || input.nameEn.trim().length > 40) return { ok: false, error: 'bad_category' }
+  const db = createAdminClient()
+  const row = { name_th: nameTh, name_en: input.nameEn.trim(), description: input.description.trim().slice(0, 300) || null, is_active: input.active }
+  if (input.id) {
+    const { error } = await db.from('booking_categories').update(row).eq('id', input.id)
+    if (error) return { ok: false, error: rpcError(error) }
+    revalidatePath(BOOKINGS_PATH)
+    return { ok: true, data: { id: input.id } }
+  }
+  const { data: last } = await db.from('booking_categories').select('sort').order('sort', { ascending: false }).limit(1)
+  const { data, error } = await db
+    .from('booking_categories')
+    .insert({ ...row, sort: (Number(last?.[0]?.sort) || 0) + 1 })
+    .select('id')
+    .single()
+  if (error) return { ok: false, error: rpcError(error) }
+  revalidatePath(BOOKINGS_PATH)
+  return { ok: true, data: { id: data.id as string } }
+}
+
+// The whole order at once (ids top to bottom).
+export async function orderCategories(ids: string[]): Promise<BkResult> {
+  const ctx = await admin()
+  if ('error' in ctx) return { ok: false, error: ctx.error }
+  const db = createAdminClient()
+  for (const [i, id] of ids.slice(0, 100).entries()) await db.from('booking_categories').update({ sort: i + 1 }).eq('id', id)
+  revalidatePath(BOOKINGS_PATH)
+  return { ok: true, data: null }
+}
+
+// Its items stay, without a category.
+export async function deleteCategory(id: string): Promise<BkResult> {
+  const ctx = await admin()
+  if ('error' in ctx) return { ok: false, error: ctx.error }
+  const db = createAdminClient()
+  const { data: c } = await db.from('booking_categories').select('image_path').eq('id', id).maybeSingle()
+  const { error } = await db.from('booking_categories').delete().eq('id', id)
+  if (error) return { ok: false, error: rpcError(error) }
+  if (c?.image_path) await db.storage.from(CATEGORY_BUCKET).remove([c.image_path as string])
+  revalidatePath(BOOKINGS_PATH)
+  return { ok: true, data: null }
+}
+
+const IMAGE_TYPES: Record<string, string> = { 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp' }
+
+// A picture for a category (the browser has already shrunk it). null file = remove.
+export async function setCategoryImage(id: string, form: FormData | null): Promise<BkResult> {
+  const ctx = await admin()
+  if ('error' in ctx) return { ok: false, error: ctx.error }
+  const db = createAdminClient()
+  const { data: c } = await db.from('booking_categories').select('image_path').eq('id', id).maybeSingle()
+  if (!c) return { ok: false, error: 'bad_category' }
+  let path: string | null = null
+  const file = form?.get('file')
+  if (file) {
+    if (!(file instanceof File) || !IMAGE_TYPES[file.type] || file.size > 2 * 1024 * 1024) return { ok: false, error: 'bad_image' }
+    path = `categories/${id}-${Date.now()}.${IMAGE_TYPES[file.type]}`
+    const { error } = await db.storage.from(CATEGORY_BUCKET).upload(path, file, { contentType: file.type, upsert: false })
+    if (error) return { ok: false, error: 'bad_image' }
+  }
+  const { error } = await db.from('booking_categories').update({ image_path: path }).eq('id', id)
+  if (error) return { ok: false, error: rpcError(error) }
+  if (c.image_path) await db.storage.from(CATEGORY_BUCKET).remove([c.image_path as string])
+  revalidatePath(BOOKINGS_PATH)
+  return { ok: true, data: null }
 }

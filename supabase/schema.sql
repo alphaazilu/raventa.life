@@ -2587,3 +2587,31 @@ end;
 $$;
 revoke execute on function public.book_slot(uuid, uuid, timestamptz, integer, uuid, text, text, text, text, uuid, uuid) from public, anon, authenticated;
 grant execute on function public.book_slot(uuid, uuid, timestamptz, integer, uuid, text, text, text, text, uuid, uuid) to service_role;
+
+
+-- 35. Booking categories (v0.35.1). Admin-named groups for what can be
+-- booked (e.g. "Massage", "Classes", "Private"), in their own order, with a
+-- picture and a line of text — members see them when choosing what to book.
+create table if not exists public.booking_categories (
+  id uuid primary key default gen_random_uuid(),
+  name_th text not null check (char_length(btrim(name_th)) between 1 and 40),
+  name_en text not null default '' check (char_length(name_en) <= 40),
+  description text check (char_length(description) <= 300),
+  image_path text check (image_path is null or char_length(image_path) <= 200),
+  sort integer not null default 0,
+  is_active boolean not null default true,
+  created_at timestamptz not null default now()
+);
+alter table public.booking_categories enable row level security;
+revoke all on public.booking_categories from anon, authenticated;
+
+alter table public.booking_types add column if not exists category_id uuid references public.booking_categories(id) on delete set null;
+
+-- Category pictures: public (shown on the booking page), written only by
+-- the server after an admin check. The browser shrinks them before upload.
+insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+values ('booking-images', 'booking-images', true, 2097152, array['image/jpeg', 'image/png', 'image/webp'])
+on conflict (id) do update set
+  public = excluded.public,
+  file_size_limit = excluded.file_size_limit,
+  allowed_mime_types = excluded.allowed_mime_types;
