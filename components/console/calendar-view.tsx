@@ -408,7 +408,7 @@ function DayPanel({
         )}
         {data.shifts && <p className="text-sm text-muted-foreground">{tr(c.onShift).replace('{n}', String(data.shifts.count))}</p>}
         {data.bookings && (
-          <a href={`${BOOKINGS_PATH}?d=${day}`} className="block text-sm font-semibold text-primary underline">
+          <a href={`${BOOKINGS_PATH}?tab=day&d=${day}`} className="block text-sm font-semibold text-primary underline">
             {tr(c.bookingsN).replace('{n}', String(data.bookings.count))}
           </a>
         )}

@@ -134,6 +134,7 @@ const t = {
   promotions: { th: 'โปรโมชั่น', en: 'Promotions' },
   commission: { th: 'ค่าคอมมิชชั่น', en: 'Commission' },
   bookings: { th: 'การจอง', en: 'Bookings' },
+  bkMonth: { th: 'ปฏิทิน', en: 'Calendar' },
   bkDay: { th: 'รายวัน', en: 'Day' },
   bkList: { th: 'รายการ', en: 'List' },
   bkStats: { th: 'สรุป', en: 'Summary' },
@@ -180,7 +181,8 @@ const GROUPS: Group[] = [
         href: BOOKINGS_PATH,
         badge: (a) => a.bookingLate,
         subs: [
-          { key: 'day', label: t.bkDay, tab: null, badge: (a) => a.bookingLate },
+          { key: 'month', label: t.bkMonth, tab: null },
+          { key: 'day', label: t.bkDay, tab: 'day', badge: (a) => a.bookingLate },
           { key: 'list', label: t.bkList, tab: 'list' },
           { key: 'stats', label: t.bkStats, tab: 'stats' },
           { key: 'setup', label: t.bkSetup, tab: 'setup' },

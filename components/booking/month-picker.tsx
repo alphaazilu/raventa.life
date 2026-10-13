@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { useLanguage } from '@/components/language-provider'
-import { addDays, bkCopy as c, isNear } from '@/lib/booking'
+import { addDays, bkCopy as c, gridStart, isNear } from '@/lib/booking'
 import { cn } from '@/lib/utils'
 
 // A month to pick a booking day from (v0.35.5): Monday first, each day
@@ -29,8 +29,7 @@ const shiftMonth = (m: string, n: number) => {
   const mm = ((mo % 12) + 12) % 12
   return `${yy}-${String(mm + 1).padStart(2, '0')}-01`
 }
-// First cell of the grid (the Monday on or before the 1st).
-export const gridStart = (month: string) => addDays(month, -((new Date(`${month}T00:00:00Z`).getUTCDay() + 6) % 7))
+export { gridStart }
 
 export function MonthPicker({
   value,

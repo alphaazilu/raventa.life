@@ -36,7 +36,7 @@ export function MemberBookings({ memberId, list, noShow, rules }: { memberId: st
       <ul className="mt-2 divide-y divide-border">
         {list.map((b) => (
           <li key={b.id} className="flex items-center justify-between gap-3 py-2 text-sm">
-            <Link href={`${BOOKINGS_PATH}?d=${b.day}`} className="min-w-0 hover:underline">
+            <Link href={`${BOOKINGS_PATH}?tab=day&d=${b.day}`} className="min-w-0 hover:underline">
               <span className="block truncate font-semibold">{tr(b.typeName)}</span>
               <span className="block text-xs text-muted-foreground">
                 {formatMemberDate(`${b.day}T12:00:00+07:00`, lang, true)} · {b.wholeDay ? (b.arriveTime ? `${tr(c.allDay)} ~${b.arriveTime}` : tr(c.allDay)) : bkkHm(b.start)}

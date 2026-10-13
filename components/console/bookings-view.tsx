@@ -11,6 +11,8 @@ import { BOOKINGS_PATH, MEMBERS_PATH } from '@/lib/auth/roles'
 import {
   addDays,
   bkCopy as c,
+  gridStart,
+  shiftMonth,
   bkErrors,
   bkkHm,
   timeRange,
@@ -23,6 +25,7 @@ import {
   type Booking,
   type BookingCategory,
   type BookingTemplate,
+  type DayLoad,
   type BookingStatus,
   type BookingType,
   type NoShowRules,
@@ -42,10 +45,10 @@ import {
   type MemberPick,
 } from '@/app/console/bookings/actions'
 import { BookingSetup } from '@/components/console/booking-setup'
-import { gridStart, MonthPicker } from '@/components/booking/month-picker'
+import { MonthPicker } from '@/components/booking/month-picker'
 import { cn } from '@/lib/utils'
 
-export type BookingsTab = 'day' | 'list' | 'stats' | 'setup'
+export type BookingsTab = 'month' | 'day' | 'list' | 'stats' | 'setup'
 
 const card = 'rounded-2xl border border-border bg-card p-4 md:p-5'
 const input = 'h-10 w-full rounded-xl border border-border bg-background px-3 text-sm outline-none focus:border-primary'
@@ -77,6 +80,8 @@ export function BookingsView({
   bookings,
   day,
   today,
+  month = `${today.slice(0, 7)}-01`,
+  load = null,
   range,
   rules,
   stats,
@@ -92,6 +97,8 @@ export function BookingsView({
   bookings: Booking[]
   day: string
   today: string
+  month?: string
+  load?: Record<string, DayLoad> | null
   range: { from: string; to: string }
   rules: NoShowRules
   stats: BookingStats | null
@@ -100,9 +107,10 @@ export function BookingsView({
 }) {
   const { tr, lang } = useLanguage()
   const [open, setOpen] = useState<Booking | null>(null)
-  const [form, setForm] = useState<{ move?: Booking } | null>(null)
+  const [form, setForm] = useState<{ move?: Booking; day?: string; typeId?: string } | null>(null)
   const date = (d: string) => formatMemberDate(`${d}T12:00:00+07:00`, lang, true) ?? d
   const tabs: { key: BookingsTab; label: { th: string; en: string } }[] = [
+    { key: 'month', label: c.tabMonth },
     { key: 'day', label: c.tabDay },
     { key: 'list', label: c.tabList },
     ...(admin ? ([{ key: 'stats', label: c.tabStats }, { key: 'setup', label: c.tabSetup }] as const) : []),
@@ -113,20 +121,20 @@ export function BookingsView({
     <div className="flex w-full flex-col gap-4 px-4 py-6 md:px-6 md:py-8 xl:px-8">
       <div className="flex flex-wrap items-center gap-2">
         <h1 className="mr-2 font-display text-2xl font-extrabold md:text-3xl">{tr(c.title)}</h1>
-        <div className="inline-flex rounded-full bg-secondary p-1 text-sm font-semibold" role="tablist">
+        <div className="inline-flex max-w-full overflow-x-auto whitespace-nowrap rounded-full bg-secondary p-1 text-sm font-semibold" role="tablist">
           {tabs.map((t) => (
             <Link
               key={t.key}
               role="tab"
               aria-selected={tab === t.key}
-              href={t.key === 'day' ? BOOKINGS_PATH : `${BOOKINGS_PATH}?tab=${t.key}`}
-              className={cn('rounded-full px-3.5 py-1.5', tab === t.key ? 'bg-background shadow-sm' : 'text-muted-foreground hover:text-foreground')}
+              href={t.key === 'month' ? BOOKINGS_PATH : `${BOOKINGS_PATH}?tab=${t.key}`}
+              className={cn('shrink-0 rounded-full px-3.5 py-1.5', tab === t.key ? 'bg-background shadow-sm' : 'text-muted-foreground hover:text-foreground')}
             >
               {tr(t.label)}
             </Link>
           ))}
         </div>
-        {setUp && activeTypes.length > 0 && (tab === 'day' || tab === 'list') && (
+        {setUp && activeTypes.length > 0 && (tab === 'month' || tab === 'day' || tab === 'list') && (
           <button
             type="button"
             onClick={() => setForm({})}
@@ -146,6 +154,8 @@ export function BookingsView({
         <p className="rounded-2xl border border-dashed border-border p-6 text-sm text-muted-foreground">{tr(c.noTypes)}</p>
       ) : tab === 'stats' ? (
         <Stats stats={stats} range={range} rules={rules} />
+      ) : tab === 'month' ? (
+        <MonthView types={types} load={load} month={month} today={today} date={date} onBook={(d, typeId) => setForm({ day: d, typeId })} />
       ) : tab === 'list' ? (
         <ListView bookings={bookings} range={range} date={date} rules={rules} onOpen={setOpen} />
       ) : (
@@ -164,8 +174,209 @@ export function BookingsView({
           }}
         />
       )}
-      {form && <BookForm types={activeTypes} day={tab === 'day' ? day : today} move={form.move} onClose={() => setForm(null)} windowDays={rules.windowDays} />}
+      {form && <BookForm types={activeTypes} day={form.day ?? (tab === 'day' ? day : today)} typeId={form.typeId} move={form.move} onClose={() => setForm(null)} windowDays={rules.windowDays} />}
     </div>
+  )
+}
+
+// ---------------- Month (v0.35.8) ----------------
+
+const MWD = [
+  { th: 'จ', en: 'Mon' },
+  { th: 'อ', en: 'Tue' },
+  { th: 'พ', en: 'Wed' },
+  { th: 'พฤ', en: 'Thu' },
+  { th: 'ศ', en: 'Fri' },
+  { th: 'ส', en: 'Sat' },
+  { th: 'อา', en: 'Sun' },
+]
+
+type Level = 'free' | 'busy' | 'packed' | 'full'
+const levelOf = (used: number, cap: number): Level | null =>
+  cap <= 0 ? null : used >= cap ? 'full' : used / cap > 0.8 ? 'packed' : used / cap >= 0.5 ? 'busy' : 'free'
+const levelBar: Record<Level, string> = { free: 'bg-accent', busy: 'bg-amber-500', packed: 'bg-destructive', full: 'bg-foreground' }
+const levelText: Record<Level, string> = { free: 'text-accent', busy: 'text-amber-600', packed: 'text-destructive', full: 'text-foreground' }
+const levelCopy: Record<Level, { th: string; en: string }> = { free: c.loadFree, busy: c.loadBusy, packed: c.loadPacked, full: c.loadFull }
+
+function MonthView({
+  types,
+  load,
+  month,
+  today,
+  date,
+  onBook,
+}: {
+  types: BookingType[]
+  load: Record<string, DayLoad> | null
+  month: string
+  today: string
+  date: (d: string) => string
+  onBook: (day: string, typeId?: string) => void
+}) {
+  const { tr, lang } = useLanguage()
+  const [only, setOnly] = useState<string>('')
+  const [picked, setPicked] = useState<string | null>(null)
+  const start = gridStart(month)
+  const days = Array.from({ length: 42 }, (_, i) => addDays(start, i))
+  const weeks = days[35].slice(0, 7) === month.slice(0, 7) ? 6 : 5
+  const title = new Intl.DateTimeFormat(lang === 'en' ? 'en-GB' : 'th-TH', { month: 'long', year: 'numeric', timeZone: 'UTC' }).format(new Date(`${month}T00:00:00Z`))
+  const href = (m: string) => (m.slice(0, 7) === today.slice(0, 7) ? BOOKINGS_PATH : `${BOOKINGS_PATH}?m=${m.slice(0, 7)}`)
+  const shownTypes = types.filter((t) => t.active)
+  const sum = (d: string) => {
+    const l = load?.[d]
+    if (!l) return { people: 0, used: 0, cap: 0 }
+    if (only) return l.byType[only] ?? { people: 0, used: 0, cap: 0 }
+    return Object.values(l.byType).reduce((a, x) => ({ people: a.people + x.people, used: a.used + x.used, cap: a.cap + x.cap }), { people: 0, used: 0, cap: 0 })
+  }
+  const pickedLoad = picked ? load?.[picked] : null
+
+  return (
+    <>
+      <div className="flex flex-wrap items-center gap-2">
+        <Link href={href(shiftMonth(month, -1))} aria-label={tr(c.prevMonth)} className="flex h-10 w-10 items-center justify-center rounded-full border border-border hover:bg-secondary">
+          <ChevronLeft className="h-5 w-5" aria-hidden="true" />
+        </Link>
+        <span className="min-w-[9rem] text-center font-display text-lg font-bold">{title}</span>
+        <Link href={href(shiftMonth(month, 1))} aria-label={tr(c.nextMonth)} className="flex h-10 w-10 items-center justify-center rounded-full border border-border hover:bg-secondary">
+          <ChevronRight className="h-5 w-5" aria-hidden="true" />
+        </Link>
+        {month.slice(0, 7) !== today.slice(0, 7) && (
+          <Link href={BOOKINGS_PATH} className="h-10 rounded-full border border-border px-4 text-sm font-semibold leading-10 hover:bg-secondary">
+            {tr(c.thisMonth)}
+          </Link>
+        )}
+      </div>
+      {shownTypes.length > 1 && (
+        <div className="-mx-1 flex gap-1.5 overflow-x-auto px-1 pb-1 text-sm font-semibold">
+          {[{ id: '', label: tr(c.allTypes) }, ...shownTypes.map((t) => ({ id: t.id, label: typeName(t, lang) }))].map((x) => (
+            <button
+              key={x.id || 'all'}
+              type="button"
+              onClick={() => setOnly(x.id)}
+              aria-pressed={only === x.id}
+              className={cn('shrink-0 rounded-full border px-3.5 py-1.5', only === x.id ? 'border-primary bg-primary text-primary-foreground' : 'border-border hover:bg-secondary')}
+            >
+              {x.label}
+            </button>
+          ))}
+        </div>
+      )}
+      {load === null ? (
+        <p className="rounded-2xl bg-amber-500/15 p-4 text-sm font-semibold text-amber-800 dark:text-amber-300">{tr(c.monthFailed)}</p>
+      ) : (
+        <div className={cn(card, 'p-2 md:p-3')}>
+          <div className="grid grid-cols-7 gap-1 text-center md:gap-1.5">
+            {MWD.map((w, i) => (
+              <span key={i} className="pb-1 text-[11px] font-semibold text-muted-foreground md:text-xs">
+                {tr(w)}
+              </span>
+            ))}
+            {days.slice(0, weeks * 7).map((d) => {
+              const inMonth = d.slice(0, 7) === month.slice(0, 7)
+              const x = sum(d)
+              const lv = levelOf(x.used, x.cap)
+              const pct = x.cap ? Math.min(100, Math.round((x.used / x.cap) * 100)) : 0
+              const closed = !lv && x.people === 0
+              // "All": one item can be full while the day as a whole isn't.
+              const someFull = !only && lv !== 'full' && Object.values(load?.[d]?.byType ?? {}).some((y) => y.cap > 0 && y.used >= y.cap)
+              return (
+                <button
+                  key={d}
+                  type="button"
+                  onClick={() => setPicked(d === picked ? null : d)}
+                  aria-pressed={d === picked}
+                  title={lv ? `${tr(levelCopy[lv])} · ${tr(c.pctFull).replace('{p}', String(pct))}` : tr(c.notOpen)}
+                  className={cn(
+                    'flex min-h-[3.75rem] flex-col items-stretch rounded-xl border p-1 text-left transition-colors md:min-h-[5.5rem] md:p-2',
+                    d === picked ? 'border-primary bg-primary/5' : 'border-transparent hover:bg-secondary',
+                    d === today && d !== picked && 'border-primary/50',
+                    !inMonth && 'opacity-40',
+                    closed && 'bg-muted/40',
+                  )}
+                >
+                  <span className="flex items-center justify-between">
+                    <span className={cn('text-xs font-bold tabular-nums md:text-sm', d === today && 'text-primary', closed && 'text-muted-foreground/60')}>{Number(d.slice(8))}</span>
+                    {someFull && <span className="h-2 w-2 rounded-full bg-foreground" title={tr(c.someFull)} aria-label={tr(c.someFull)} />}
+                  </span>
+                  <span className="mt-auto flex flex-col gap-1">
+                    {x.people > 0 && (
+                      <span className={cn('text-center font-display text-base font-extrabold tabular-nums leading-none md:text-left md:text-xl', lv ? levelText[lv] : 'text-foreground')}>
+                        {x.people}
+                        <span className="ml-0.5 hidden text-xs font-semibold text-muted-foreground md:inline">{lang === 'en' ? '' : 'คน'}</span>
+                      </span>
+                    )}
+                    {lv ? (
+                      <span className="block h-1.5 w-full overflow-hidden rounded-full bg-secondary" aria-hidden="true">
+                        <span className={cn('block h-full rounded-full', levelBar[lv])} style={{ width: `${Math.max(pct, 6)}%` }} />
+                      </span>
+                    ) : (
+                      <span className="hidden text-[10px] font-semibold text-muted-foreground/70 md:block">{tr(c.notOpen)}</span>
+                    )}
+                  </span>
+                </button>
+              )
+            })}
+          </div>
+          <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 px-1 text-xs font-semibold text-muted-foreground">
+            {(['free', 'busy', 'packed', 'full'] as Level[]).map((l) => (
+              <span key={l} className="inline-flex items-center gap-1.5">
+                <span className={cn('h-2 w-4 rounded-full', levelBar[l])} aria-hidden="true" />
+                {tr(levelCopy[l])}
+                <span className="font-normal">{l === 'free' ? '<50%' : l === 'busy' ? '50–80%' : l === 'packed' ? '>80%' : '100%'}</span>
+              </span>
+            ))}
+            {!only && (
+              <span className="inline-flex items-center gap-1.5">
+                <span className="h-2 w-2 rounded-full bg-foreground" aria-hidden="true" />
+                {tr(c.someFull)}
+              </span>
+            )}
+          </div>
+        </div>
+      )}
+      {picked && (
+        <section className={card}>
+          <div className="flex flex-wrap items-center gap-2">
+            <h2 className="mr-auto font-display text-base font-bold">{date(picked)}</h2>
+            <Link href={`${BOOKINGS_PATH}?tab=day&d=${picked}`} className="inline-flex h-10 items-center rounded-full border border-border px-4 text-sm font-semibold hover:bg-secondary">
+              {tr(c.openDay)}
+            </Link>
+            {picked >= today && (
+              <button
+                type="button"
+                onClick={() => onBook(picked, only || undefined)}
+                className="inline-flex h-10 items-center gap-1.5 rounded-full bg-primary px-4 text-sm font-bold text-primary-foreground"
+              >
+                <Plus className="h-4 w-4" aria-hidden="true" />
+                {tr(c.bookOn)}
+              </button>
+            )}
+          </div>
+          <ul className="mt-3 flex flex-col gap-2">
+            {shownTypes
+              .filter((t) => !only || t.id === only)
+              .map((t) => {
+                const x = pickedLoad?.byType[t.id]
+                const lv = x ? levelOf(x.used, x.cap) : null
+                const pct = x && x.cap ? Math.min(100, Math.round((x.used / x.cap) * 100)) : 0
+                return (
+                  <li key={t.id} className="grid grid-cols-[1fr_auto] items-center gap-x-3 gap-y-1 text-sm">
+                    <span className="truncate font-semibold">{typeName(t, lang)}</span>
+                    <span className={cn('text-right font-semibold tabular-nums', lv ? levelText[lv] : 'text-muted-foreground')}>
+                      {!x || (!lv && !x.people) ? tr(c.notOpen) : `${tr(c.people).replace('{n}', String(x.people))}${lv ? ` · ${tr(c.pctFull).replace('{p}', String(pct))}` : ''}`}
+                    </span>
+                    {lv && (
+                      <span className="col-span-2 block h-1.5 w-full overflow-hidden rounded-full bg-secondary" aria-hidden="true">
+                        <span className={cn('block h-full rounded-full', levelBar[lv])} style={{ width: `${Math.max(pct, 3)}%` }} />
+                      </span>
+                    )}
+                  </li>
+                )
+              })}
+          </ul>
+        </section>
+      )}
+    </>
   )
 }
 
@@ -190,7 +401,7 @@ function DayView({
 }) {
   const { tr, lang } = useLanguage()
   const router = useRouter()
-  const go = (d: string) => router.push(d === today ? BOOKINGS_PATH : `${BOOKINGS_PATH}?d=${d}`)
+  const go = (d: string) => router.push(d === today ? `${BOOKINGS_PATH}?tab=day` : `${BOOKINGS_PATH}?tab=day&d=${d}`)
   const live = bookings.filter((b) => b.status !== 'cancelled')
   const gone = bookings.filter((b) => b.status === 'cancelled')
   const shown = types.filter((t) => t.active || live.some((b) => b.typeId === t.id))
@@ -369,7 +580,7 @@ function ListView({
         <div className="flex flex-col gap-4">
           {days.map((d) => (
             <section key={d} className={card}>
-              <Link href={`${BOOKINGS_PATH}?d=${d}`} className="font-display text-base font-bold hover:underline">
+              <Link href={`${BOOKINGS_PATH}?tab=day&d=${d}`} className="font-display text-base font-bold hover:underline">
                 {date(d)}
               </Link>
               <ul className="mt-2 flex flex-col gap-1.5">
@@ -530,6 +741,7 @@ function BookingPanel({ b, admin, rules, onClose, onMove }: { b: Booking; admin:
 export function BookForm({
   types,
   day: startDay,
+  typeId: startType,
   move,
   onClose,
   windowDays = 60,
@@ -538,6 +750,7 @@ export function BookForm({
 }: {
   types: BookingType[]
   day: string
+  typeId?: string
   move?: Booking
   onClose: () => void
   windowDays?: number
@@ -546,7 +759,7 @@ export function BookForm({
   const { tr, lang } = useLanguage()
   const router = useRouter()
   const [pending, start] = useTransition()
-  const [typeId, setTypeId] = useState(move?.typeId ?? types[0]?.id ?? '')
+  const [typeId, setTypeId] = useState(move?.typeId ?? (types.some((t) => t.id === startType) ? startType! : types[0]?.id ?? ''))
   const [day, setDay] = useState(move?.day ?? startDay)
   const [slots, setSlots] = useState<Slot[] | null>(null)
   const [closed, setClosed] = useState(false)

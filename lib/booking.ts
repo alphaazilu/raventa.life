@@ -119,6 +119,14 @@ const active = (b: Pick<Booking, 'status'>) => b.status === 'booked' || b.status
 export const reasonText = (r: EmptyReason, tr: (v: { th: string; en: string }) => string) =>
   tr(bkCopy[`why_${r.code}` as const]).replace('{d}', String(r.duration ?? '')).replace('{w}', String(r.window ?? ''))
 
+// First cell of a month grid (the Monday on or before the 1st). month = YYYY-MM-01.
+export const gridStart = (month: string) => addDays(month, -((new Date(`${month}T00:00:00Z`).getUTCDay() + 6) % 7))
+export const shiftMonth = (m: string, n: number) => {
+  const y = Number(m.slice(0, 4))
+  const mo = Number(m.slice(5, 7)) - 1 + n
+  return `${y + Math.floor(mo / 12)}-${String((((mo % 12) + 12) % 12) + 1).padStart(2, '0')}-01`
+}
+
 export function daySlots(t: BookingType, day: string, taken: Booking[], closed: Closed, notBefore: number, ignore?: string): Slot[] {
   if (closed.all) return []
   const wd = weekdayOf(day)
@@ -165,6 +173,38 @@ export function daySlots(t: BookingType, day: string, taken: Booking[], closed: 
       const resources = res.map((r) => ({ id: r.id, label: r.label, left: Math.max(0, t.capacity - used(s, e, r.id)) }))
       const left = res.length ? Math.max(0, ...resources.map((r) => r.left)) : Math.max(0, t.capacity - used(s, e, null))
       out.push({ start, time, left, resources })
+    }
+  }
+  return out
+}
+
+// How busy a day is (v0.35.8), per type, for the back-office month calendar.
+// `used`/`cap` are place-slots (timed: every slot × every person/room; whole
+// day: places), so a long treatment over two rounds counts as busy in both.
+// Types not open that day get no `cap`. `taken` = live bookings only.
+export type DayLoad = { people: number; count: number; byType: Record<string, { people: number; used: number; cap: number }> }
+export function dayLoad(types: BookingType[], day: string, taken: Booking[], closed: Closed): DayLoad {
+  const out: DayLoad = { people: 0, count: 0, byType: {} }
+  for (const b of taken) {
+    if (b.day !== day || !active(b)) continue
+    out.people += b.party
+    out.count += 1
+    ;(out.byType[b.typeId] ??= { people: 0, used: 0, cap: 0 }).people += b.party
+  }
+  if (closed.all) return out
+  for (const t of types) {
+    if (!t.active || !t.hours.some((h) => h.weekday === weekdayOf(day))) continue
+    const slots = daySlots(t, day, taken, closed, 0)
+    if (!slots.length) continue
+    const x = (out.byType[t.id] ??= { people: 0, used: 0, cap: 0 })
+    for (const s of slots) {
+      if (t.wholeDay || !s.resources.length) {
+        x.cap += t.capacity
+        x.used += t.capacity - s.left
+      } else {
+        x.cap += t.capacity * s.resources.length
+        x.used += s.resources.reduce((n, r) => n + (t.capacity - r.left), 0)
+      }
     }
   }
   return out
@@ -250,6 +290,7 @@ export const WEEKDAYS = [L('อา', 'Sun'), L('จ', 'Mon'), L('อ', 'Tue'), L
 export const bkCopy = {
   // back office
   title: L('การจอง', 'Bookings'),
+  tabMonth: L('ปฏิทิน', 'Calendar'),
   tabDay: L('รายวัน', 'Day'),
   tabList: L('รายการ', 'List'),
   tabStats: L('สรุป', 'Summary'),
@@ -423,6 +464,21 @@ export const bkCopy = {
   keep: L('ไม่ยกเลิก', 'Keep it'),
   payAtShop: L('ไม่ต้องจ่ายตอนจอง — ชำระที่หน้าร้าน', 'Nothing to pay now — pay at the counter'),
   people: L('{n} คน', '{n} people'),
+  // month calendar (v0.35.8)
+  allTypes: L('ทั้งหมด', 'All'),
+  prevMonth: L('เดือนก่อน', 'Previous month'),
+  nextMonth: L('เดือนถัดไป', 'Next month'),
+  thisMonth: L('เดือนนี้', 'This month'),
+  loadFree: L('ว่าง', 'Quiet'),
+  loadBusy: L('เริ่มแน่น', 'Filling up'),
+  loadPacked: L('แน่น', 'Busy'),
+  loadFull: L('เต็ม', 'Full'),
+  someFull: L('มีบางรายการเต็ม', 'Something is full'),
+  notOpen: L('ไม่เปิด', 'Not open'),
+  pctFull: L('จองแล้ว {p}%', '{p}% booked'),
+  openDay: L('ดูรายวัน', 'Open day'),
+  bookOn: L('จองวันนี้', 'Book this day'),
+  monthFailed: L('โหลดปฏิทินไม่สำเร็จ ลองรีเฟรช', 'Couldn’t load the calendar — try refreshing'),
   min: L('{n} นาที', '{n} min'),
   // desk
   deskToday: L('มีจองวันนี้', 'Booked today'),

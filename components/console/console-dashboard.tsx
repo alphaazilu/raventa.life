@@ -141,8 +141,8 @@ function ToDo({ alerts }: { alerts: ConsoleAlerts }) {
     { n: alerts.cashOpenLong, text: consoleCopy.todoCashOpen, href: CASH_PATH, red: true },
     { n: alerts.unsetPay, text: consoleCopy.todoPay, href: TEAM_PATH },
     { n: alerts.feedbackFollow, text: consoleCopy.todoFeedback, href: `${FEEDBACK_PATH}?f=follow`, red: true },
-    { n: alerts.bookingLate, text: consoleCopy.todoBookingLate, href: BOOKINGS_PATH, red: true },
-    { n: alerts.bookingsToday, text: consoleCopy.todoBookings, href: BOOKINGS_PATH },
+    { n: alerts.bookingLate, text: consoleCopy.todoBookingLate, href: `${BOOKINGS_PATH}?tab=day`, red: true },
+    { n: alerts.bookingsToday, text: consoleCopy.todoBookings, href: `${BOOKINGS_PATH}?tab=day` },
     { n: alerts.calendarSoon, text: consoleCopy.todoCalendar, href: CALENDAR_PATH },
   ].filter((r) => r.n > 0)
   if (rows.length === 0) {

@@ -9,6 +9,8 @@ import {
   addDays,
   bkkHm,
   daySlots,
+  dayLoad,
+  type DayLoad,
   DEFAULT_NOSHOW_RULES,
   noShowStatus,
   toMin,
@@ -416,4 +418,17 @@ export async function bookingStats(from: string, to: string): Promise<BookingSta
     byType: [...by.values()].sort((a, b) => b.total - a.total),
     top: [...top.values()].filter((x) => x.noShows > 1).sort((a, b) => b.noShows - a.noShows).slice(0, 10),
   }
+}
+
+// ---- month load (v0.35.8) ----
+
+export type { DayLoad }
+
+export async function monthLoad(types: BookingType[], from: string, to: string): Promise<Record<string, DayLoad> | null> {
+  const [items, list] = await Promise.all([listItems(from, to).catch(() => null), listBookings(addDays(from, -1), addDays(to, 1), { limit: 20_000 })])
+  if (!list) return null
+  const live = list.filter((b) => b.status === 'booked' || b.status === 'arrived')
+  const out: Record<string, DayLoad> = {}
+  for (let d = from; d <= to; d = addDays(d, 1)) out[d] = dayLoad(types, d, live, await closedOn(d, items))
+  return out
 }
