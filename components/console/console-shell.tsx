@@ -6,6 +6,7 @@ import { usePathname, useSearchParams } from 'next/navigation'
 import { useEffect, useRef, useState } from 'react'
 import {
   BarChart3,
+  CalendarDays,
   ChevronDown,
   ChevronRight,
   ChevronsLeft,
@@ -19,6 +20,7 @@ import {
   Lock,
   LogOut,
   Menu,
+  MessageSquareHeart,
   Package,
   Receipt,
   Settings,
@@ -36,12 +38,14 @@ import {
 import { useLanguage } from '@/components/language-provider'
 import { consoleCopy } from '@/lib/console/copy'
 import {
+  CALENDAR_PATH,
   CASH_PATH,
   CATALOG_PATH,
   CHECKLIST_PATH,
   CONSOLE_PATH,
   DESK_PATH,
   DEVICES_PATH,
+  FEEDBACK_PATH,
   MEMBERS_PATH,
   REPORTS_PATH,
   SETTINGS_PATH,
@@ -58,7 +62,7 @@ import { cn } from '@/lib/utils'
 //   1024–1279 icons only by default; tap ☰ to open it over the page
 //   <1024px  hidden; ☰ in the top bar slides it in from the left
 // The choice is remembered per device. Staff on the counter tablet always
-// get the icon rail (4 icons) so the sell screen keeps its width.
+// get the icon rail (5 icons) so the sell screen keeps its width.
 // The top bar keeps its old height (57px / 65px at xl) — sticky parts of
 // pages are placed under it.
 
@@ -90,10 +94,14 @@ const t = {
   desk: { th: 'ขาย + เช็คอิน', en: 'Sell + check-in' },
   members: { th: 'ลูกค้า', en: 'Members' },
   cash: { th: 'ปิดกะ', en: 'Shift close' },
+  feedback: { th: 'ความเห็นลูกค้า', en: 'Feedback' },
+  fbList: { th: 'ความเห็น', en: 'Answers' },
+  fbTopics: { th: 'หัวข้อคะแนน + QR', en: 'Topics + QR' },
   drawer: { th: 'ลิ้นชักเงินสด', en: 'Cash drawer' },
   cashHistory: { th: 'ประวัติปิดกะ', en: 'History' },
   time: { th: 'ลงเวลาและกะ', en: 'Time & shifts' },
   teamRoles: { th: 'ทีมงานและสิทธิ์', en: 'Team & roles' },
+  calendar: { th: 'ปฏิทิน', en: 'Calendar' },
   checklist: { th: 'เช็คลิสต์', en: 'Checklists' },
   maintenance: { th: 'ซ่อมบำรุง', en: 'Maintenance' },
   catalog: { th: 'สินค้าและราคา', en: 'Products & prices' },
@@ -156,6 +164,19 @@ const GROUPS: Group[] = [
         ],
       },
       { key: 'members', label: t.members, icon: Users, href: MEMBERS_PATH, adminOnly: true, staffOnTablet: true },
+      {
+        key: 'feedback',
+        label: t.feedback,
+        icon: MessageSquareHeart,
+        href: FEEDBACK_PATH,
+        adminOnly: true,
+        notOnTablet: true,
+        badge: (a) => a.feedbackFollow,
+        subs: [
+          { key: 'list', label: t.fbList, tab: null, badge: (a) => a.feedbackFollow },
+          { key: 'topics', label: t.fbTopics, tab: 'topics' },
+        ],
+      },
     ],
   },
   {
@@ -178,6 +199,7 @@ const GROUPS: Group[] = [
           { key: 'leave', label: t.leave, tab: 'leave', badge: (a) => a.pendingLeave },
         ],
       },
+      { key: 'calendar', label: t.calendar, icon: CalendarDays, href: CALENDAR_PATH, adminOnly: true, staffOnTablet: true },
       { key: 'team', label: t.teamRoles, icon: UserCog, href: TEAM_PATH, adminOnly: true, notOnTablet: true, badge: (a) => a.unsetPay },
     ],
   },

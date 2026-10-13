@@ -6,13 +6,17 @@ import { MemberCard } from '@/components/account/member-card'
 import { LinkRow } from '@/components/account/account-view'
 import { DESK_PATH, MY_CHECKLIST_PATH } from '@/lib/auth/roles'
 import { cn } from '@/lib/utils'
-import { ChevronRight, Gift, ListChecks } from 'lucide-react'
+import { ChevronRight, Gift, ListChecks, Star } from 'lucide-react'
+import { formatMemberDate } from '@/lib/format-date'
 import Link from 'next/link'
 import { checklistCopy } from '@/lib/checklist'
 import { PackageList } from '@/components/package-list'
 import { PackageShare } from '@/components/account/package-share'
 import { GiftVoucher } from '@/components/gift-voucher'
 import { MyShifts } from '@/components/account/my-shifts'
+import { UpcomingList } from '@/components/calendar/upcoming-list'
+import { calCopy, type Occurrence } from '@/lib/calendar'
+import { fbCopy, type PendingVisit } from '@/lib/feedback'
 import type { MyShifts as MyShiftsData } from '@/lib/my-shifts'
 import { packageAlive, packageLeft, type MemberPackage } from '@/lib/packages'
 import { bangkokToday } from '@/lib/check-in/day'
@@ -37,6 +41,9 @@ export function AccountHome({
   gifts = [],
   myShifts = null,
   checklist = null,
+  upcoming = [],
+  teamSoon = [],
+  feedbackVisit = null,
 }: {
   name: string
   memberNo: string | null
@@ -50,19 +57,35 @@ export function AccountHome({
   gifts?: MemberPackage[]
   myShifts?: MyShiftsData | null
   checklist?: { rounds: number; left: number } | null
+  upcoming?: Occurrence[] // calendar: members + public, next weeks (§31)
+  teamSoon?: Occurrence[] // calendar: team items, next 7 days (staff/admin)
+  feedbackVisit?: PendingVisit | null // a visit waiting to be rated (§32)
 }) {
-  const { tr } = useLanguage()
+  const { tr, lang } = useLanguage()
   return (
     <div className="mx-auto max-w-lg px-4 pt-4 pb-16 md:pt-6">
       <h1 className="font-display text-3xl font-extrabold text-foreground md:text-4xl">
         {tr(authCopy.accountHeading)}
       </h1>
 
+      {feedbackVisit && (
+        <Link href="/account/feedback" className="mt-6 flex items-center gap-3 rounded-2xl border border-amber-400/50 bg-amber-400/10 px-4 py-3.5">
+          <Star className="h-6 w-6 shrink-0 fill-amber-400 text-amber-400" aria-hidden="true" />
+          <span className="min-w-0 flex-1">
+            <span className="block font-semibold">{tr(fbCopy.cardTitle)}</span>
+            <span className="block text-sm text-muted-foreground">
+              {tr(fbCopy.cardSub).replace('{d}', formatMemberDate(`${feedbackVisit.visitDate}T12:00:00+07:00`, lang, true) ?? feedbackVisit.visitDate)}
+            </span>
+          </span>
+          <ChevronRight className="h-5 w-5 text-muted-foreground" aria-hidden="true" />
+        </Link>
+      )}
+
       <div className="mt-8">
         <MemberCard name={name} memberNo={memberNo} avatarUrl={avatarUrl} joinedAt={joinedAt} role={role} autoOpen={openCardOnLoad} />
       </div>
 
-      {(checklist || myShifts) && <h2 className="mt-8 text-base font-semibold text-card-foreground">{tr(myWork)}</h2>}
+      {(checklist || myShifts || teamSoon.length > 0) && <h2 className="mt-8 text-base font-semibold text-card-foreground">{tr(myWork)}</h2>}
 
       {checklist && (
         <Link
@@ -83,7 +106,23 @@ export function AccountHome({
         </Link>
       )}
 
+      {teamSoon.length > 0 && (
+        <section className="mt-3 rounded-2xl border border-border bg-card px-4 py-2">
+          <p className="pt-1.5 text-sm font-semibold text-muted-foreground">{tr(calCopy.teamUpcoming)}</p>
+          <UpcomingList items={teamSoon} />
+        </section>
+      )}
+
       {myShifts && <MyShifts data={myShifts} />}
+
+      {upcoming.length > 0 && (
+        <section className="mt-6">
+          <h2 className="mb-2 text-base font-semibold text-card-foreground">{tr(calCopy.upcoming)}</h2>
+          <div className="rounded-2xl border border-border bg-card px-4">
+            <UpcomingList items={upcoming} />
+          </div>
+        </section>
+      )}
 
       {stamps && <StampCard progress={stamps.progress} rewardsAvailable={stamps.rewardsAvailable} />}
 

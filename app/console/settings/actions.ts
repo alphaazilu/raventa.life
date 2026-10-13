@@ -71,6 +71,20 @@ export async function setPhoneAccess(staffId: string, allowed: boolean): Promise
   return { ok: true }
 }
 
+// Google Maps review link for 5-star answers (§32, v0.33).
+export async function saveReviewUrl(url: string): Promise<SettingsResult> {
+  const ctx = await requireAdmin()
+  if ('error' in ctx) return { ok: false, error: ctx.error }
+  const u = String(url ?? '').trim().slice(0, 500)
+  if (u && !/^https:\/\/\S+$/.test(u)) return { ok: false, error: 'bad_review' }
+  const admin = createAdminClient()
+  const { error } = await admin.from('app_settings').update({ google_review_url: u || null, updated_by: ctx.userId, updated_at: new Date().toISOString() }).eq('id', 1)
+  if (error) return error.code === '42703' || error.code === 'PGRST204' ? { ok: false, error: 'review_not_set_up' } : fail(error)
+  await admin.from('staff_actions').insert({ actor_id: ctx.userId, action: 'settings_review_url', detail: { url: u || null } })
+  revalidatePath(SETTINGS_PATH)
+  return { ok: true }
+}
+
 // Cash drawer float and alert size (§30, v0.31).
 export async function saveCashRules(float: number, alert: number): Promise<SettingsResult> {
   const ctx = await requireAdmin()

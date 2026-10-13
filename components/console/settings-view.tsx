@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useEffect, useState, useTransition } from 'react'
-import { CalendarOff, ChevronRight, Clock, Lock, Receipt, Smartphone, Users, Wallet } from 'lucide-react'
+import { CalendarOff, ChevronRight, Clock, Lock, Receipt, Smartphone, Star, Users, Wallet } from 'lucide-react'
 import { LEAVE_KINDS, leaveCopy } from '@/lib/leave'
 import { useLanguage } from '@/components/language-provider'
 import { Spinner } from '@/components/ui/spinner'
@@ -13,7 +13,7 @@ import type { AppSettings } from '@/lib/console/settings'
 import { cycleOf, type DailyCycle } from '@/lib/console/pay-cycle'
 import { formatMemberDate } from '@/lib/format-date'
 import { bangkokToday } from '@/lib/check-in/day'
-import { saveAccessSettings, saveCashRules, savePayCycle, setPhoneAccess } from '@/app/console/settings/actions'
+import { saveAccessSettings, saveCashRules, savePayCycle, saveReviewUrl, setPhoneAccess } from '@/app/console/settings/actions'
 import type { CashRules } from '@/lib/cash'
 import { saveTimeSettings } from '@/app/console/time/shift-actions'
 import { shiftErrors, timeCopy } from '@/lib/console/copy'
@@ -85,6 +85,7 @@ export function SettingsView({
   initialTab = 'team',
   timeRules,
   cash,
+  reviewUrl = '',
 }: {
   settings: AppSettings
   staff: { id: string; name: string }[]
@@ -95,6 +96,8 @@ export function SettingsView({
   timeRules: TimeSettings
   // Cash drawer (§30, v0.31)
   cash: CashRules & { setUp: boolean }
+  // Google Maps review link (§32, v0.33)
+  reviewUrl?: string
 }) {
   const { tr, lang } = useLanguage()
   const router = useRouter()
@@ -111,6 +114,8 @@ export function SettingsView({
   const [rules, setRules] = useState(timeRules)
   const [cashForm, setCashForm] = useState<CashRules>({ float: cash.float, alert: cash.alert })
   const cashDirty = cashForm.float !== cash.float || cashForm.alert !== cash.alert
+  const [review, setReview] = useState(reviewUrl)
+  const reviewDirty = review.trim() !== reviewUrl
   const [error, setError] = useState<string | null>(null)
   const [saved, setSaved] = useState(false)
   const [busyId, setBusyId] = useState<string | null>(null)
@@ -128,7 +133,7 @@ export function SettingsView({
       form.staffIdleMinutes !== settings.staffIdleMinutes ||
       form.adminIdleMinutes !== settings.adminIdleMinutes,
     work: !same(form.leave, settings.leave) || !same(form.pay, settings.pay) || !same(rules, timeRules),
-    shop: form.vatRegistered !== settings.vatRegistered || cashDirty,
+    shop: form.vatRegistered !== settings.vatRegistered || cashDirty || reviewDirty,
   }
   const dirty = SETTINGS_TABS.some((k) => dirtyBy[k])
   const payDirty = !same(form.pay, settings.pay)
@@ -151,6 +156,10 @@ export function SettingsView({
       }
       if (payDirty) {
         const r = await savePayCycle(form.pay)
+        if (!r.ok) return setError(r.error)
+      }
+      if (reviewDirty) {
+        const r = await saveReviewUrl(review)
         if (!r.ok) return setError(r.error)
       }
       if (cashDirty) {
@@ -456,6 +465,16 @@ export function SettingsView({
           </section>
           <section className={card}>
             <h2 className="flex items-center gap-2 text-base font-bold">
+              <Star className="h-4 w-4" aria-hidden="true" /> {tr(c.reviewHeading)}
+            </h2>
+            <label className="mt-3 flex flex-col gap-1 text-sm">
+              <span className="font-semibold">{tr(c.reviewUrl)}</span>
+              <input className={input} inputMode="url" placeholder="https://g.page/r/…" value={review} onChange={(e) => setReview(e.target.value.slice(0, 500))} />
+              <span className="text-xs text-muted-foreground">{tr(c.reviewUrlHint)}</span>
+            </label>
+          </section>
+          <section className={card}>
+            <h2 className="flex items-center gap-2 text-base font-bold">
               <Receipt className="h-4 w-4" aria-hidden="true" /> {tr(c.accountingHeading)}
             </h2>
             <div className="mt-1 divide-y divide-border">
@@ -486,6 +505,7 @@ export function SettingsView({
                     setForm(settings)
                     setRules(timeRules)
                     setCashForm({ float: cash.float, alert: cash.alert })
+                    setReview(reviewUrl)
                     setError(null)
                   }}
                   className="h-10 rounded-full border border-border px-4 text-sm font-semibold"

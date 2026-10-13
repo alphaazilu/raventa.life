@@ -10,6 +10,8 @@ import { isGift, loadMemberPackages, packageAlive } from '@/lib/packages'
 import { bangkokToday } from '@/lib/check-in/day'
 import { loadMyShifts } from '@/lib/my-shifts'
 import { dueNow } from '@/lib/console/checklist'
+import { upcomingOutside, upcomingTeam } from '@/lib/console/calendar'
+import { pendingVisit } from '@/lib/console/feedback'
 
 export const metadata: Metadata = {
   title: 'My Account | RAVENTA Wellness Retreat',
@@ -66,6 +68,18 @@ export default async function AccountPage({
   const myShifts = profile?.role === 'staff' ? await loadMyShifts(user.id, today) : null
   // Team: checklists due now (§29), a row linking to the scan page.
   const checklist = profile?.role === 'staff' || profile?.role === 'admin' ? await dueNow(today).catch(() => null) : null
+  // Calendar (§31): events / campaigns for members; team items for staff.
+  const team = profile?.role === 'staff' || profile?.role === 'admin'
+  const [upcoming, teamSoon, feedbackVisit] = await Promise.all([
+    upcomingOutside({ id: user.id, role: 'member' }, today, 45, 5).catch(() => []),
+    team
+      ? upcomingTeam({ id: user.id, role: profile?.role === 'admin' ? 'admin' : 'staff' }, today, 7)
+          .then((list) => list.filter((o) => o.item.visibility !== 'members' && o.item.visibility !== 'public').slice(0, 6))
+          .catch(() => [])
+      : Promise.resolve([]),
+    // §32: a visit waiting to be rated (within 7 days)
+    pendingVisit(user.id).catch(() => null),
+  ])
   const fullName = [profile?.first_name, profile?.last_name].filter(Boolean).join(' ')
   // Staff see the front-desk link only when an admin allowed it on their
   // phone (Back Office › Settings); otherwise they use the counter tablet.
@@ -88,6 +102,9 @@ export default async function AccountPage({
           gifts={gifts}
           myShifts={myShifts}
           checklist={checklist}
+          upcoming={upcoming}
+          teamSoon={teamSoon}
+          feedbackVisit={feedbackVisit}
           // /account?card=1 (the LINE rich menu's member card button) opens
           // the check-in QR straight away.
           openCardOnLoad={params.card === '1'}

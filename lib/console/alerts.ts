@@ -6,6 +6,8 @@ import { isForgotten, listOpenEntries } from './time'
 import { dayBounds, listPoints, listRounds, listScans } from './checklist'
 import { slotsOn, slotState, withLivePoints } from '@/lib/checklist'
 import { getCashRules } from './cash'
+import { listItems, visibleOccurrences } from './calendar'
+import { countFollowUp } from './feedback'
 import { OPEN_TOO_LONG_HOURS } from '@/lib/cash'
 
 // Things an admin should act on (v0.30): the numbers next to the side menu
@@ -20,9 +22,11 @@ export type ConsoleAlerts = {
   unsetPay: number // team members with no daily/monthly pay type (§28)
   cashReview: number // closed drawers with a difference ≥ the alert size, not reviewed (§30)
   cashOpenLong: number // a drawer open (or counted, not confirmed) for over 16 h (§30)
+  calendarSoon: number // calendar items today or tomorrow (§31) — information, not a problem
+  feedbackFollow: number // member answers with 1–2 stars or "contact me", not handled (§32)
 }
 
-const zero: ConsoleAlerts = { pendingLeave: 0, forgotClockOut: 0, checklistIssues: 0, checklistMissed: 0, unsetPay: 0, cashReview: 0, cashOpenLong: 0 }
+const zero: ConsoleAlerts = { pendingLeave: 0, forgotClockOut: 0, checklistIssues: 0, checklistMissed: 0, unsetPay: 0, cashReview: 0, cashOpenLong: 0, calendarSoon: 0, feedbackFollow: 0 }
 
 async function checklistToday(): Promise<{ issues: number; missed: number }> {
   const today = bangkokToday()
@@ -65,13 +69,23 @@ async function cashAlerts(): Promise<{ review: number; openLong: number }> {
   }
 }
 
+async function calendarSoon(): Promise<number> {
+  const today = bangkokToday()
+  const tomorrow = new Date(Date.parse(`${today}T00:00:00Z`) + 86_400_000).toISOString().slice(0, 10)
+  const items = await listItems(today, tomorrow)
+  if (!items) return 0
+  return visibleOccurrences(items, { id: null, role: 'admin' }, today, tomorrow).length
+}
+
 export const loadAlerts = cache(async (): Promise<ConsoleAlerts> => {
-  const [pendingLeave, open, checklist, pay, cash] = await Promise.all([
+  const [pendingLeave, open, checklist, pay, cash, soon, fb] = await Promise.all([
     countPendingLeave().catch(() => 0),
     listOpenEntries().catch(() => []),
     checklistToday().catch(() => ({ issues: 0, missed: 0 })),
     unsetPay().catch(() => 0),
     cashAlerts().catch(() => ({ review: 0, openLong: 0 })),
+    calendarSoon().catch(() => 0),
+    countFollowUp().catch(() => 0),
   ])
   return {
     ...zero,
@@ -82,5 +96,7 @@ export const loadAlerts = cache(async (): Promise<ConsoleAlerts> => {
     unsetPay: pay,
     cashReview: cash.review,
     cashOpenLong: cash.openLong,
+    calendarSoon: soon,
+    feedbackFollow: fb,
   }
 })

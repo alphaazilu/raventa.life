@@ -2267,3 +2267,89 @@ revoke all on public.cash_sessions from anon, authenticated;
 -- big a difference shows up in the admin's To do box.
 alter table public.app_settings add column if not exists cash_float integer not null default 2000 check (cash_float between 0 and 100000);
 alter table public.app_settings add column if not exists cash_alert integer not null default 100 check (cash_alert between 0 and 100000);
+
+
+-- 31. Calendar (v0.32). Events, campaigns, important notes and closed days,
+-- each with who may see it:
+--   admins   admins only
+--   team     all staff + admins
+--   staff    the staff in staff_ids + admins
+--   members  everyone signed in (shown in My account) + the team
+--   public   everyone, also on the website
+-- title/body are what members and the public read (Thai + optional English);
+-- internal_note is for the team only. Dates are Bangkok days, end inclusive;
+-- no times = all day. repeat: none / weekly / monthly / yearly (until
+-- repeat_until, if set). Staff may add team notes; admins anything.
+-- Holidays, promotions, leave and the roster are shown from their own tables.
+-- Server (service-role) only.
+create table if not exists public.calendar_items (
+  id uuid primary key default gen_random_uuid(),
+  kind text not null default 'note' check (kind in ('event', 'campaign', 'note', 'closed')),
+  title text not null check (char_length(btrim(title)) between 1 and 100),
+  title_en text check (char_length(title_en) <= 100),
+  body text check (char_length(body) <= 1000),
+  body_en text check (char_length(body_en) <= 1000),
+  internal_note text check (char_length(internal_note) <= 1000),
+  place text check (char_length(place) <= 120),
+  starts_on date not null,
+  ends_on date not null,
+  start_time time,
+  end_time time,
+  visibility text not null default 'team' check (visibility in ('admins', 'team', 'staff', 'members', 'public')),
+  staff_ids uuid[] not null default '{}',
+  repeat text not null default 'none' check (repeat in ('none', 'weekly', 'monthly', 'yearly')),
+  repeat_until date,
+  created_by uuid references auth.users(id) on delete set null,
+  created_at timestamptz not null default now(),
+  updated_by uuid references auth.users(id) on delete set null,
+  updated_at timestamptz not null default now(),
+  constraint calendar_items_dates check (ends_on >= starts_on and ends_on <= starts_on + 92),
+  constraint calendar_items_times check (start_time is null or end_time is null or end_time > start_time or ends_on > starts_on)
+);
+create index if not exists calendar_items_dates_idx on public.calendar_items (starts_on, ends_on);
+alter table public.calendar_items enable row level security;
+revoke all on public.calendar_items from anon, authenticated;
+
+
+-- 32. Member feedback (v0.33). After a visit a member can rate it once
+-- (within 7 days): overall stars, optional stars per topic, a comment, and
+-- "please contact me". Admins see the name (to follow up), mark low scores /
+-- contact requests as handled, and edit the topics. Staff don't see answers.
+-- Server (service-role) only.
+create table if not exists public.feedback_topics (
+  key text primary key check (key ~ '^[a-z0-9_]{2,30}$'),
+  label text not null check (char_length(btrim(label)) between 1 and 40),
+  label_en text check (char_length(label_en) <= 40),
+  sort integer not null default 0,
+  is_active boolean not null default true
+);
+insert into public.feedback_topics (key, label, label_en, sort) values
+  ('clean', 'ความสะอาด', 'Cleanliness', 1),
+  ('staff', 'พนักงาน', 'Staff', 2),
+  ('sauna', 'ซาวน่า', 'Sauna', 3),
+  ('cold', 'น้ำเย็น', 'Cold plunge', 4),
+  ('mood', 'บรรยากาศ', 'Atmosphere', 5)
+on conflict (key) do nothing;
+alter table public.feedback_topics enable row level security;
+revoke all on public.feedback_topics from anon, authenticated;
+
+create table if not exists public.feedback (
+  id uuid primary key default gen_random_uuid(),
+  member_id uuid references auth.users(id) on delete set null,
+  visit_id uuid unique references public.visits(id) on delete set null,
+  visit_date date not null,
+  overall smallint not null check (overall between 1 and 5),
+  scores jsonb not null default '{}'::jsonb,              -- {"clean": 4, …} topic key → 1..5
+  comment text check (char_length(comment) <= 1000),
+  contact_me boolean not null default false,
+  created_at timestamptz not null default now(),
+  handled_at timestamptz,                                 -- admin followed up / closed it
+  handled_by uuid references auth.users(id) on delete set null,
+  handled_note text check (char_length(handled_note) <= 500)
+);
+create index if not exists feedback_created_idx on public.feedback (created_at desc);
+alter table public.feedback enable row level security;
+revoke all on public.feedback from anon, authenticated;
+
+-- Settings › Shop & accounts: where 5-star members are invited to review.
+alter table public.app_settings add column if not exists google_review_url text check (google_review_url is null or google_review_url ~ '^https://');

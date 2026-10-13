@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation'
 import { AlertTriangle, BarChart3, CheckCircle2, ChevronRight, Clock, ListChecks, Package, Receipt, Settings, UserCog, Users, type LucideIcon } from 'lucide-react'
 import { useLanguage } from '@/components/language-provider'
 import { consoleCopy } from '@/lib/console/copy'
-import { CASH_PATH, CATALOG_PATH, CHECKLIST_PATH, DESK_PATH, MEMBERS_PATH, REPORTS_PATH, SETTINGS_PATH, TEAM_PATH, TIME_PATH } from '@/lib/auth/roles'
+import { CALENDAR_PATH, CASH_PATH, FEEDBACK_PATH, CATALOG_PATH, CHECKLIST_PATH, DESK_PATH, MEMBERS_PATH, REPORTS_PATH, SETTINGS_PATH, TEAM_PATH, TIME_PATH } from '@/lib/auth/roles'
 import type { ConsoleAlerts } from '@/lib/console/alerts'
 import { bangkokTime, FLOOR_CAPACITY } from '@/lib/check-in/day'
 import { formatMemberNo } from '@/lib/format-date'
@@ -140,6 +140,8 @@ function ToDo({ alerts }: { alerts: ConsoleAlerts }) {
     { n: alerts.cashReview, text: consoleCopy.todoCashReview, href: `${CASH_PATH}?tab=history`, red: true },
     { n: alerts.cashOpenLong, text: consoleCopy.todoCashOpen, href: CASH_PATH, red: true },
     { n: alerts.unsetPay, text: consoleCopy.todoPay, href: TEAM_PATH },
+    { n: alerts.feedbackFollow, text: consoleCopy.todoFeedback, href: `${FEEDBACK_PATH}?f=follow`, red: true },
+    { n: alerts.calendarSoon, text: consoleCopy.todoCalendar, href: CALENDAR_PATH },
   ].filter((r) => r.n > 0)
   if (rows.length === 0) {
     return (
