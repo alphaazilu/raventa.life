@@ -12,6 +12,7 @@ import { loadMyShifts } from '@/lib/my-shifts'
 import { dueNow } from '@/lib/console/checklist'
 import { upcomingOutside, upcomingTeam } from '@/lib/console/calendar'
 import { pendingVisit } from '@/lib/console/feedback'
+import { myCommissionCard } from '@/lib/console/commission'
 
 export const metadata: Metadata = {
   title: 'My Account | RAVENTA Wellness Retreat',
@@ -70,7 +71,7 @@ export default async function AccountPage({
   const checklist = profile?.role === 'staff' || profile?.role === 'admin' ? await dueNow(today).catch(() => null) : null
   // Calendar (§31): events / campaigns for members; team items for staff.
   const team = profile?.role === 'staff' || profile?.role === 'admin'
-  const [upcoming, teamSoon, feedbackVisit] = await Promise.all([
+  const [upcoming, teamSoon, feedbackVisit, commission] = await Promise.all([
     upcomingOutside({ id: user.id, role: 'member' }, today, 45, 5).catch(() => []),
     team
       ? upcomingTeam({ id: user.id, role: profile?.role === 'admin' ? 'admin' : 'staff' }, today, 7)
@@ -79,6 +80,8 @@ export default async function AccountPage({
       : Promise.resolve([]),
     // §32: a visit waiting to be rated (within 7 days)
     pendingVisit(user.id).catch(() => null),
+    // §33: my commission this pay period (people who earn)
+    team ? myCommissionCard(user.id, today) : Promise.resolve(null),
   ])
   const fullName = [profile?.first_name, profile?.last_name].filter(Boolean).join(' ')
   // Staff see the front-desk link only when an admin allowed it on their
@@ -105,6 +108,7 @@ export default async function AccountPage({
           upcoming={upcoming}
           teamSoon={teamSoon}
           feedbackVisit={feedbackVisit}
+          commission={commission}
           // /account?card=1 (the LINE rich menu's member card button) opens
           // the check-in QR straight away.
           openCardOnLoad={params.card === '1'}

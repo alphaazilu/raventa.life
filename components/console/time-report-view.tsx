@@ -14,6 +14,7 @@ type L = { th: string; en: string }
 const t = {
   sales: { th: 'การขาย', en: 'Sales' },
   time: { th: 'ลงเวลา', en: 'Time' },
+  commission: { th: 'ค่าคอม', en: 'Commission' },
   title: { th: 'รายงานการลงเวลา', en: 'Time report' },
   monthly: { th: 'รายเดือน', en: 'Monthly' },
   daily: { th: 'รายวัน', en: 'Daily' },
@@ -93,16 +94,16 @@ export function keepPeriod(preset: string, from: string, to: string): string {
 }
 
 // The dates chosen carry over when switching (v0.30).
-export function ReportTabs({ active, keep = '' }: { active: 'sales' | 'time'; keep?: string }) {
+export function ReportTabs({ active, keep = '' }: { active: 'sales' | 'time' | 'commission'; keep?: string }) {
   const { tr } = useLanguage()
   return (
     <div className="inline-flex self-start rounded-full bg-secondary p-1 text-sm font-semibold" role="tablist">
-      {(['sales', 'time'] as const).map((k) => (
+      {(['sales', 'time', 'commission'] as const).map((k) => (
         <a
           key={k}
           role="tab"
           aria-selected={active === k}
-          href={`${REPORTS_PATH}?${[k === 'time' ? 'tab=time' : '', keep].filter(Boolean).join('&')}`.replace(/\?$/, '')}
+          href={`${REPORTS_PATH}?${[k === 'sales' ? '' : `tab=${k}`, keep].filter(Boolean).join('&')}`.replace(/\?$/, '')}
           className={cn('rounded-full px-4 py-1.5', active === k ? 'bg-background shadow-sm' : 'text-muted-foreground hover:text-foreground')}
         >
           {tr(t[k])}

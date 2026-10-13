@@ -6,7 +6,7 @@ import { MemberCard } from '@/components/account/member-card'
 import { LinkRow } from '@/components/account/account-view'
 import { DESK_PATH, MY_CHECKLIST_PATH } from '@/lib/auth/roles'
 import { cn } from '@/lib/utils'
-import { ChevronRight, Gift, ListChecks, Star } from 'lucide-react'
+import { Coins, ChevronRight, Gift, ListChecks, Star } from 'lucide-react'
 import { formatMemberDate } from '@/lib/format-date'
 import Link from 'next/link'
 import { checklistCopy } from '@/lib/checklist'
@@ -20,6 +20,8 @@ import { fbCopy, type PendingVisit } from '@/lib/feedback'
 import type { MyShifts as MyShiftsData } from '@/lib/my-shifts'
 import { packageAlive, packageLeft, type MemberPackage } from '@/lib/packages'
 import { bangkokToday } from '@/lib/check-in/day'
+import { cmCopy, money } from '@/lib/commission'
+import type { MyCommissionCard } from '@/lib/console/commission'
 
 // Staff: "My work" (today's checklists, my shifts / leave) sits under the
 // card, apart from the member things (stamps, packages) — v0.30.
@@ -44,6 +46,7 @@ export function AccountHome({
   upcoming = [],
   teamSoon = [],
   feedbackVisit = null,
+  commission = null,
 }: {
   name: string
   memberNo: string | null
@@ -60,6 +63,7 @@ export function AccountHome({
   upcoming?: Occurrence[] // calendar: members + public, next weeks (§31)
   teamSoon?: Occurrence[] // calendar: team items, next 7 days (staff/admin)
   feedbackVisit?: PendingVisit | null // a visit waiting to be rated (§32)
+  commission?: MyCommissionCard | null // my commission this pay period (§33)
 }) {
   const { tr, lang } = useLanguage()
   return (
@@ -85,7 +89,7 @@ export function AccountHome({
         <MemberCard name={name} memberNo={memberNo} avatarUrl={avatarUrl} joinedAt={joinedAt} role={role} autoOpen={openCardOnLoad} />
       </div>
 
-      {(checklist || myShifts || teamSoon.length > 0) && <h2 className="mt-8 text-base font-semibold text-card-foreground">{tr(myWork)}</h2>}
+      {(checklist || myShifts || teamSoon.length > 0 || commission) && <h2 className="mt-8 text-base font-semibold text-card-foreground">{tr(myWork)}</h2>}
 
       {checklist && (
         <Link
@@ -110,6 +114,25 @@ export function AccountHome({
         <section className="mt-3 rounded-2xl border border-border bg-card px-4 py-2">
           <p className="pt-1.5 text-sm font-semibold text-muted-foreground">{tr(calCopy.teamUpcoming)}</p>
           <UpcomingList items={teamSoon} />
+        </section>
+      )}
+
+      {commission && (
+        <section className="mt-3 flex items-center gap-3 rounded-2xl border border-border bg-card p-4">
+          <Coins className="h-6 w-6 shrink-0 text-accent" aria-hidden="true" />
+          <span className="min-w-0 flex-1">
+            <span className="block font-semibold">{tr(cmCopy.mine)}</span>
+            <span className="block text-xs text-muted-foreground">
+              {tr(cmCopy.mineSub)
+                .replace('{p}', `${formatMemberDate(`${commission.from}T12:00:00+07:00`, lang, true) ?? commission.from} – ${formatMemberDate(`${commission.to}T12:00:00+07:00`, lang, true) ?? commission.to}`)
+                .replace('{n}', String(commission.lines))}
+              {commission.last > 0 && ` · ${tr(cmCopy.mineLast).replace('{a}', money(commission.last))}`}
+            </span>
+            <span className="mt-0.5 block text-[11px] text-muted-foreground">{tr(cmCopy.mineNote)}</span>
+          </span>
+          <span className="shrink-0 text-right font-display text-2xl font-extrabold">
+            {money(commission.amount)} <span className="text-sm font-bold">฿</span>
+          </span>
         </section>
       )}
 

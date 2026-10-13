@@ -6,6 +6,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { loadCatalog } from '@/lib/console/catalog'
 import { bangkokToday } from '@/lib/check-in/day'
 import { CATALOG_PATH, DESK_PATH, isAdmin } from '@/lib/auth/roles'
+import { listEarners, listRules } from '@/lib/console/commission'
 
 export const metadata: Metadata = {
   title: 'สินค้าและราคา | RAVENTA Back Office',
@@ -21,15 +22,26 @@ export default async function CatalogPage({ searchParams }: { searchParams: Prom
 
   const q = await searchParams
   const raw = q.tab ?? q.view // ?view= = links from before v0.30
-  const view: CatalogView = raw === 'holidays' || raw === 'promotions' ? raw : 'products'
+  const view: CatalogView = raw === 'holidays' || raw === 'promotions' || raw === 'commission' ? raw : 'products'
   const catalog = await loadCatalog(createAdminClient()).catch((err) => {
     console.error('catalog load failed', err)
     return null
   })
 
+  // Commission (§33, v0.34): who earns, and the rates. null = §33 not run.
+  const commission =
+    view === 'commission'
+      ? await Promise.all([listEarners(), listRules()])
+          .then(([earners, rules]) => (earners && rules ? { earners, rules } : null))
+          .catch((err) => {
+            console.error('commission load failed', err)
+            return null
+          })
+      : null
+
   return (
     <main>
-      <CatalogAdmin catalog={catalog} view={view} today={bangkokToday()} />
+      <CatalogAdmin catalog={catalog} view={view} today={bangkokToday()} commission={commission} />
     </main>
   )
 }

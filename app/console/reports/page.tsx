@@ -9,6 +9,8 @@ import { loadTimeReport } from '@/lib/console/time-report'
 import { getAppSettings } from '@/lib/console/settings'
 import { ReportView } from '@/components/console/report-view'
 import { TimeReportView } from '@/components/console/time-report-view'
+import { CommissionReportView } from '@/components/console/commission-report-view'
+import { loadCommissionReport } from '@/lib/console/commission'
 
 export const metadata: Metadata = {
   title: 'รายงาน | RAVENTA Back Office',
@@ -32,6 +34,23 @@ export default async function ReportsPage({
   if (!user) redirect(`/login?next=${REPORTS_PATH}`)
   if (!isAdmin(role)) redirect(DESK_PATH)
   const q = await searchParams
+
+  // Commission (?tab=commission, v0.34): per person, from the bills' kept amounts.
+  if (q.tab === 'commission') {
+    const settings = await getAppSettings()
+    const period = resolveTimePeriod({ ...q, pay: 'monthly' }, settings.pay)
+    const people = await loadCommissionReport(period.from, period.to)
+      .then((r) => r ?? ('not_set_up' as const))
+      .catch((err: Error) => {
+        console.error('commission report failed', err.message)
+        return null
+      })
+    return (
+      <main>
+        <CommissionReportView period={period} people={people} />
+      </main>
+    )
+  }
 
   if (q.tab === 'time' || q.r === 'time') {
     const settings = await getAppSettings()

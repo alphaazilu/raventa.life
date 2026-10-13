@@ -12,6 +12,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { bangkokToday, isWeekend } from '@/lib/check-in/day'
 import { dayTypeOf, loadCatalog, priceOn, type DayType } from '@/lib/console/catalog'
 import { loadMemberPackages, type MemberPackage } from '@/lib/packages'
+import { isEarner, recordCommissions } from '@/lib/console/commission'
 
 // Front-desk actions. Every write is a database function (see
 // supabase/schema.sql §13) called with the staff member's own session, so
@@ -413,8 +414,12 @@ export async function quoteBill(input: BillInput): Promise<DeskResult<Quote>> {
 
 export type CheckoutDone = { receiptNo: number | null; total: number; member: DeskMember | null }
 
+// Who earns commission on this bill (§33, v0.34): a referrer scanned for the
+// whole bill, and/or a person picked for single lines (by lineKey).
+export type BillCommission = { referrerId: string | null; lineStaff: Record<string, string> }
+
 export async function checkoutBill(
-  input: BillInput & { paymentMethod: PaymentMethod | null; wristband: string },
+  input: BillInput & { paymentMethod: PaymentMethod | null; wristband: string; commission?: BillCommission },
 ): Promise<DeskResult<CheckoutDone>> {
   const ctx = await requireDesk()
   if ('error' in ctx) return { ok: false, error: ctx.error }
@@ -448,6 +453,14 @@ export async function checkoutBill(
         .insert({ actor_id: ctx.userId, member_id: input.memberId, action: 'sale_off_tablet', detail: { sale_id: r.sale_id, receipt_no: receiptNo, total } })
         .then(() => undefined, () => undefined)
     }
+    if (r.sale_id) {
+      await recordCommissions({
+        saleId: r.sale_id as string,
+        cashierId: ctx.userId,
+        referrerId: input.commission?.referrerId ?? null,
+        lineStaff: input.commission?.lineStaff ?? {},
+      })
+    }
   }
   if (!input.memberId) return { ok: true, data: { receiptNo, total, member: null } }
   const m = await loadMember(ctx.supabase, ctx.userId, input.memberId)
@@ -459,4 +472,24 @@ export async function voidSale(saleId: string, reason: string): Promise<DeskResu
   if ('error' in ctx) return { ok: false, error: ctx.error }
   const { error } = await ctx.supabase.rpc('pos_void_sale', { p_sale_id: saleId, p_reason: reason.trim().slice(0, 200) })
   return error ? { ok: false, error: errorCode(error) } : { ok: true, data: null }
+}
+
+// The bill's referrer (§33): their member-card QR. Must be on the team, earn
+// commission, and not be the person selling.
+export async function lookupReferrer(token: string): Promise<DeskResult<{ id: string; name: string; avatarUrl: string | null }>> {
+  const ctx = await requireDesk()
+  if ('error' in ctx) return { ok: false, error: ctx.error }
+  const check = verifyMemberQrToken(token.trim())
+  if (!check.ok) return { ok: false, error: check.reason === 'expired' ? 'qr_expired' : 'qr_invalid' }
+  if (check.userId === ctx.userId) return { ok: false, error: 'self_referrer' }
+  const { data: p } = await ctx.supabase
+    .from('profiles')
+    .select('id, first_name, last_name, email, role, avatar_path, provider_avatar_url')
+    .eq('id', check.userId)
+    .maybeSingle()
+  if (!p || !canUseDesk(p.role)) return { ok: false, error: 'not_staff_member' }
+  const earns = await isEarner(p.id).catch(() => null)
+  if (earns === null) return { ok: false, error: 'not_set_up' }
+  if (!earns) return { ok: false, error: 'not_earner' }
+  return { ok: true, data: { id: p.id, name: fullName(p), avatarUrl: await resolveAvatarUrl(ctx.supabase, p) } }
 }

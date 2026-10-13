@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useEffect, useState, useTransition } from 'react'
-import { CalendarDays, Package, Percent, Trash2 } from 'lucide-react'
+import { BadgePercent, CalendarDays, Package, Percent, Trash2 } from 'lucide-react'
 import { useLanguage } from '@/components/language-provider'
 import { Spinner } from '@/components/ui/spinner'
 import { catalogCopy as c, catalogErrors } from '@/lib/console/copy'
@@ -20,8 +20,10 @@ import {
 } from '@/lib/console/catalog'
 import { removeHoliday, saveHoliday, savePromotion, saveProduct, saveVariant, setStock } from '@/app/console/catalog/actions'
 import { cn } from '@/lib/utils'
+import { cmCopy } from '@/lib/commission'
+import { CommissionAdmin, type CommissionSetup } from '@/components/console/commission-admin'
 
-export type CatalogView = 'products' | 'holidays' | 'promotions'
+export type CatalogView = 'products' | 'holidays' | 'promotions' | 'commission'
 
 const input =
   'w-full rounded-xl border border-border bg-background px-3 py-2 text-sm text-foreground outline-none focus:border-primary'
@@ -62,12 +64,23 @@ function Status({ error, saved }: { error: string | null; saved: boolean }) {
 
 const num = (s: string): number | null => (s.trim() === '' ? null : Number(s))
 
-export function CatalogAdmin({ catalog, view, today }: { catalog: Catalog | null; view: CatalogView; today: string }) {
+export function CatalogAdmin({
+  catalog,
+  view,
+  today,
+  commission = null,
+}: {
+  catalog: Catalog | null
+  view: CatalogView
+  today: string
+  commission?: CommissionSetup | null
+}) {
   const { tr } = useLanguage()
   const tabs: { key: CatalogView; label: { th: string; en: string }; icon: typeof Package }[] = [
     { key: 'products', label: c.tabProducts, icon: Package },
     { key: 'holidays', label: c.tabHolidays, icon: CalendarDays },
     { key: 'promotions', label: c.tabPromotions, icon: Percent },
+    { key: 'commission', label: cmCopy.tab, icon: BadgePercent },
   ]
   return (
     <div className="w-full px-4 py-5 md:px-6 xl:px-8">
@@ -91,6 +104,8 @@ export function CatalogAdmin({ catalog, view, today }: { catalog: Catalog | null
         <p className="mt-6 rounded-2xl bg-amber-500/15 p-5 text-sm font-semibold text-amber-800 dark:text-amber-300">{tr(c.notSetUp)}</p>
       ) : view === 'holidays' ? (
         <Holidays catalog={catalog} today={today} />
+      ) : view === 'commission' ? (
+        <CommissionAdmin catalog={catalog} setup={commission} />
       ) : view === 'promotions' ? (
         <Promotions catalog={catalog} today={today} />
       ) : (

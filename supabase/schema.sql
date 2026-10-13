@@ -2353,3 +2353,53 @@ revoke all on public.feedback from anon, authenticated;
 
 -- Settings › Shop & accounts: where 5-star members are invited to review.
 alter table public.app_settings add column if not exists google_review_url text check (google_review_url is null or google_review_url ~ '^https://');
+
+
+-- 33. Staff commission (v0.34). An admin turns commission on per person and
+-- sets a rate per product (or a default per kind): a percentage of the line
+-- after discounts, or baht per unit. Who earns a line: the person who took
+-- the payment, unless a referrer was scanned for the bill (their member
+-- card QR) or another person was picked for that line. The amount is worked
+-- out and kept when the bill is paid, so later rate changes don't touch old
+-- bills; a voided bill's commission doesn't count. Server (service-role) only.
+create table if not exists public.staff_commission (
+  staff_id uuid primary key references auth.users(id) on delete cascade,
+  enabled boolean not null default true,
+  updated_by uuid references auth.users(id) on delete set null,
+  updated_at timestamptz not null default now()
+);
+alter table public.staff_commission enable row level security;
+revoke all on public.staff_commission from anon, authenticated;
+
+create table if not exists public.commission_rules (
+  id uuid primary key default gen_random_uuid(),
+  product_id uuid references public.products(id) on delete cascade,   -- one product …
+  kind text check (kind in ('day_pass', 'addon', 'merch', 'souvenir', 'package')),  -- … or a default for a kind
+  mode text not null check (mode in ('pct', 'thb')),
+  value numeric(10, 2) not null check (value > 0 and (mode <> 'pct' or value <= 100)),
+  updated_by uuid references auth.users(id) on delete set null,
+  updated_at timestamptz not null default now(),
+  constraint commission_rules_one_target check ((product_id is null) <> (kind is null))
+);
+create unique index if not exists commission_rules_product on public.commission_rules (product_id) where product_id is not null;
+create unique index if not exists commission_rules_kind on public.commission_rules (kind) where kind is not null;
+alter table public.commission_rules enable row level security;
+revoke all on public.commission_rules from anon, authenticated;
+
+create table if not exists public.sale_commissions (
+  id bigint generated always as identity primary key,
+  sale_id uuid not null references public.sales(id) on delete cascade,
+  sale_line_id bigint not null unique references public.sale_lines(id) on delete cascade,
+  staff_id uuid not null references auth.users(id) on delete restrict,
+  source text not null check (source in ('cashier', 'referrer', 'line')),
+  base integer not null,                      -- the line after its share of the bill discount
+  mode text not null check (mode in ('pct', 'thb')),
+  rate numeric(10, 2) not null,
+  amount numeric(10, 2) not null check (amount >= 0),
+  set_by uuid references auth.users(id) on delete set null,   -- who took the payment
+  created_at timestamptz not null default now()
+);
+create index if not exists sale_commissions_staff_idx on public.sale_commissions (staff_id, created_at);
+create index if not exists sale_commissions_created_idx on public.sale_commissions (created_at);
+alter table public.sale_commissions enable row level security;
+revoke all on public.sale_commissions from anon, authenticated;

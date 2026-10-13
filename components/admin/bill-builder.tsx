@@ -1,11 +1,12 @@
 'use client'
 
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Ban, Gift, Minus, Package as PackageIcon, Plus, ShoppingBag, Tag, Trash2, X } from 'lucide-react'
+import { Ban, Gift, Minus, Package as PackageIcon, Plus, ShoppingBag, Tag, Trash2, UserPlus, X } from 'lucide-react'
 import { useLanguage } from '@/components/language-provider'
 import { Spinner } from '@/components/ui/spinner'
 import { deskCopy, deskErrors, fill } from '@/lib/check-in/copy'
 import { cn } from '@/lib/utils'
+import { cmCopy, hasRule, lineKey, type DeskCommission } from '@/lib/commission'
 import {
   quoteBill,
   type BillLine,
@@ -32,6 +33,7 @@ export function BillBuilder({
   onPay,
   hint,
   quoteFn = quoteBill,
+  commission = null,
 }: {
   // Shown in the bill's pinned header next to the total.
   title: string
@@ -52,11 +54,19 @@ export function BillBuilder({
     code: string
     paymentMethod: PaymentMethod | null
     wristband: string
+    lineStaff: Record<string, string>
   }) => void
   // A note shown at the top of the bill (e.g. "no products yet").
   hint?: React.ReactNode
   // Injected only by design previews; the counter always asks the database.
   quoteFn?: typeof quoteBill
+  // Commission (§33, v0.34): the bill's referrer and who may earn. null = off.
+  commission?: {
+    data: NonNullable<DeskCommission>
+    referrer: { id: string; name: string } | null
+    onScanReferrer: () => void
+    onClearReferrer: () => void
+  } | null
 }) {
   const { tr, lang } = useLanguage()
   const startMode: DayPassMode = withDayPass ? (packageReady ? 'package' : 'paid') : 'none'
@@ -72,6 +82,8 @@ export function BillBuilder({
   const [quoteError, setQuoteError] = useState<string | null>(null)
   const [quoting, setQuoting] = useState(false)
   const seq = useRef(0)
+  // A different earner for single lines (lineKey → staff id).
+  const [lineStaff, setLineStaff] = useState<Record<string, string>>({})
 
   const items = catalog?.items ?? []
   const byId = useMemo(() => new Map(items.map((i) => [i.id, i])), [items])
@@ -123,6 +135,7 @@ export function BillBuilder({
     setMethod(null)
     setWristband('')
     setPicking(null)
+    setLineStaff({})
   }
   const dirty = lines.length > 0 || code !== '' || codeInput !== '' || method !== null || wristband !== '' || dayPass !== startMode
   const hasBill = dayPass !== 'none' || lines.length > 0
@@ -157,6 +170,23 @@ export function BillBuilder({
         ? tr(deskCopy.checkInFree)
         : fill(tr(dayPass === 'none' ? deskCopy.payOnly : deskCopy.payAndCheckIn), { price: total.toLocaleString() })
 
+  const cm = commission?.data ?? null
+  const defaultEarner = commission?.referrer?.name ?? cm?.staff.find((p) => p.id === cm.me)?.name ?? null
+  const earnerPick = (key: string) =>
+    cm ? (
+      <EarnerPick
+        value={lineStaff[key] ?? ''}
+        staff={cm.staff}
+        fallback={defaultEarner}
+        onChange={(id) => setLineStaff((m) => {
+          const next = { ...m }
+          if (id) next[key] = id
+          else delete next[key]
+          return next
+        })}
+      />
+    ) : null
+
   const passModes: DayPassMode[] = [
     ...(packageReady ? (['package'] as const) : []),
     'paid',
@@ -174,6 +204,35 @@ export function BillBuilder({
             {subtitle}
             {count > 0 && ` · ${fill(tr(deskCopy.itemCount), { n: count })}`}
           </p>
+          {commission && (
+            <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+              {commission.referrer ? (
+                <span className="inline-flex items-center gap-1 rounded-full bg-accent/15 py-1 pl-2.5 pr-1 text-xs font-semibold text-accent">
+                  <UserPlus className="h-3.5 w-3.5" aria-hidden="true" />
+                  {tr(cmCopy.referrer)}: {commission.referrer.name}
+                  <button
+                    type="button"
+                    onClick={commission.onClearReferrer}
+                    aria-label={tr(cmCopy.removeReferrer)}
+                    title={tr(cmCopy.removeReferrer)}
+                    className="flex h-5 w-5 items-center justify-center rounded-full hover:bg-accent/20"
+                  >
+                    <X className="h-3 w-3" aria-hidden="true" />
+                  </button>
+                </span>
+              ) : (
+                <button
+                  type="button"
+                  onClick={commission.onScanReferrer}
+                  disabled={busy}
+                  className="inline-flex items-center gap-1 rounded-full border border-border px-2.5 py-1 text-xs font-semibold text-muted-foreground hover:border-primary/40 hover:text-foreground"
+                >
+                  <UserPlus className="h-3.5 w-3.5" aria-hidden="true" />
+                  {tr(cmCopy.addReferrer)}
+                </button>
+              )}
+            </div>
+          )}
           {dirty && (
             <button
               type="button"
@@ -225,6 +284,7 @@ export function BillBuilder({
               </span>
             )}
           </div>
+          {cm && dayPass === 'paid' && hasRule(cm, 'day_pass', cm.dayPassId) && <div className="mt-2">{earnerPick('day_pass')}</div>}
           <div className="mt-2 flex flex-wrap gap-2" role="radiogroup" aria-label={tr(deskCopy.dayPassToday)}>
             {passModes.map((m) => (
               <button
@@ -258,8 +318,11 @@ export function BillBuilder({
           {lines.map((l, idx) => {
             const priced = extraLines[idx]
             return (
-              <li key={`${l.productId}|${l.variantId}`} className="flex items-center gap-2 px-3 py-2 text-sm">
+              <li key={`${l.productId}|${l.variantId}`} className="flex flex-wrap items-center gap-x-2 gap-y-0.5 px-3 py-2 text-sm">
                 <span className="min-w-0 flex-1 truncate font-medium">{lineLabel(l)}</span>
+                {cm && hasRule(cm, byId.get(l.productId)?.kind ?? '', l.productId) && (
+                  <span className="order-last basis-full">{earnerPick(lineKey(byId.get(l.productId)?.kind ?? '', l.productId, l.variantId))}</span>
+                )}
                 <button type="button" onClick={() => bump(idx, -1)} aria-label="−" className="flex h-8 w-8 items-center justify-center rounded-full border border-border">
                   <Minus className="h-3.5 w-3.5" aria-hidden="true" />
                 </button>
@@ -462,7 +525,7 @@ export function BillBuilder({
           <button
             type="button"
             disabled={!canPay}
-            onClick={() => onPay({ dayPass, items: lines, code, paymentMethod: needMethod ? method : null, wristband })}
+            onClick={() => onPay({ dayPass, items: lines, code, paymentMethod: needMethod ? method : null, wristband, lineStaff })}
             className="h-14 w-full rounded-full bg-primary text-base font-bold text-primary-foreground transition-opacity disabled:opacity-40"
           >
             {payLabel}
@@ -470,5 +533,39 @@ export function BillBuilder({
         </div>
       )}
     </div>
+  )
+}
+
+// Who earns this line's commission: as the bill (referrer, else the seller), or someone else.
+function EarnerPick({
+  value,
+  staff,
+  fallback,
+  onChange,
+}: {
+  value: string
+  staff: { id: string; name: string }[]
+  fallback: string | null
+  onChange: (id: string) => void
+}) {
+  const { tr } = useLanguage()
+  return (
+    <label className="mt-0.5 inline-flex max-w-full items-center gap-1 text-[11px] text-muted-foreground">
+      <span className="shrink-0">{tr(cmCopy.earner)}:</span>
+      <select
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className={cn('min-w-0 max-w-[12rem] truncate rounded-full border bg-background px-2 py-0.5 text-[11px] font-semibold', value ? 'border-accent text-accent' : 'border-border text-foreground')}
+      >
+        <option value="">
+          {tr(cmCopy.earnerDefault)} · {fallback ?? tr(cmCopy.earnerNone)}
+        </option>
+        {staff.map((p) => (
+          <option key={p.id} value={p.id}>
+            {p.name}
+          </option>
+        ))}
+      </select>
+    </label>
   )
 }
