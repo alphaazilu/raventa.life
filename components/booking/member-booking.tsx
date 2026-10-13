@@ -19,6 +19,7 @@ export type PublicType = {
   kind: BookingKind
   categoryId: string | null
   wholeDay: boolean
+  pickArrival: boolean
   capacity: number
   nameTh: string
   nameEn: string
@@ -144,7 +145,7 @@ export function MemberBooking({
                 <span className="min-w-0">
                   <span className="block truncate font-semibold">{tr(b.typeName)}</span>
                   <span className="block text-xs text-muted-foreground">
-                    {date(b.day)} · {b.wholeDay ? tr(c.allDay) : bkkHm(b.start)}
+                    {date(b.day)} · {b.wholeDay ? timeRange(b, tr(c.allDay)) : bkkHm(b.start)}
                   </span>
                 </span>
                 <span className="shrink-0 text-xs font-semibold text-muted-foreground">{b.movedTo ? tr(c.moved) : tr(statusLabel[b.status])}</span>
@@ -252,6 +253,7 @@ function BookFlow({
   const [resourceId, setResourceId] = useState<string | null>(null)
   const [party, setParty] = useState(1)
   const [note, setNote] = useState('')
+  const [arrive, setArrive] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   // Places left per day: full days look faded; open on the first free day.
   const [free, setFree] = useState<Record<string, number> | null>(null)
@@ -278,6 +280,7 @@ function BookFlow({
     setLoading(true)
     setSlot(null)
     setResourceId(null)
+    setArrive(null)
     setError(null)
     void api.memberSlots(type.id, day).then((r) => {
       if (!alive) return
@@ -429,6 +432,25 @@ function BookFlow({
         </label>
       )}
 
+
+      {slot?.arrivals && (
+        <div className="mt-5">
+          <span className="mb-1 block text-sm font-semibold">{tr(c.arriveAt)}</span>
+          <div className="grid grid-cols-4 gap-2">
+            {slot.arrivals.map((a) => (
+              <button
+                key={a}
+                type="button"
+                onClick={() => setArrive(a)}
+                className={cn('rounded-xl border py-2 text-center text-sm font-bold tabular-nums', arrive === a ? 'border-primary bg-primary text-primary-foreground' : 'border-border bg-card')}
+              >
+                {a}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
       {slot && (
         <>
           <label className="mt-5 block">
@@ -439,6 +461,7 @@ function BookFlow({
             <p className="font-semibold">{tr(c.confirmTitle)}</p>
             <p className="mt-1">
               {typeName(type, lang)} · {formatMemberDate(`${day}T12:00:00+07:00`, lang, true)} · {slot.time || tr(c.allDay)}
+              {arrive ? ` · ~${arrive}` : ''}
               {resourceId ? ` · ${type.resources.find((r) => r.id === resourceId)?.label}` : ''}
               {party > 1 ? ` · ${tr(c.people).replace('{n}', String(party))}` : ''}
             </p>
@@ -452,12 +475,12 @@ function BookFlow({
       {error && <p className="mt-4 rounded-xl bg-destructive/10 px-3 py-2 text-sm font-semibold text-destructive">{tr(bkErrors[error] ?? bkErrors.failed)}</p>}
       <button
         type="button"
-        disabled={!slot || pending}
+        disabled={!slot || pending || Boolean(slot.arrivals && !arrive)}
         onClick={() =>
           start(async () => {
             if (!slot) return
             setError(null)
-            const r = await api.memberBook({ typeId: type.id, start: slot.start, resourceId, party, note })
+            const r = await api.memberBook({ typeId: type.id, start: slot.start, resourceId, party, note, arriveTime: arrive })
             if (r.ok) {
               router.refresh()
               onDone()

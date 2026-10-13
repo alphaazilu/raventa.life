@@ -102,7 +102,7 @@ export function AccountHome({
               {booking.next
                 ? tr(bkCopy.nextBooking).replace(
                     '{t}',
-                    `${tr(booking.next.typeName)} · ${formatMemberDate(`${booking.next.day}T12:00:00+07:00`, lang, true) ?? booking.next.day} ${booking.next.wholeDay ? tr(bkCopy.allDay) : bkkHm(booking.next.start)}`,
+                    `${tr(booking.next.typeName)} · ${formatMemberDate(`${booking.next.day}T12:00:00+07:00`, lang, true) ?? booking.next.day} ${booking.next.wholeDay ? (booking.next.arriveTime ? `~${booking.next.arriveTime}` : tr(bkCopy.allDay)) : bkkHm(booking.next.start)}`,
                   ) + (booking.count > 1 ? ` (+${booking.count - 1})` : '')
                 : tr(bkCopy.payAtShop)}
             </span>

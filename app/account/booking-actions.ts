@@ -53,7 +53,7 @@ export async function memberDays(typeId: string): Promise<MemberBookResult<Recor
   return { ok: true, data: await daysFree(r.t, today, addDays(today, r.t.advanceDays), 'member') }
 }
 
-export async function memberBook(input: { typeId: string; start: string; resourceId: string | null; party: number; note: string }): Promise<MemberBookResult<{ id: string }>> {
+export async function memberBook(input: { typeId: string; start: string; resourceId: string | null; party: number; note: string; arriveTime?: string | null }): Promise<MemberBookResult<{ id: string }>> {
   const userId = await me()
   if (!userId) return { ok: false, error: 'not_signed_in' }
   const r = await bookableType(input.typeId)
@@ -71,6 +71,9 @@ export async function memberBook(input: { typeId: string; start: string; resourc
   if (!slot) return { ok: false, error: 'bad_booking' }
   const party = Math.min(t.maxParty, Math.max(1, Math.round(input.party) || 1))
   if (slot.left < party) return { ok: false, error: 'slot_full' }
+  // Whole day with an arrival time: one of the times on offer.
+  const arriveTime = t.wholeDay && t.pickArrival ? (input.arriveTime ?? null) : null
+  if (t.wholeDay && t.pickArrival && (!arriveTime || !(slot.arrivals ?? []).includes(arriveTime))) return { ok: false, error: 'bad_arrival' }
 
   const ns = await memberNoShow(userId)
   if (ns?.level === 'blocked') return { ok: false, error: 'blocked' }
@@ -102,6 +105,7 @@ export async function memberBook(input: { typeId: string; start: string; resourc
     if (isMissingTable(error)) return { ok: false, error: 'not_set_up' }
     return { ok: false, error: /slot_full/.test(error.message ?? '') ? 'slot_full' : 'failed' }
   }
+  if (arriveTime) await db.from('bookings').update({ arrive_time: arriveTime }).eq('id', data as string)
   await sendBookingEmail(data as string, 'booked')
   revalidatePath(MY_BOOKINGS_PATH)
   revalidatePath('/account')

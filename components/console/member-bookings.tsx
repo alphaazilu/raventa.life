@@ -39,7 +39,7 @@ export function MemberBookings({ memberId, list, noShow, rules }: { memberId: st
             <Link href={`${BOOKINGS_PATH}?d=${b.day}`} className="min-w-0 hover:underline">
               <span className="block truncate font-semibold">{tr(b.typeName)}</span>
               <span className="block text-xs text-muted-foreground">
-                {formatMemberDate(`${b.day}T12:00:00+07:00`, lang, true)} · {b.wholeDay ? tr(c.allDay) : bkkHm(b.start)}
+                {formatMemberDate(`${b.day}T12:00:00+07:00`, lang, true)} · {b.wholeDay ? (b.arriveTime ? `${tr(c.allDay)} ~${b.arriveTime}` : tr(c.allDay)) : bkkHm(b.start)}
                 {b.lateCancel ? ` · ${tr(c.lateCancel)}` : ''}
               </span>
             </Link>

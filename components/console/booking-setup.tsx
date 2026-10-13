@@ -43,6 +43,7 @@ const blank = (categoryId: string | null = null): TypeInput => ({
   memberPick: true,
   arriveOnCheckin: false,
   wholeDay: false,
+  pickArrival: false,
   nameTh: '',
   nameEn: '',
   description: '',
@@ -68,6 +69,7 @@ const fromType = (t: BookingType): TypeInput => ({
   memberPick: t.memberPick,
   arriveOnCheckin: t.arriveOnCheckin,
   wholeDay: t.wholeDay,
+  pickArrival: t.pickArrival,
   nameTh: t.nameTh,
   nameEn: t.nameEn,
   description: t.description ?? '',
@@ -306,6 +308,28 @@ function TypeForm({
             <span className="block text-xs font-normal text-muted-foreground">{tr(c.wholeDayHint)}</span>
           </span>
         </label>
+        {f.wholeDay && (
+          <label className="flex items-start gap-2 pl-6 text-sm font-semibold sm:col-span-2">
+            <input type="checkbox" checked={f.pickArrival} onChange={(e) => set({ pickArrival: e.target.checked })} className="mt-0.5 h-4 w-4" />
+            <span>
+              {tr(c.pickArrival)}
+              <span className="block text-xs font-normal text-muted-foreground">{tr(c.pickArrivalHint)}</span>
+            </span>
+          </label>
+        )}
+        {f.wholeDay && f.pickArrival && (
+          <label>
+            <span className={label}>{tr(c.step)}</span>
+            <select value={f.stepMin} onChange={(e) => set({ stepMin: Number(e.target.value) })} className={input}>
+              {STEP_OPTIONS.map((s) => (
+                <option key={s} value={s}>
+                  {s}
+                </option>
+              ))}
+            </select>
+            <span className="mt-1 block text-[11px] text-muted-foreground">{tr(c.hintStep)}</span>
+          </label>
+        )}
         {!f.wholeDay && (
           <>
             <label>

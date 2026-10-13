@@ -220,7 +220,7 @@ function DayView({
 
       <div className="grid items-start gap-4 lg:grid-cols-2 2xl:grid-cols-3">
         {shown.map((t) => {
-          const mine = live.filter((b) => b.typeId === t.id)
+          const mine = live.filter((b) => b.typeId === t.id).sort((a, b) => (a.arriveTime ?? '99').localeCompare(b.arriveTime ?? '99') || a.start.localeCompare(b.start))
           if (!mine.length) return null
           const lanes = t.resources.length
             ? [...t.resources.filter((r) => r.active || mine.some((b) => b.resourceId === r.id)).map((r) => ({ id: r.id as string | null, label: r.label })), ...(mine.some((b) => !b.resourceId) ? [{ id: null, label: '—' }] : [])]
@@ -296,7 +296,14 @@ function BookingChip({ b, rules, onOpen, withType = false }: { b: Booking; rules
     >
       <span className="w-[5.5rem] shrink-0 font-semibold tabular-nums">
         {b.wholeDay ? (
-          tr(c.allDay)
+          b.arriveTime ? (
+            <>
+              ~{b.arriveTime}
+              <span className="block text-[10px] font-normal text-muted-foreground">{tr(c.allDay)}</span>
+            </>
+          ) : (
+            tr(c.allDay)
+          )
         ) : (
           <>
             {bkkHm(b.start)}
@@ -554,6 +561,7 @@ export function BookForm({
   const [guestName, setGuestName] = useState('')
   const [guestPhone, setGuestPhone] = useState('')
   const [note, setNote] = useState('')
+  const [arrive, setArrive] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const type = types.find((t) => t.id === typeId) ?? null
 
@@ -563,6 +571,7 @@ export function BookForm({
     setLoading(true)
     setSlot(null)
     setResourceId(null)
+    setArrive(null)
     void api.staffSlots(typeId, day, move?.id).then((r) => {
       if (!alive) return
       setLoading(false)
@@ -631,6 +640,7 @@ export function BookForm({
             guestName,
             guestPhone,
             note,
+            arriveTime: arrive,
           })
       if (r.ok) {
         router.refresh()
@@ -723,6 +733,25 @@ export function BookForm({
               </button>
             )
           })}
+        </div>
+      )}
+
+
+      {slot?.arrivals && (
+        <div className="mb-4">
+          <span className="mb-1 block text-xs font-semibold text-muted-foreground">{tr(c.arriveAt)}</span>
+          <div className="grid grid-cols-4 gap-2">
+            {slot.arrivals.map((a) => (
+              <button
+                key={a}
+                type="button"
+                onClick={() => setArrive(a)}
+                className={cn('rounded-xl border py-2 text-center text-sm font-bold tabular-nums', arrive === a ? 'border-primary bg-primary text-primary-foreground' : 'border-border bg-card')}
+              >
+                {a}
+              </button>
+            ))}
+          </div>
         </div>
       )}
 

@@ -2644,3 +2644,8 @@ revoke all on public.booking_templates from anon, authenticated;
 -- Booked for a whole day, no time to pick (v0.35.4) — e.g. a Day Pass:
 -- "places per time" becomes places per day.
 alter table public.booking_types add column if not exists whole_day boolean not null default false;
+
+-- Whole-day items can ask what time the guest will come (v0.35.6) — just
+-- for the shop to know; places stay per day.
+alter table public.booking_types add column if not exists pick_arrival boolean not null default false;
+alter table public.bookings add column if not exists arrive_time time;

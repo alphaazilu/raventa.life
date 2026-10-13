@@ -28,6 +28,7 @@ export type BookingType = {
   memberPick: boolean // members choose the person/room
   arriveOnCheckin: boolean // a Day Pass check-in marks the booking "arrived"
   wholeDay: boolean // booked for the whole day, no time (v0.35.4); capacity = per day
+  pickArrival: boolean // whole day: the guest says what time they'll come (v0.35.6)
   nameTh: string
   nameEn: string
   description: string | null
@@ -54,6 +55,7 @@ export type Booking = {
   kind: BookingKind
   arriveOnCheckin: boolean
   wholeDay: boolean
+  arriveTime: string | null // whole day: "HH:MM" the guest said they'd come
   productId: string | null
   resourceId: string | null
   resourceLabel: string | null
@@ -79,7 +81,7 @@ export type Booking = {
 }
 
 export type SlotResource = { id: string; label: string; left: number }
-export type Slot = { start: string; time: string; left: number; resources: SlotResource[] }
+export type Slot = { start: string; time: string; left: number; resources: SlotResource[]; arrivals?: string[] }
 
 export type NoShowRules = { lateMin: number; windowDays: number; warn: number; block: number; blockDays: number; lateCancelWeight: number }
 export const DEFAULT_NOSHOW_RULES: NoShowRules = { lateMin: 15, windowDays: 60, warn: 2, block: 3, blockDays: 30, lateCancelWeight: 0.5 }
@@ -124,7 +126,18 @@ export function daySlots(t: BookingType, day: string, taken: Booking[], closed: 
     if (Date.parse(bkkInstant(day, fromMin(Math.min(close, 23 * 60 + 59)))) < notBefore) return []
     const start = bkkInstant(day, '00:00')
     const used = taken.filter((b) => b.typeId === t.id && active(b) && b.id !== ignore && b.day === day).reduce((n, b) => n + b.party, 0)
-    return [{ start, time: '', left: Math.max(0, t.capacity - used), resources: [] }]
+    // Arrival times on offer: every "step" through the open hours, not before notBefore.
+    let arrivals: string[] | undefined
+    if (t.pickArrival) {
+      arrivals = []
+      for (const h of open.sort((a, b) => toMin(a.start) - toMin(b.start)))
+        for (let m = toMin(h.start); m < toMin(h.end); m += t.stepMin) {
+          const time = fromMin(m)
+          if (!arrivals.includes(time) && Date.parse(bkkInstant(day, time)) >= notBefore) arrivals.push(time)
+        }
+      if (!arrivals.length) return []
+    }
+    return [{ start, time: '', left: Math.max(0, t.capacity - used), resources: [], arrivals }]
   }
   const res = t.resources.filter((r) => r.active).sort((a, b) => a.sort - b.sort || a.label.localeCompare(b.label))
   const mine = taken.filter((b) => b.typeId === t.id && active(b) && b.id !== ignore)
@@ -199,11 +212,13 @@ export function noShowStatus(
 
 // Late for a booking still "booked": started more than lateMin minutes ago.
 // Whole-day bookings are never "late" — they become no-shows when the day ends.
-export const isLate = (b: Pick<Booking, 'status' | 'start' | 'wholeDay'>, lateMin: number, now = Date.now()) =>
-  !b.wholeDay && b.status === 'booked' && now > Date.parse(b.start) + lateMin * 60_000
+export const isLate = (b: Pick<Booking, 'status' | 'start' | 'wholeDay' | 'arriveTime' | 'day'>, lateMin: number, now = Date.now()) =>
+  b.status === 'booked' &&
+  (b.wholeDay ? b.arriveTime !== null && now > Date.parse(bkkInstant(b.day, b.arriveTime)) + lateMin * 60_000 : now > Date.parse(b.start) + lateMin * 60_000)
 
 // "10:00–11:00", or "all day".
-export const timeRange = (b: Pick<Booking, 'start' | 'end' | 'wholeDay'>, allDay: string) => (b.wholeDay ? allDay : `${bkkHm(b.start)}–${bkkHm(b.end)}`)
+export const timeRange = (b: Pick<Booking, 'start' | 'end' | 'wholeDay' | 'arriveTime'>, allDay: string) =>
+  b.wholeDay ? (b.arriveTime ? `${allDay} · ~${b.arriveTime}` : allDay) : `${bkkHm(b.start)}–${bkkHm(b.end)}`
 
 // ---- copy ----
 
@@ -212,7 +227,7 @@ const L = (th: string, en: string) => ({ th, en })
 // An admin-saved starting point for new items (v0.35.3): the item's settings, no name.
 export type BookingTemplate = { id: string; name: string; data: Record<string, unknown> }
 export const TEMPLATE_KEYS = [
-  'categoryId', 'memberPick', 'arriveOnCheckin', 'wholeDay', 'description', 'durationMin', 'bufferMin', 'capacity', 'stepMin', 'productId',
+  'categoryId', 'memberPick', 'arriveOnCheckin', 'wholeDay', 'pickArrival', 'description', 'durationMin', 'bufferMin', 'capacity', 'stepMin', 'productId',
   'memberBooking', 'advanceDays', 'minHours', 'cancelHours', 'maxParty', 'resources', 'hours',
 ] as const
 
@@ -364,6 +379,10 @@ export const bkCopy = {
   hintBuffer: L('พัก/ทำความสะอาดก่อนรับคิวถัดไป เช่น 15', 'Break / clean-up before the next booking, e.g. 15'),
   hintMaxParty: L('จอง 1 ครั้งพาคนมาได้กี่คน (ตัวต่อตัว = 1)', 'People one booking can bring (one-to-one = 1)'),
   allDay: L('ทั้งวัน', 'All day'),
+  pickArrival: L('ให้ลูกค้าเลือกเวลาที่จะมา', 'Guests say what time they’ll come'),
+  pickArrivalHint: L('ไว้ให้ร้านรู้ล่วงหน้า · ที่ว่างยังนับต่อวัน · เวลาให้เลือกทุกๆ “รอบเวลา” ในช่วงเปิด', 'So the shop knows · places stay per day · times every “start every” through the open hours'),
+  arriveAt: L('เวลาที่จะมา', 'Arriving at'),
+  needArrival: L('เลือกเวลาที่จะมา', 'Choose what time you’ll come'),
   nextFree: L('ดูวันถัดไปที่ว่าง', 'Next free day'),
   why_no_hours: L('ยังไม่ได้ตั้งเวลาเปิดรับจอง (ตั้งค่าการจอง › เวลาเปิดรับจอง)', 'No open hours set yet (Bookings setup › Open hours)'),
   why_too_long: L('ระยะเวลา ({d} นาที) ยาวกว่าช่วงเปิดรับจอง ({w} นาที) — ลดระยะเวลา ขยายเวลาเปิด หรือติ๊ก “จองเป็นรายวัน”', 'The length ({d} min) is longer than the open hours ({w} min) — shorten it, open longer, or tick “Book by the day”'),
@@ -427,6 +446,7 @@ export const bkErrors: Record<string, { th: string; en: string }> = {
   need_who: L('เลือกสมาชิก หรือใส่ชื่อลูกค้า', 'Choose a member or enter a name'),
   bad_type: L('ตรวจข้อมูลอีกครั้ง (ชื่อ ระยะเวลา จำนวน)', 'Check the details (name, length, places)'),
   needs_sql: L('ต้องรัน schema.sql ล่าสุดก่อน (§35) — ยังบันทึก “จองเป็นรายวัน” / หมวดหมู่ไม่ได้', 'Run the latest schema.sql (§35) first — “Book by the day” / categories can’t be saved yet'),
+  bad_arrival: L('เลือกเวลาที่จะมาก่อน', 'Choose what time you’ll come'),
   no_free: L('ไม่มีวันว่างใน 30 วันข้างหน้า', 'Nothing free in the next 30 days'),
   bad_category: L('ตรวจชื่อหมวดหมู่อีกครั้ง (1–40 ตัวอักษร)', 'Check the category name (1–40 characters)'),
   bad_image: L('ใช้รูป JPG/PNG/WebP ไม่เกิน 2 MB', 'Use a JPG/PNG/WebP up to 2 MB'),

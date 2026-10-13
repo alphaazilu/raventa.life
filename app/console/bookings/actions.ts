@@ -90,6 +90,7 @@ export async function staffBook(input: {
   guestName: string
   guestPhone: string
   note: string
+  arriveTime?: string | null
 }): Promise<BkResult<{ id: string }>> {
   const ctx = await team()
   if ('error' in ctx) return { ok: false, error: ctx.error }
@@ -108,6 +109,9 @@ export async function staffBook(input: {
   })
   if (error) return { ok: false, error: rpcError(error) }
   const id = data as string
+  if (input.arriveTime && /^([01]\d|2[0-3]):[0-5]\d$/.test(input.arriveTime)) {
+    await createAdminClient().from('bookings').update({ arrive_time: input.arriveTime }).eq('id', id)
+  }
   if (input.memberId) await sendBookingEmail(id, 'booked')
   revalidatePath(BOOKINGS_PATH)
   return { ok: true, data: { id } }
@@ -136,6 +140,7 @@ export async function moveBooking(id: string, start: string, resourceId: string 
   })
   if (error) return { ok: false, error: rpcError(error) }
   await db.from('bookings').update({ status: 'cancelled', cancelled_at: new Date().toISOString(), cancelled_by: ctx.userId, moved_to: data }).eq('id', id)
+  if (old.arrive_time) await db.from('bookings').update({ arrive_time: old.arrive_time }).eq('id', data as string)
   if (old.member_id) await sendBookingEmail(data as string, 'moved')
   revalidatePath(BOOKINGS_PATH)
   return { ok: true, data: { id: data as string } }
@@ -187,6 +192,7 @@ export type TypeInput = {
   memberPick: boolean
   arriveOnCheckin: boolean
   wholeDay: boolean
+  pickArrival: boolean
   nameTh: string
   nameEn: string
   description: string
@@ -237,6 +243,7 @@ export async function saveBookingType(input: TypeInput): Promise<BkResult<{ id: 
     member_pick: Boolean(input.memberPick),
     arrive_on_checkin: Boolean(input.arriveOnCheckin),
     whole_day: Boolean(input.wholeDay),
+    pick_arrival: Boolean(input.wholeDay && input.pickArrival),
     name_th: nameTh,
     ...(input.categoryId !== undefined ? { category_id: input.categoryId || null } : {}),
     name_en: input.nameEn.trim(),
@@ -259,19 +266,19 @@ export async function saveBookingType(input: TypeInput): Promise<BkResult<{ id: 
   // Before §35 there's no category column: save without it.
   const noColumn = (e: { code?: string } | null) => e?.code === 'PGRST204' || e?.code === '42703'
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const { category_id: _cat, member_pick: _p, arrive_on_checkin: _a, whole_day: _w, ...rowNoCat } = row as typeof row & { category_id?: string | null }
+  const { category_id: _cat, member_pick: _p, arrive_on_checkin: _a, whole_day: _w, pick_arrival: _pa, ...rowNoCat } = row as typeof row & { category_id?: string | null }
   if (id) {
     let { error } = await db.from('booking_types').update(row).eq('id', id)
     if (noColumn(error)) {
       // Don't lose a setting silently: whole-day / category need §35.
-      if (input.wholeDay || input.categoryId) return { ok: false, error: 'needs_sql' }
+      if (input.wholeDay || input.categoryId || input.pickArrival) return { ok: false, error: 'needs_sql' }
       ;({ error } = await db.from('booking_types').update(rowNoCat).eq('id', id))
     }
     if (error) return { ok: false, error: rpcError(error) }
   } else {
     let { data, error } = await db.from('booking_types').insert(row).select('id').single()
     if (noColumn(error)) {
-      if (input.wholeDay || input.categoryId) return { ok: false, error: 'needs_sql' }
+      if (input.wholeDay || input.categoryId || input.pickArrival) return { ok: false, error: 'needs_sql' }
       ;({ data, error } = await db.from('booking_types').insert(rowNoCat).select('id').single())
     }
     if (error || !data) return { ok: false, error: rpcError(error) }

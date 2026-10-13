@@ -38,6 +38,7 @@ export default async function MyBookingsPage({ searchParams }: { searchParams: P
       kind: t.kind,
       categoryId: t.categoryId,
       wholeDay: t.wholeDay,
+      pickArrival: t.pickArrival,
       capacity: t.capacity,
       nameTh: t.nameTh,
       nameEn: t.nameEn,
