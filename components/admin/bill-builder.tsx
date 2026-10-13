@@ -34,6 +34,7 @@ export function BillBuilder({
   hint,
   quoteFn = quoteBill,
   commission = null,
+  initialLines = [],
 }: {
   // Shown in the bill's pinned header next to the total.
   title: string
@@ -67,11 +68,13 @@ export function BillBuilder({
     onScanReferrer: () => void
     onClearReferrer: () => void
   } | null
+  // Items already on the bill when it opens (a booking's service, §34).
+  initialLines?: BillLine[]
 }) {
   const { tr, lang } = useLanguage()
   const startMode: DayPassMode = withDayPass ? (packageReady ? 'package' : 'paid') : 'none'
   const [dayPass, setDayPass] = useState<DayPassMode>(startMode)
-  const [lines, setLines] = useState<BillLine[]>([])
+  const [lines, setLines] = useState<BillLine[]>(initialLines)
   const [showItems, setShowItems] = useState(true)
   const [codeInput, setCodeInput] = useState('')
   const [code, setCode] = useState('')

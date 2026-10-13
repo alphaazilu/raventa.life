@@ -69,6 +69,8 @@ export const consoleCopy = {
   todoCashReview: { th: 'ปิดกะเงินขาด/เกินรอตรวจ {n} กะ', en: 'Shift closes with a difference to check: {n}' },
   todoFeedback: { th: 'ความเห็นลูกค้ารอติดตาม {n} รายการ', en: 'Member feedback to follow up: {n}' },
   todoCalendar: { th: 'ปฏิทินวันนี้และพรุ่งนี้ {n} รายการ', en: 'Calendar today and tomorrow: {n}' },
+  todoBookings: { th: 'การจองวันนี้ {n} คิว', en: 'Bookings today: {n}' },
+  todoBookingLate: { th: 'จองแล้วเลยเวลา ยังไม่มา {n} คิว', en: 'Booked, late, not here yet: {n}' },
   todoCashOpen: { th: 'ลิ้นชักเปิดค้างนานเกิน 16 ชม. (ลืมปิดกะ?)', en: 'Cash drawer open over 16 h (forgot to close?)' },
 
   hourlyHeading: { th: 'เช็คอินรายชั่วโมง', en: 'Check-ins by hour' },

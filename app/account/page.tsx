@@ -13,6 +13,7 @@ import { dueNow } from '@/lib/console/checklist'
 import { upcomingOutside, upcomingTeam } from '@/lib/console/calendar'
 import { pendingVisit } from '@/lib/console/feedback'
 import { myCommissionCard } from '@/lib/console/commission'
+import { listTypes, memberBookings } from '@/lib/console/booking'
 
 export const metadata: Metadata = {
   title: 'My Account | RAVENTA Wellness Retreat',
@@ -71,7 +72,7 @@ export default async function AccountPage({
   const checklist = profile?.role === 'staff' || profile?.role === 'admin' ? await dueNow(today).catch(() => null) : null
   // Calendar (§31): events / campaigns for members; team items for staff.
   const team = profile?.role === 'staff' || profile?.role === 'admin'
-  const [upcoming, teamSoon, feedbackVisit, commission] = await Promise.all([
+  const [upcoming, teamSoon, feedbackVisit, commission, bookable, myBookings] = await Promise.all([
     upcomingOutside({ id: user.id, role: 'member' }, today, 45, 5).catch(() => []),
     team
       ? upcomingTeam({ id: user.id, role: profile?.role === 'admin' ? 'admin' : 'staff' }, today, 7)
@@ -82,7 +83,12 @@ export default async function AccountPage({
     pendingVisit(user.id).catch(() => null),
     // §33: my commission this pay period (people who earn)
     team ? myCommissionCard(user.id, today) : Promise.resolve(null),
+    // §34: anything members can book, and my next booking
+    listTypes(true).then((t) => (t ?? []).some((x) => x.memberBooking)).catch(() => false),
+    memberBookings(user.id).catch(() => null),
   ])
+  const booking =
+    bookable || (myBookings?.upcoming.length ?? 0) > 0 ? { next: myBookings?.upcoming[0] ?? null, count: myBookings?.upcoming.length ?? 0 } : null
   const fullName = [profile?.first_name, profile?.last_name].filter(Boolean).join(' ')
   // Staff see the front-desk link only when an admin allowed it on their
   // phone (Back Office › Settings); otherwise they use the counter tablet.
@@ -109,6 +115,7 @@ export default async function AccountPage({
           teamSoon={teamSoon}
           feedbackVisit={feedbackVisit}
           commission={commission}
+          booking={booking}
           // /account?card=1 (the LINE rich menu's member card button) opens
           // the check-in QR straight away.
           openCardOnLoad={params.card === '1'}

@@ -6,7 +6,7 @@ import { MemberCard } from '@/components/account/member-card'
 import { LinkRow } from '@/components/account/account-view'
 import { DESK_PATH, MY_CHECKLIST_PATH } from '@/lib/auth/roles'
 import { cn } from '@/lib/utils'
-import { Coins, ChevronRight, Gift, ListChecks, Star } from 'lucide-react'
+import { CalendarCheck, Coins, ChevronRight, Gift, ListChecks, Star } from 'lucide-react'
 import { formatMemberDate } from '@/lib/format-date'
 import Link from 'next/link'
 import { checklistCopy } from '@/lib/checklist'
@@ -21,6 +21,8 @@ import type { MyShifts as MyShiftsData } from '@/lib/my-shifts'
 import { packageAlive, packageLeft, type MemberPackage } from '@/lib/packages'
 import { bangkokToday } from '@/lib/check-in/day'
 import { cmCopy, money } from '@/lib/commission'
+import { bkCopy, bkkHm, type Booking } from '@/lib/booking'
+import { MY_BOOKINGS_PATH } from '@/lib/auth/roles'
 import type { MyCommissionCard } from '@/lib/console/commission'
 
 // Staff: "My work" (today's checklists, my shifts / leave) sits under the
@@ -47,6 +49,7 @@ export function AccountHome({
   teamSoon = [],
   feedbackVisit = null,
   commission = null,
+  booking = null,
 }: {
   name: string
   memberNo: string | null
@@ -64,6 +67,7 @@ export function AccountHome({
   teamSoon?: Occurrence[] // calendar: team items, next 7 days (staff/admin)
   feedbackVisit?: PendingVisit | null // a visit waiting to be rated (§32)
   commission?: MyCommissionCard | null // my commission this pay period (§33)
+  booking?: { next: Booking | null; count: number } | null // bookings (§34); null = nothing bookable
 }) {
   const { tr, lang } = useLanguage()
   return (
@@ -88,6 +92,24 @@ export function AccountHome({
       <div className="mt-8">
         <MemberCard name={name} memberNo={memberNo} avatarUrl={avatarUrl} joinedAt={joinedAt} role={role} autoOpen={openCardOnLoad} />
       </div>
+
+      {booking && (
+        <Link href={MY_BOOKINGS_PATH} className="mt-4 flex items-center gap-3 rounded-2xl border border-border bg-card px-4 py-3.5">
+          <CalendarCheck className="h-6 w-6 shrink-0 text-primary" aria-hidden="true" />
+          <span className="min-w-0 flex-1">
+            <span className="block font-semibold">{booking.next ? tr(bkCopy.myBookings) : tr(bkCopy.bookNow)}</span>
+            <span className="block truncate text-sm text-muted-foreground">
+              {booking.next
+                ? tr(bkCopy.nextBooking).replace(
+                    '{t}',
+                    `${tr(booking.next.typeName)} · ${formatMemberDate(`${booking.next.day}T12:00:00+07:00`, lang, true) ?? booking.next.day} ${bkkHm(booking.next.start)}`,
+                  ) + (booking.count > 1 ? ` (+${booking.count - 1})` : '')
+                : tr(bkCopy.payAtShop)}
+            </span>
+          </span>
+          <ChevronRight className="h-5 w-5 text-muted-foreground" aria-hidden="true" />
+        </Link>
+      )}
 
       {(checklist || myShifts || teamSoon.length > 0 || commission) && <h2 className="mt-8 text-base font-semibold text-card-foreground">{tr(myWork)}</h2>}
 

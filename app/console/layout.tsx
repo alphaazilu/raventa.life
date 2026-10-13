@@ -69,7 +69,7 @@ export default async function ConsoleLayout({ children }: { children: React.Reac
   // Numbers beside the side menu (admins only; staff see none).
   const alerts: ConsoleAlerts = isAdmin(me?.role)
     ? await loadAlerts()
-    : { pendingLeave: 0, forgotClockOut: 0, checklistIssues: 0, checklistMissed: 0, unsetPay: 0, cashReview: 0, cashOpenLong: 0, calendarSoon: 0, feedbackFollow: 0 }
+    : { pendingLeave: 0, forgotClockOut: 0, checklistIssues: 0, checklistMissed: 0, unsetPay: 0, cashReview: 0, cashOpenLong: 0, calendarSoon: 0, feedbackFollow: 0, bookingsToday: 0, bookingLate: 0 }
 
   return (
     <div className="min-h-dvh overflow-x-clip bg-background">

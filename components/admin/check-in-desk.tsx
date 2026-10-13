@@ -20,6 +20,7 @@ import { CASH_PATH, DESK_PATH } from '@/lib/auth/roles'
 import { cashCopy } from '@/lib/cash'
 import { isGift } from '@/lib/packages'
 import { cmCopy, cmErrors, type DeskCommission } from '@/lib/commission'
+import { bkCopy, bkkHm } from '@/lib/booking'
 import {
   cancelVisit,
   checkoutBill,
@@ -33,6 +34,7 @@ import {
   searchMembers,
   voidSale,
   type BillInput,
+  type BillLine,
   type CheckoutDone,
   type DeskCatalog,
   type DeskMember,
@@ -90,6 +92,8 @@ export function CheckInDesk({
   // Commission: the bill's referrer, and whether the camera is reading their card.
   const [referrer, setReferrer] = useState<{ id: string; name: string } | null>(null)
   const [scanFor, setScanFor] = useState<'guest' | 'referrer'>('guest')
+  // A booking's service put on the bill (§34): the lines, and which bookings.
+  const [preset, setPreset] = useState<{ lines: BillLine[]; bookingIds: string[] }>({ lines: [], bookingIds: [] })
   // The tab is in the address (?tab=floor) so the side menu's sub-items
   // (v0.30.4) and this tab bar stay in step.
   const sp = useSearchParams()
@@ -133,6 +137,7 @@ export function CheckInDesk({
   }
 
     const showMember = (member: DeskMember) => {
+    setPreset((p) => (p.bookingIds.length || p.lines.length ? { lines: [], bookingIds: [] } : p))
     setPanel({ kind: 'member', member })
     setSearchOpen(false)
     setQuery('')
@@ -234,7 +239,12 @@ export function CheckInDesk({
     run(
       () => {
         const { lineStaff, ...rest } = bill
-        return checkoutBill({ memberId, ...rest, commission: commission ? { referrerId: referrer?.id ?? null, lineStaff } : undefined })
+        return checkoutBill({
+          memberId,
+          ...rest,
+          commission: commission ? { referrerId: referrer?.id ?? null, lineStaff } : undefined,
+          bookingIds: preset.bookingIds,
+        })
       },
       (done: CheckoutDone) => {
         const receipt = done.receiptNo ? ` · ${tr(deskCopy.receipt)} ${receiptLabel(done.receiptNo)}` : ''
@@ -246,6 +256,7 @@ export function CheckInDesk({
         }
         setReferrer(null)
         setScanFor('guest')
+        setPreset({ lines: [], bookingIds: [] })
         afterChange()
       },
     )
@@ -407,6 +418,16 @@ export function CheckInDesk({
                   <MemberInfo
                     member={member}
                     busy={busy}
+                    added={preset.bookingIds}
+                    onAddBooking={(b) => {
+                      if (!b.productId || preset.bookingIds.includes(b.id)) return
+                      const lines = [...preset.lines]
+                      const i = lines.findIndex((l) => l.productId === b.productId && l.variantId === null)
+                      if (i >= 0) lines[i] = { ...lines[i], qty: Math.min(99, lines[i].qty + 1) }
+                      else lines.push({ productId: b.productId, variantId: null, qty: 1 })
+                      setPreset({ lines, bookingIds: [...preset.bookingIds, b.id] })
+                      setBillKey((k) => k + 1)
+                    }}
                     onCheckOut={(visitId) =>
                       run(
                         () => checkOut(visitId),
@@ -491,6 +512,7 @@ export function CheckInDesk({
                       : tr(deskCopy.sellOnlyHint)
                 }
                 key={`${memberBill ? member.id : member && !member.isSelf ? `items-${member.id}` : 'walkup'}-${billKey}`}
+                initialLines={preset.lines}
                 memberId={member && !member.isSelf ? member.id : null}
                 withDayPass={Boolean(memberBill)}
                 rewardReady={(member?.stamps?.rewardsAvailable ?? 0) > 0}
@@ -581,12 +603,16 @@ function maskPhone(phone: string): string {
 function MemberInfo({
   member,
   busy,
+  added,
+  onAddBooking,
   onCheckOut,
   onReEnter,
   onCancel,
 }: {
   member: DeskMember
   busy: boolean
+  added: string[]
+  onAddBooking: (b: DeskMember['bookingsToday'][number]) => void
   onCheckOut: (visitId: string) => void
   onReEnter: (visitId: string) => void
   onCancel: (visit: NonNullable<DeskMember['today']>, reason: string) => void
@@ -626,6 +652,39 @@ function MemberInfo({
           </span>
         )}
       </div>
+
+      {member.bookingsToday.length > 0 && (
+        <div className="mt-3 rounded-2xl border border-primary/30 bg-primary/5 p-3">
+          <p className="text-xs font-bold uppercase tracking-wide text-primary">{tr(bkCopy.deskToday)}</p>
+          <ul className="mt-1.5 flex flex-col gap-1.5">
+            {member.bookingsToday.map((b) => {
+              const isAdded = added.includes(b.id)
+              return (
+                <li key={b.id} className="flex items-center gap-2 text-sm">
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate font-semibold">
+                      {bkkHm(b.start)} {tr(b.name)}
+                    </span>
+                    {b.with && <span className="block truncate text-xs text-muted-foreground">{b.with}</span>}
+                  </span>
+                  {b.status === 'arrived' ? (
+                    <span className="shrink-0 rounded-full bg-accent/15 px-2 py-0.5 text-[11px] font-bold text-accent">{tr(bkCopy.markArrived)}</span>
+                  ) : b.productId && !member.isSelf ? (
+                    <button
+                      type="button"
+                      disabled={busy || isAdded}
+                      onClick={() => onAddBooking(b)}
+                      className={cn('shrink-0 rounded-full px-2.5 py-1 text-xs font-bold', isAdded ? 'bg-accent/15 text-accent' : 'bg-primary text-primary-foreground')}
+                    >
+                      {tr(isAdded ? bkCopy.added : bkCopy.addToBill)}
+                    </button>
+                  ) : null}
+                </li>
+              )
+            })}
+          </ul>
+        </div>
+      )}
 
       {member.stamps && <StampRow progress={member.stamps.progress} rewardReady={rewardReady} />}
       <PackageList packages={member.packages} useToday={member.today ? null : member.packageToday} className="mt-3" />

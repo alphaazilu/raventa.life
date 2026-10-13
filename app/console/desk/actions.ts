@@ -13,6 +13,7 @@ import { bangkokToday, isWeekend } from '@/lib/check-in/day'
 import { dayTypeOf, loadCatalog, priceOn, type DayType } from '@/lib/console/catalog'
 import { loadMemberPackages, type MemberPackage } from '@/lib/packages'
 import { isEarner, recordCommissions } from '@/lib/console/commission'
+import { markArrived, memberToday } from '@/lib/console/booking'
 
 // Front-desk actions. Every write is a database function (see
 // supabase/schema.sql §13) called with the staff member's own session, so
@@ -53,7 +54,11 @@ export type DeskMember = {
   today: TodayVisit | null
   priceToday: number
   weekend: boolean
+  // Booked for today (§34, v0.35): shown with "add to bill".
+  bookingsToday: DeskBooking[]
 }
+
+export type DeskBooking = { id: string; name: { th: string; en: string }; start: string; end: string; productId: string | null; status: 'booked' | 'arrived'; kind: string; with: string | null }
 
 export type MemberHit = { id: string; name: string; memberNo: string | null; phone: string | null; avatarUrl: string | null }
 
@@ -117,7 +122,7 @@ async function selectVisits<T>(run: (columns: string) => PromiseLike<{ data: T; 
 
 async function loadMember(supabase: Supabase, userId: string, memberId: string): Promise<DeskResult<DeskMember>> {
   const today = bangkokToday()
-  const [{ data: p, error: pErr }, visitRes, stampRes, priceRes, pastRes, pkgRes, pkgNowRes] = await Promise.all([
+  const [{ data: p, error: pErr }, visitRes, stampRes, priceRes, pastRes, pkgRes, pkgNowRes, booked] = await Promise.all([
     supabase
       .from('profiles')
       .select('id, first_name, last_name, email, member_no, role, created_at, avatar_path, provider_avatar_url')
@@ -138,6 +143,7 @@ async function loadMember(supabase: Supabase, userId: string, memberId: string):
       .limit(1),
     loadMemberPackages(supabase, memberId, today),
     supabase.rpc('usable_package', { p_member_id: memberId, p_date: today }),
+    memberToday(memberId),
   ])
   if (pErr) return { ok: false, error: errorCode(pErr) }
   if (!p) return { ok: false, error: 'member_not_found' }
@@ -162,6 +168,16 @@ async function loadMember(supabase: Supabase, userId: string, memberId: string):
       today: visitRes.data ? toVisit(visitRes.data as unknown as Record<string, unknown>) : null,
       priceToday: Number(priceRes.data),
       weekend: isWeekend(today),
+      bookingsToday: booked.map((b) => ({
+        id: b.id,
+        name: b.typeName,
+        start: b.start,
+        end: b.end,
+        productId: b.productId,
+        status: b.status as 'booked' | 'arrived',
+        kind: b.kind,
+        with: b.resourceLabel,
+      })),
     },
   }
 }
@@ -419,7 +435,7 @@ export type CheckoutDone = { receiptNo: number | null; total: number; member: De
 export type BillCommission = { referrerId: string | null; lineStaff: Record<string, string> }
 
 export async function checkoutBill(
-  input: BillInput & { paymentMethod: PaymentMethod | null; wristband: string; commission?: BillCommission },
+  input: BillInput & { paymentMethod: PaymentMethod | null; wristband: string; commission?: BillCommission; bookingIds?: string[] },
 ): Promise<DeskResult<CheckoutDone>> {
   const ctx = await requireDesk()
   if ('error' in ctx) return { ok: false, error: ctx.error }
@@ -431,6 +447,7 @@ export async function checkoutBill(
   })
   let receiptNo: number | null = null
   let total = 0
+  let saleId: string | null = null
   if (error) {
     const code = errorCode(error)
     if (!(code === 'not_set_up' && legacyOnly(input) && input.memberId)) return { ok: false, error: code }
@@ -445,6 +462,7 @@ export async function checkoutBill(
     const r = data as Record<string, unknown>
     receiptNo = Number(r.receipt_no)
     total = Number(r.total)
+    saleId = (r.sale_id as string | undefined) ?? null
     // Sold away from a counter tablet (an admin, or staff allowed on their
     // phone): note it, so the log shows where each bill was taken.
     if (!ctx.onTablet) {
@@ -462,6 +480,9 @@ export async function checkoutBill(
       })
     }
   }
+  // Bookings that came with this bill (and today's entry window when
+  // checking in) are now "arrived" (§34).
+  if (input.memberId) await markArrived(input.memberId, input.bookingIds ?? [], saleId, input.dayPass !== 'none')
   if (!input.memberId) return { ok: true, data: { receiptNo, total, member: null } }
   const m = await loadMember(ctx.supabase, ctx.userId, input.memberId)
   return { ok: true, data: { receiptNo, total, member: m.ok ? m.data : null } }

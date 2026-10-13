@@ -6,7 +6,7 @@ import { useMemo, useState, useTransition } from 'react'
 import { CalendarDays, ChevronLeft, ChevronRight, List, Plus, Trash2, X } from 'lucide-react'
 import { useLanguage } from '@/components/language-provider'
 import { Spinner } from '@/components/ui/spinner'
-import { CALENDAR_PATH } from '@/lib/auth/roles'
+import { BOOKINGS_PATH, CALENDAR_PATH } from '@/lib/auth/roles'
 import {
   addDays,
   calCopy as c,
@@ -35,7 +35,7 @@ const KIND_STYLE: Record<CalKind, string> = {
   closed: 'bg-foreground text-background',
 }
 export const DOT: Record<CalKind, string> = { event: 'bg-primary', campaign: 'bg-amber-500', note: 'bg-sky-500', closed: 'bg-foreground' }
-type Layer = 'items' | 'holidays' | 'promos' | 'leave' | 'shifts'
+type Layer = 'items' | 'holidays' | 'promos' | 'leave' | 'shifts' | 'bookings'
 const card = 'rounded-2xl border border-border bg-card'
 
 export function CalendarView({
@@ -62,7 +62,7 @@ export function CalendarView({
   staff: { id: string; name: string }[]
 }) {
   const { tr, lang } = useLanguage()
-  const [layers, setLayers] = useState<Record<Layer, boolean>>({ items: true, holidays: true, promos: true, leave: true, shifts: false })
+  const [layers, setLayers] = useState<Record<Layer, boolean>>({ items: true, holidays: true, promos: true, leave: true, shifts: false, bookings: true })
   const [day, setDay] = useState<string | null>(null)
   const [editing, setEditing] = useState<{ item: CalItem | null; date: string } | null>(null)
 
@@ -87,13 +87,14 @@ export function CalendarView({
     const promos = layers.promos ? extras.filter((e): e is Extract<CalExtra, { type: 'promo' }> => e.type === 'promo' && e.start <= d && e.end >= d) : []
     const leave = layers.leave ? extras.filter((e): e is Extract<CalExtra, { type: 'leave' }> => e.type === 'leave' && e.start <= d && e.end >= d) : []
     const shifts = layers.shifts ? extras.find((e): e is Extract<CalExtra, { type: 'shifts' }> => e.type === 'shifts' && e.day === d) : undefined
-    return { occ, hol, promos, leave, shifts }
+    const bookings = layers.bookings ? extras.find((e): e is Extract<CalExtra, { type: 'bookings' }> => e.type === 'bookings' && e.day === d) : undefined
+    return { occ, hol, promos, leave, shifts, bookings }
   }
   const span = (a: string, b: string) => `${Number(a.slice(8))}/${Number(a.slice(5, 7))} – ${Number(b.slice(8))}/${Number(b.slice(5, 7))}`
   const canEdit = (i: CalItem) => admin || i.createdBy === meId
   const open = (o: Occurrence) => setEditing({ item: o.item, date: o.start })
-  const layerList: Layer[] = admin ? ['items', 'holidays', 'promos', 'leave', 'shifts'] : ['items', 'holidays', 'promos']
-  const layerLabel: Record<Layer, { th: string; en: string }> = { items: c.layerItems, holidays: c.layerHolidays, promos: c.layerPromos, leave: c.layerLeave, shifts: c.layerShifts }
+  const layerList: Layer[] = admin ? ['items', 'holidays', 'promos', 'leave', 'shifts', 'bookings'] : ['items', 'holidays', 'promos', 'bookings']
+  const layerLabel: Record<Layer, { th: string; en: string }> = { items: c.layerItems, holidays: c.layerHolidays, promos: c.layerPromos, leave: c.layerLeave, shifts: c.layerShifts, bookings: c.layerBookings }
 
   const listDays = days.filter((d) => d.slice(0, 7) === month)
   // The list shows a multi-day item once: on its first day (or the 1st of the month).
@@ -258,6 +259,7 @@ export function CalendarView({
                               {Number(d.slice(8))}
                             </span>
                             {x.shifts && <span className="truncate text-[10px] text-muted-foreground">{tr(c.onShift).replace('{n}', String(x.shifts.count))}</span>}
+                            {x.bookings && <span className="truncate text-[10px] font-semibold text-primary">{tr(c.bookingsN).replace('{n}', String(x.bookings.count))}</span>}
                           </div>
                           {x.hol.map((h) => (
                             <p key={h.name} className="mt-0.5 truncate text-[11px] font-semibold text-destructive" title={h.name}>
@@ -361,6 +363,7 @@ function DayPanel({
     promos: { name: string }[]
     leave: { name: string }[]
     shifts?: { count: number }
+    bookings?: { count: number }
   }
   today: string
   loc: string
@@ -370,7 +373,7 @@ function DayPanel({
 }) {
   const { tr } = useLanguage()
   const label = new Intl.DateTimeFormat(loc, { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'UTC' }).format(new Date(`${day}T00:00:00Z`))
-  const empty = !data.occ.length && !data.hol.length && !data.promos.length && !data.leave.length
+  const empty = !data.occ.length && !data.hol.length && !data.promos.length && !data.leave.length && !data.bookings
   return (
     <aside className={cn(card, 'h-fit p-4 xl:sticky xl:top-[81px]')}>
       <div className="flex items-start justify-between gap-2">
@@ -404,6 +407,11 @@ function DayPanel({
           </p>
         )}
         {data.shifts && <p className="text-sm text-muted-foreground">{tr(c.onShift).replace('{n}', String(data.shifts.count))}</p>}
+        {data.bookings && (
+          <a href={`${BOOKINGS_PATH}?d=${day}`} className="block text-sm font-semibold text-primary underline">
+            {tr(c.bookingsN).replace('{n}', String(data.bookings.count))}
+          </a>
+        )}
         {empty && <p className="text-sm text-muted-foreground">{tr(c.nothing)}</p>}
       </div>
     </aside>

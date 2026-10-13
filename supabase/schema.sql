@@ -2403,3 +2403,187 @@ create index if not exists sale_commissions_staff_idx on public.sale_commissions
 create index if not exists sale_commissions_created_idx on public.sale_commissions (created_at);
 alter table public.sale_commissions enable row level security;
 revoke all on public.sale_commissions from anon, authenticated;
+
+
+-- 34. Bookings (v0.35). Things that can be booked (a service with a person
+-- or room, a class, a Day Pass entry window, a private room), when they
+-- open each week, and the bookings. Members book from My account; staff
+-- book for anyone (members or walk-in guests). Nothing is paid when
+-- booking — the bill is paid at the counter. No-shows are counted for the
+-- rules in app_settings. Server (service-role) only; book_slot() takes a
+-- lock so two people can't take the last place at the same moment.
+create table if not exists public.booking_types (
+  id uuid primary key default gen_random_uuid(),
+  kind text not null check (kind in ('service', 'class', 'entry', 'room')),
+  name_th text not null check (char_length(btrim(name_th)) between 1 and 60),
+  name_en text not null default '' check (char_length(name_en) <= 60),
+  description text check (char_length(description) <= 500),
+  duration_min integer not null default 60 check (duration_min between 10 and 720),
+  buffer_min integer not null default 0 check (buffer_min between 0 and 120),     -- clean-up time after each booking
+  capacity integer not null default 1 check (capacity between 1 and 500),        -- people per time (per person/room when there are any)
+  step_min integer not null default 30 check (step_min in (10, 15, 20, 30, 45, 60, 90, 120, 180, 240)),
+  product_id uuid references public.products(id) on delete set null,           -- what the counter adds to the bill
+  member_booking boolean not null default true,                                 -- members can book it themselves
+  advance_days integer not null default 14 check (advance_days between 0 and 180),
+  min_hours numeric(4, 1) not null default 2 check (min_hours between 0 and 72),
+  cancel_hours numeric(4, 1) not null default 3 check (cancel_hours between 0 and 168),
+  max_party integer not null default 1 check (max_party between 1 and 20),
+  is_active boolean not null default true,
+  sort integer not null default 0,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+alter table public.booking_types enable row level security;
+revoke all on public.booking_types from anon, authenticated;
+
+-- Who or what gives the service (a therapist, a room). None = the type's capacity is shared.
+create table if not exists public.booking_resources (
+  id uuid primary key default gen_random_uuid(),
+  type_id uuid not null references public.booking_types(id) on delete cascade,
+  label text not null check (char_length(btrim(label)) between 1 and 40),
+  staff_id uuid references auth.users(id) on delete set null,
+  is_active boolean not null default true,
+  sort integer not null default 0
+);
+create index if not exists booking_resources_type_idx on public.booking_resources (type_id);
+alter table public.booking_resources enable row level security;
+revoke all on public.booking_resources from anon, authenticated;
+
+-- Open hours per weekday (0 = Sunday); several windows a day are fine.
+create table if not exists public.booking_hours (
+  id bigint generated always as identity primary key,
+  type_id uuid not null references public.booking_types(id) on delete cascade,
+  weekday integer not null check (weekday between 0 and 6),
+  start_time time not null,
+  end_time time not null,
+  constraint booking_hours_order check (end_time > start_time)
+);
+create index if not exists booking_hours_type_idx on public.booking_hours (type_id);
+alter table public.booking_hours enable row level security;
+revoke all on public.booking_hours from anon, authenticated;
+
+create table if not exists public.bookings (
+  id uuid primary key default gen_random_uuid(),
+  type_id uuid not null references public.booking_types(id) on delete restrict,
+  resource_id uuid references public.booking_resources(id) on delete set null,
+  day date not null,
+  start_at timestamptz not null,
+  end_at timestamptz not null,
+  member_id uuid references auth.users(id) on delete set null,
+  guest_name text check (guest_name is null or char_length(btrim(guest_name)) between 1 and 80),
+  guest_phone text check (guest_phone is null or char_length(guest_phone) <= 20),
+  party integer not null default 1 check (party between 1 and 20),
+  status text not null default 'booked' check (status in ('booked', 'arrived', 'cancelled', 'no_show')),
+  source text not null default 'staff' check (source in ('member', 'staff')),
+  note text check (char_length(note) <= 300),
+  created_by uuid references auth.users(id) on delete set null,
+  created_at timestamptz not null default now(),
+  cancelled_at timestamptz,
+  cancelled_by uuid references auth.users(id) on delete set null,
+  late_cancel boolean not null default false,          -- cancelled inside the cancel window
+  arrived_at timestamptz,
+  sale_id uuid references public.sales(id) on delete set null,
+  no_show_at timestamptz,
+  no_show_by uuid references auth.users(id) on delete set null,   -- null = marked at the end of the day
+  constraint bookings_who check (member_id is not null or guest_name is not null),
+  constraint bookings_time check (end_at > start_at)
+);
+create index if not exists bookings_day_idx on public.bookings (day);
+create index if not exists bookings_member_idx on public.bookings (member_id, start_at);
+create index if not exists bookings_type_idx on public.bookings (type_id, start_at);
+alter table public.bookings enable row level security;
+revoke all on public.bookings from anon, authenticated;
+
+-- Moved to another time: the old booking is kept, cancelled, pointing at the new one.
+alter table public.bookings add column if not exists moved_to uuid references public.bookings(id) on delete set null;
+
+-- An admin "forgives" a member: no-shows before this time stop counting.
+create table if not exists public.booking_pardons (
+  member_id uuid primary key references auth.users(id) on delete cascade,
+  pardoned_at timestamptz not null default now(),
+  pardoned_by uuid references auth.users(id) on delete set null
+);
+alter table public.booking_pardons enable row level security;
+revoke all on public.booking_pardons from anon, authenticated;
+
+-- No-show rules (Settings › Bookings).
+alter table public.app_settings add column if not exists booking_late_min integer not null default 15 check (booking_late_min between 0 and 240);
+alter table public.app_settings add column if not exists noshow_window_days integer not null default 60 check (noshow_window_days between 7 and 365);
+alter table public.app_settings add column if not exists noshow_warn numeric(4, 1) not null default 2 check (noshow_warn between 0 and 20);
+alter table public.app_settings add column if not exists noshow_block numeric(4, 1) not null default 3 check (noshow_block between 0 and 20);
+alter table public.app_settings add column if not exists noshow_block_days integer not null default 30 check (noshow_block_days between 1 and 365);
+alter table public.app_settings add column if not exists late_cancel_weight numeric(3, 2) not null default 0.5 check (late_cancel_weight between 0 and 1);
+
+-- Book one place, safely: locks the type for the day, checks the room
+-- left (per person/room, counting clean-up time), picks a free person/room
+-- when none was chosen, and inserts. Raises 'slot_full' / 'bad_booking'.
+create or replace function public.book_slot(
+  p_type_id uuid,
+  p_resource_id uuid,
+  p_start timestamptz,
+  p_party integer,
+  p_member_id uuid,
+  p_guest_name text,
+  p_guest_phone text,
+  p_note text,
+  p_source text,
+  p_created_by uuid,
+  p_ignore uuid default null          -- moving a booking: don't count itself
+) returns uuid
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_t public.booking_types;
+  v_end timestamptz;
+  v_day date;
+  v_res uuid;
+  v_used integer;
+  v_id uuid;
+  v_has_res boolean;
+begin
+  select * into v_t from public.booking_types where id = p_type_id and is_active;
+  if not found or p_party is null or p_party < 1 or p_party > v_t.max_party then
+    raise exception 'bad_booking';
+  end if;
+  v_end := p_start + make_interval(mins => v_t.duration_min);
+  v_day := (p_start at time zone 'Asia/Bangkok')::date;
+  perform pg_advisory_xact_lock(hashtext(p_type_id::text || v_day::text));
+
+  select exists (select 1 from public.booking_resources where type_id = p_type_id and is_active) into v_has_res;
+  if v_has_res then
+    for v_res in
+      select r.id from public.booking_resources r
+      where r.type_id = p_type_id and r.is_active and (p_resource_id is null or r.id = p_resource_id)
+      order by r.sort, r.label
+    loop
+      select coalesce(sum(b.party), 0) into v_used from public.bookings b
+      where b.resource_id = v_res and b.status in ('booked', 'arrived') and b.id is distinct from p_ignore
+        and b.start_at < v_end + make_interval(mins => v_t.buffer_min)
+        and b.end_at + make_interval(mins => v_t.buffer_min) > p_start;
+      if v_used + p_party <= v_t.capacity then
+        insert into public.bookings (type_id, resource_id, day, start_at, end_at, member_id, guest_name, guest_phone, party, source, note, created_by)
+        values (p_type_id, v_res, v_day, p_start, v_end, p_member_id, nullif(btrim(p_guest_name), ''), nullif(btrim(p_guest_phone), ''), p_party, p_source, nullif(btrim(p_note), ''), p_created_by)
+        returning id into v_id;
+        return v_id;
+      end if;
+    end loop;
+    raise exception 'slot_full';
+  end if;
+
+  select coalesce(sum(b.party), 0) into v_used from public.bookings b
+  where b.type_id = p_type_id and b.status in ('booked', 'arrived') and b.id is distinct from p_ignore
+    and b.start_at < v_end + make_interval(mins => v_t.buffer_min)
+    and b.end_at + make_interval(mins => v_t.buffer_min) > p_start;
+  if v_used + p_party > v_t.capacity then
+    raise exception 'slot_full';
+  end if;
+  insert into public.bookings (type_id, resource_id, day, start_at, end_at, member_id, guest_name, guest_phone, party, source, note, created_by)
+  values (p_type_id, null, v_day, p_start, v_end, p_member_id, nullif(btrim(p_guest_name), ''), nullif(btrim(p_guest_phone), ''), p_party, p_source, nullif(btrim(p_note), ''), p_created_by)
+  returning id into v_id;
+  return v_id;
+end;
+$$;
+revoke execute on function public.book_slot(uuid, uuid, timestamptz, integer, uuid, text, text, text, text, uuid, uuid) from public, anon, authenticated;
+grant execute on function public.book_slot(uuid, uuid, timestamptz, integer, uuid, text, text, text, text, uuid, uuid) to service_role;

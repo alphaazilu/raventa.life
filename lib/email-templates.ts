@@ -199,3 +199,47 @@ function thaiDate(iso: string): string {
   const months = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.']
   return `${d} ${months[m - 1]} ${y + 543}`
 }
+
+// Bookings (§34, v0.35): booked / moved / cancelled. Nothing to pay now.
+export function bookingEmail(b: {
+  kind: 'booked' | 'cancelled' | 'moved'
+  firstName: string | null
+  what: string
+  day: string
+  time: string
+  withWhom: string | null
+  party: number
+  cancelBy: string | null // "YYYY-MM-DD HH:MM"
+  url: string
+}): { subject: string; html: string } {
+  const safe = (v: string) => v.replace(/[<>&"]/g, (ch) => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', '"': '&quot;' })[ch] as string)
+  const when = `${thaiDate(b.day)} · ${b.time}`
+  const head =
+    b.kind === 'cancelled' ? 'ยกเลิกการจองแล้ว' : b.kind === 'moved' ? 'เลื่อนนัดเรียบร้อย' : 'จองเรียบร้อยแล้ว'
+  const subject = b.kind === 'cancelled' ? `ยกเลิกการจอง ${b.what} · ${when}` : b.kind === 'moved' ? `เลื่อนนัด ${b.what} → ${when}` : `ยืนยันการจอง ${b.what} · ${when}`
+  const row = (k: string, v: string) =>
+    `<tr><td style="padding:4px 0;font-size:13px;color:${COLORS.muted};width:96px;">${k}</td><td style="padding:4px 0;font-size:14px;font-weight:600;color:${COLORS.text};">${v}</td></tr>`
+  const cancelBy = b.cancelBy ? `${thaiDate(b.cancelBy.slice(0, 10))} ${b.cancelBy.slice(11)}` : null
+  return {
+    subject,
+    html: wrapper(`
+      <h1 style="margin:0 0 6px;font-size:20px;color:${COLORS.text};">${head}</h1>
+      <p style="margin:0 0 18px;font-size:14px;color:${COLORS.muted};">${b.firstName ? `สวัสดีคุณ${safe(b.firstName)}` : 'สวัสดีค่ะ'}</p>
+      <div style="background:${COLORS.sage};border-radius:12px;padding:14px 18px;margin:0 0 20px;${b.kind === 'cancelled' ? 'opacity:0.7;' : ''}">
+        <table role="presentation" cellpadding="0" cellspacing="0" width="100%">
+          ${row('บริการ', safe(b.what))}
+          ${row('วัน-เวลา', when)}
+          ${b.withWhom ? row('กับ', safe(b.withWhom)) : ''}
+          ${b.party > 1 ? row('จำนวน', `${b.party} คน`) : ''}
+        </table>
+      </div>
+      ${
+        b.kind === 'cancelled'
+          ? `<p style="margin:0 0 20px;font-size:14px;line-height:1.6;color:${COLORS.text};">หวังว่าจะได้พบกันครั้งหน้านะคะ จองใหม่ได้ทุกเมื่อในบัญชีของคุณ</p>`
+          : `<p style="margin:0 0 8px;font-size:14px;line-height:1.6;color:${COLORS.text};">ไม่ต้องจ่ายตอนนี้ — ชำระที่หน้าร้านตอนมา ยื่นบัตรสมาชิกที่เคาน์เตอร์ได้เลย</p>
+             ${cancelBy ? `<p style="margin:0 0 20px;font-size:13px;line-height:1.6;color:${COLORS.muted};">ถ้ามาไม่ได้ ยกเลิกได้ฟรีถึง ${cancelBy} — ช่วยให้คนอื่นได้คิวนี้แทน</p>` : ''}`
+      }
+      <p style="margin:0 0 8px;text-align:center;"><a href="${b.url}" style="display:inline-block;background-color:${COLORS.primary};color:${COLORS.primaryForeground};padding:12px 28px;border-radius:999px;text-decoration:none;font-weight:600;">${b.kind === 'cancelled' ? 'จองใหม่' : 'ดู / ยกเลิกการจอง'}</a></p>
+    `),
+  }
+}

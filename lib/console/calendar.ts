@@ -71,11 +71,12 @@ export function visibleOccurrences(items: CalItem[], v: Viewer, from: string, to
 // What other parts of the system put on the team calendar.
 export async function loadExtras(from: string, to: string): Promise<CalExtra[]> {
   const db = createAdminClient()
-  const [hol, promo, leave, shifts] = await Promise.all([
+  const [hol, promo, leave, shifts, bookings] = await Promise.all([
     db.from('holidays').select('day, name').gte('day', from).lte('day', to),
     db.from('promotions').select('name, starts_on, ends_on, is_active').eq('is_active', true).not('starts_on', 'is', null).lte('starts_on', to),
     db.from('leave_requests').select('staff_id, start_date, end_date').eq('status', 'approved').lte('start_date', to).gte('end_date', from),
     db.from('shift_assignments').select('staff_id, work_date, template_id').gte('work_date', from).lte('work_date', to).not('template_id', 'is', null),
+    db.from('bookings').select('day').gte('day', from).lte('day', to).in('status', ['booked', 'arrived']).limit(10000),
   ])
   const out: CalExtra[] = []
   for (const h of hol.error ? [] : (hol.data ?? [])) out.push({ type: 'holiday', day: h.day as string, name: h.name as string })
@@ -93,6 +94,9 @@ export async function loadExtras(from: string, to: string): Promise<CalExtra[]> 
     perDay.get(d)!.add(s.staff_id as string)
   }
   for (const [day, set] of perDay) out.push({ type: 'shifts', day, count: set.size })
+  const bk = new Map<string, number>()
+  for (const b of bookings.error ? [] : (bookings.data ?? [])) bk.set(b.day as string, (bk.get(b.day as string) ?? 0) + 1)
+  for (const [day, count] of bk) out.push({ type: 'bookings', day, count })
   return out
 }
 

@@ -9,6 +9,7 @@ import { getCashRules } from './cash'
 import { listItems, visibleOccurrences } from './calendar'
 import { countFollowUp } from './feedback'
 import { OPEN_TOO_LONG_HOURS } from '@/lib/cash'
+import { getRules, todayCounts } from './booking'
 
 // Things an admin should act on (v0.30): the numbers next to the side menu
 // and the "To do" box on the overview. SERVER ONLY (service role); each
@@ -24,9 +25,11 @@ export type ConsoleAlerts = {
   cashOpenLong: number // a drawer open (or counted, not confirmed) for over 16 h (§30)
   calendarSoon: number // calendar items today or tomorrow (§31) — information, not a problem
   feedbackFollow: number // member answers with 1–2 stars or "contact me", not handled (§32)
+  bookingsToday: number // bookings today, booked or arrived (§34) — information
+  bookingLate: number // booked today, late and not checked in yet (§34)
 }
 
-const zero: ConsoleAlerts = { pendingLeave: 0, forgotClockOut: 0, checklistIssues: 0, checklistMissed: 0, unsetPay: 0, cashReview: 0, cashOpenLong: 0, calendarSoon: 0, feedbackFollow: 0 }
+const zero: ConsoleAlerts = { pendingLeave: 0, forgotClockOut: 0, checklistIssues: 0, checklistMissed: 0, unsetPay: 0, cashReview: 0, cashOpenLong: 0, calendarSoon: 0, feedbackFollow: 0, bookingsToday: 0, bookingLate: 0 }
 
 async function checklistToday(): Promise<{ issues: number; missed: number }> {
   const today = bangkokToday()
@@ -78,7 +81,7 @@ async function calendarSoon(): Promise<number> {
 }
 
 export const loadAlerts = cache(async (): Promise<ConsoleAlerts> => {
-  const [pendingLeave, open, checklist, pay, cash, soon, fb] = await Promise.all([
+  const [pendingLeave, open, checklist, pay, cash, soon, fb, bk] = await Promise.all([
     countPendingLeave().catch(() => 0),
     listOpenEntries().catch(() => []),
     checklistToday().catch(() => ({ issues: 0, missed: 0 })),
@@ -86,6 +89,9 @@ export const loadAlerts = cache(async (): Promise<ConsoleAlerts> => {
     cashAlerts().catch(() => ({ review: 0, openLong: 0 })),
     calendarSoon().catch(() => 0),
     countFollowUp().catch(() => 0),
+    getRules()
+      .then((r) => todayCounts(r.lateMin))
+      .catch(() => null),
   ])
   return {
     ...zero,
@@ -98,5 +104,7 @@ export const loadAlerts = cache(async (): Promise<ConsoleAlerts> => {
     cashOpenLong: cash.openLong,
     calendarSoon: soon,
     feedbackFollow: fb,
+    bookingsToday: bk?.total ?? 0,
+    bookingLate: bk?.late ?? 0,
   }
 })

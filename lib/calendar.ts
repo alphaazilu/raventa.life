@@ -37,6 +37,7 @@ export type CalExtra =
   | { type: 'promo'; start: string; end: string; name: string }
   | { type: 'leave'; start: string; end: string; name: string }
   | { type: 'shifts'; day: string; count: number }
+  | { type: 'bookings'; day: string; count: number }
 
 export type Viewer = { id: string | null; role: 'admin' | 'staff' | 'member' | 'public' }
 
@@ -125,10 +126,12 @@ export const calCopy = {
   layerPromos: L('โปรโมชั่น', 'Promotions'),
   layerLeave: L('ลา', 'Leave'),
   layerShifts: L('คนเข้ากะ', 'On shift'),
+  layerBookings: L('การจอง', 'Bookings'),
   holiday: L('วันหยุดนักขัตฤกษ์', 'Public holiday'),
   promo: L('โปรโมชั่น', 'Promotion'),
   leave: L('ลา', 'Leave'),
   onShift: L('{n} คนเข้ากะ', '{n} on shift'),
+  bookingsN: L('{n} คิวจอง', '{n} booked'),
   nothing: L('ไม่มีรายการ', 'Nothing here'),
   nothingRange: L('ไม่มีรายการในช่วงนี้', 'Nothing in this period'),
   allDay: L('ทั้งวัน', 'All day'),

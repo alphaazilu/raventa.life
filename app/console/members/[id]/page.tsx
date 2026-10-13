@@ -11,6 +11,8 @@ import { bangkokToday } from '@/lib/check-in/day'
 import { loadShareHistory } from '@/lib/package-share-history'
 import { ShareHistory } from '@/components/console/share-history'
 import { MemberRole } from '@/components/console/member-role'
+import { MemberBookings } from '@/components/console/member-bookings'
+import { getRules, memberBookings, memberNoShow } from '@/lib/console/booking'
 
 export const metadata: Metadata = {
   title: 'ข้อมูลสมาชิก | RAVENTA Back Office',
@@ -24,7 +26,7 @@ export default async function EditMemberPage({ params }: { params: Promise<{ id:
 
   if (role !== 'admin') redirect(DESK_PATH)
 
-  const [{ data: member }, history, stampRes, packages, shareEvents] = await Promise.all([
+  const [{ data: member }, history, stampRes, packages, shareEvents, bookings, rules] = await Promise.all([
     supabase
       .from('profiles')
       .select('id, member_no, first_name, last_name, email, phone, province, nationality, role')
@@ -34,7 +36,10 @@ export default async function EditMemberPage({ params }: { params: Promise<{ id:
     supabase.rpc('member_stamp_status', { p_member_id: id }),
     loadMemberPackages(supabase, id, bangkokToday(), true),
     loadShareHistory(supabase, id),
+    memberBookings(id).catch(() => null),
+    getRules(),
   ])
+  const noShow = bookings ? await memberNoShow(id, rules).catch(() => null) : null
 
   if (!member) notFound()
   const st = Array.isArray(stampRes.data) ? stampRes.data[0] : stampRes.data
@@ -49,6 +54,7 @@ export default async function EditMemberPage({ params }: { params: Promise<{ id:
           person={{ id: member.id, name: [member.first_name, member.last_name].filter(Boolean).join(' ') || member.email || '—', role: member.role }}
           meId={user.id}
         />
+        {bookings && <MemberBookings memberId={id} list={[...bookings.upcoming, ...bookings.past]} noShow={noShow} rules={rules} />}
         <PackageList packages={packages} heading className="mb-6" />
         <ShareHistory events={shareEvents} className="mb-6" />
         <VisitHistoryView history={history} stamps={stamps} admin />
