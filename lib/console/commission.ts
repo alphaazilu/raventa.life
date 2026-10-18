@@ -1,6 +1,7 @@
 import { createAdminClient } from '@/lib/supabase/admin'
 import { isMissingTable } from '@/lib/console/db-errors'
 import { getAppSettings } from '@/lib/console/settings'
+import { firstBillReferrer } from '@/lib/console/referral'
 import { cycleOf, previousCycle, type PayType } from '@/lib/console/pay-cycle'
 import { lineAmount, lineKey, shareDiscount, type CommissionKind, type CommissionMode, type CommissionRule, type DeskCommission } from '@/lib/commission'
 
@@ -78,14 +79,15 @@ export async function loadDeskCommission(me: string): Promise<DeskCommission> {
 }
 
 // After a bill is paid: work out each line's commission and keep it.
-// Commission per bill goes to whoever referred the guest (v0.34.1): the
-// person picked for a line, else the bill's scanned referrer, else nobody.
-// The person taking the payment never earns here.
+// A line goes to the person picked for it at the counter; otherwise, on a
+// member's first paid bill, to whoever referred them when they signed up
+// (or the default referrer) — v0.36; otherwise nobody. The person taking
+// the payment is never picked for a line.
 // Never fails the sale — a problem here is logged and the bill stands.
 export async function recordCommissions(input: {
   saleId: string
   cashierId: string
-  referrerId: string | null
+  memberId: string | null
   lineStaff: Record<string, string>
 }): Promise<void> {
   try {
@@ -100,14 +102,28 @@ export async function recordCommissions(input: {
     const byProduct = new Map(rules.filter((r) => r.productId).map((r) => [r.productId as string, r]))
     const byKind = new Map(rules.filter((r) => r.kind).map((r) => [r.kind as string, r]))
     const shares = shareDiscount(lines.map((l) => Number(l.line_total)), Number(sale.discount))
-    const referrer = input.referrerId && input.referrerId !== input.cashierId && earners.has(input.referrerId) ? input.referrerId : null
+    const isPicked = (l: (typeof lines)[number]) => {
+      const p = input.lineStaff[lineKey(l.kind as string, l.product_id as string, (l.variant_id as string | null) ?? null)]
+      return p && p !== input.cashierId && earners.has(p) ? p : null
+    }
+    const ruleOf = (l: (typeof lines)[number]) => byProduct.get(l.product_id as string) ?? byKind.get(l.kind as string)
+    // The member's first-bill referral (v0.36.1) only counts on a bill with
+    // something for the referrer: a line with a rate, an amount after the
+    // discount, and not picked for someone else. A bill without (Day Pass on
+    // a package, items with no rate …) leaves it for the next bill.
+    const forReferrer = lines.some((l, i) => {
+      const rule = ruleOf(l)
+      const base = Number(l.line_total) - shares[i]
+      return rule && base > 0 && lineAmount(base, Number(l.qty), rule.mode, rule.value) > 0 && !isPicked(l)
+    })
+    const referrer = input.memberId && forReferrer ? await firstBillReferrer(input.memberId, input.saleId, (id) => earners.has(id)) : null
     const rows = lines.flatMap((l, i) => {
-      const rule = byProduct.get(l.product_id as string) ?? byKind.get(l.kind as string)
+      const rule = ruleOf(l)
       if (!rule) return []
       const base = Number(l.line_total) - shares[i]
       if (base <= 0) return []
-      const picked = input.lineStaff[lineKey(l.kind as string, l.product_id as string, (l.variant_id as string | null) ?? null)]
-      const [staffId, source] = picked && picked !== input.cashierId && earners.has(picked) ? [picked, 'line'] : referrer ? [referrer, 'referrer'] : [null, '']
+      const picked = isPicked(l)
+      const [staffId, source] = picked ? [picked, 'line'] : referrer ? [referrer, 'signup'] : [null, '']
       if (!staffId) return []
       const amount = lineAmount(base, Number(l.qty), rule.mode, rule.value)
       if (amount <= 0) return []
@@ -134,7 +150,7 @@ export type CommissionLine = {
   mode: CommissionMode
   rate: number
   amount: number
-  source: 'cashier' | 'referrer' | 'line'
+  source: 'cashier' | 'referrer' | 'line' | 'signup'
 }
 
 export type CommissionPersonTotal = { staffId: string; name: string; bills: number; lines: number; base: number; amount: number; detail: CommissionLine[] }

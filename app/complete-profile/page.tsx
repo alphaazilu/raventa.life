@@ -58,6 +58,7 @@ export default async function CompleteProfilePage({
           defaultPhone={profile?.phone ?? ''}
           defaultProvince={profile?.province ?? ''}
           defaultNationality={profile?.nationality ?? ''}
+          showReferral={!profile?.phone}
         />
       </main>
       <SiteFooter />

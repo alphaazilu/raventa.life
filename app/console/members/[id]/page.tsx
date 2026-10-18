@@ -13,6 +13,9 @@ import { ShareHistory } from '@/components/console/share-history'
 import { MemberRole } from '@/components/console/member-role'
 import { MemberBookings } from '@/components/console/member-bookings'
 import { getRules, memberBookings, memberNoShow } from '@/lib/console/booking'
+import { MemberReferral } from '@/components/console/member-referral'
+import { referralOf } from '@/lib/console/referral'
+import { listEarners } from '@/lib/console/commission'
 
 export const metadata: Metadata = {
   title: 'ข้อมูลสมาชิก | RAVENTA Back Office',
@@ -26,7 +29,7 @@ export default async function EditMemberPage({ params }: { params: Promise<{ id:
 
   if (role !== 'admin') redirect(DESK_PATH)
 
-  const [{ data: member }, history, stampRes, packages, shareEvents, bookings, rules] = await Promise.all([
+  const [{ data: member }, history, stampRes, packages, shareEvents, bookings, rules, referral, team] = await Promise.all([
     supabase
       .from('profiles')
       .select('id, member_no, first_name, last_name, email, phone, province, nationality, role')
@@ -38,6 +41,9 @@ export default async function EditMemberPage({ params }: { params: Promise<{ id:
     loadShareHistory(supabase, id),
     memberBookings(id).catch(() => null),
     getRules(),
+    // §36: who referred them (null = not run yet)
+    referralOf(id).catch(() => null),
+    listEarners().catch(() => null),
   ])
   const noShow = bookings ? await memberNoShow(id, rules).catch(() => null) : null
 
@@ -54,6 +60,13 @@ export default async function EditMemberPage({ params }: { params: Promise<{ id:
           person={{ id: member.id, name: [member.first_name, member.last_name].filter(Boolean).join(' ') || member.email || '—', role: member.role }}
           meId={user.id}
         />
+        {referral && (
+          <MemberReferral
+            memberId={id}
+            data={referral}
+            team={(team ?? []).filter((p) => p.id !== id).map((p) => ({ id: p.id, name: p.enabled ? p.name : `${p.name} (ไม่รับคอม)` }))}
+          />
+        )}
         {bookings && <MemberBookings memberId={id} list={[...bookings.upcoming, ...bookings.past]} noShow={noShow} rules={rules} />}
         <PackageList packages={packages} heading className="mb-6" />
         <ShareHistory events={shareEvents} className="mb-6" />

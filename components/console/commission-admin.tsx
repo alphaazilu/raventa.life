@@ -8,7 +8,7 @@ import { Spinner } from '@/components/ui/spinner'
 import { catalogCopy as c } from '@/lib/console/copy'
 import { cmCopy as t, cmErrors, COMMISSION_KINDS, rateLabel, type CommissionMode, type CommissionRule } from '@/lib/commission'
 import type { Catalog } from '@/lib/console/catalog'
-import { saveCommissionRule, setEarner } from '@/app/console/catalog/commission-actions'
+import { saveCommissionRule, setDefaultReferrer, setEarner } from '@/app/console/catalog/commission-actions'
 import { TEAM_PATH } from '@/lib/auth/roles'
 import { cn } from '@/lib/utils'
 
@@ -17,6 +17,9 @@ import { cn } from '@/lib/utils'
 export type CommissionSetup = {
   earners: { id: string; name: string; role: string; enabled: boolean }[]
   rules: CommissionRule[]
+  // §36 (v0.36): who gets members with no code; undefined = §36 not run.
+  defaultReferrer?: string | null
+  codes?: Record<string, string> | null
 }
 
 const card = 'rounded-2xl border border-border bg-card p-4 md:p-5'
@@ -25,11 +28,11 @@ export function CommissionAdmin({
   catalog,
   setup,
   // Injected only by design previews.
-  actions = { setEarner, saveCommissionRule },
+  actions = { setEarner, saveCommissionRule, setDefaultReferrer },
 }: {
   catalog: Catalog
   setup: CommissionSetup | null
-  actions?: { setEarner: typeof setEarner; saveCommissionRule: typeof saveCommissionRule }
+  actions?: { setEarner: typeof setEarner; saveCommissionRule: typeof saveCommissionRule; setDefaultReferrer?: typeof setDefaultReferrer }
 }) {
   const { tr, lang } = useLanguage()
   if (!setup) return <p className="mt-6 rounded-2xl bg-amber-500/15 p-5 text-sm font-semibold text-amber-800 dark:text-amber-300">{tr(t.notSetUp)}</p>
@@ -52,9 +55,18 @@ export function CommissionAdmin({
         ) : (
           <ul className="mt-3 divide-y divide-border">
             {setup.earners.map((p) => (
-              <EarnerRow key={p.id} person={p} onSet={actions.setEarner} />
+              <EarnerRow key={p.id} person={p} code={setup.codes?.[p.id] ?? null} onSet={actions.setEarner} />
             ))}
           </ul>
+        )}
+        {setup.defaultReferrer === undefined ? (
+          <p className="mt-4 rounded-xl bg-amber-500/15 px-3 py-2.5 text-xs font-semibold text-amber-800 dark:text-amber-300">{tr(cmErrors.not_ref_set_up)}</p>
+        ) : (
+          <DefaultReferrer
+            value={setup.defaultReferrer}
+            people={setup.earners}
+            save={actions.setDefaultReferrer ?? setDefaultReferrer}
+          />
         )}
         <p className="mt-4 rounded-xl bg-secondary px-3 py-2.5 text-xs leading-relaxed text-secondary-foreground">{tr(t.howItWorks)}</p>
       </section>
@@ -101,7 +113,65 @@ export function CommissionAdmin({
   )
 }
 
-function EarnerRow({ person, onSet }: { person: CommissionSetup['earners'][number]; onSet: typeof setEarner }) {
+function DefaultReferrer({
+  value,
+  people,
+  save,
+}: {
+  value: string | null
+  people: CommissionSetup['earners']
+  save: typeof setDefaultReferrer
+}) {
+  const { tr } = useLanguage()
+  const router = useRouter()
+  const [pending, start] = useTransition()
+  const [v, setV] = useState(value ?? '')
+  const [error, setError] = useState<string | null>(null)
+  const pick = people.find((p) => p.id === v)
+  return (
+    <div className="mt-4 rounded-xl border border-border p-3">
+      <label className="block text-sm font-semibold" htmlFor="default-referrer">
+        {tr(t.defaultRef)}
+      </label>
+      <p className="mt-0.5 text-xs text-muted-foreground">{tr(t.defaultRefHint)}</p>
+      <div className="mt-2 flex items-center gap-2">
+        <select
+          id="default-referrer"
+          value={v}
+          disabled={pending}
+          onChange={(e) => {
+            const next = e.target.value
+            const prev = v
+            setV(next)
+            setError(null)
+            start(async () => {
+              const r = await save(next || null)
+              if (r.ok) router.refresh()
+              else {
+                setV(prev)
+                setError(r.error)
+              }
+            })
+          }}
+          className="h-10 min-w-0 flex-1 rounded-xl border border-border bg-background px-3 text-sm"
+        >
+          <option value="">{tr(t.defaultRefNone)}</option>
+          {people.map((p) => (
+            <option key={p.id} value={p.id}>
+              {p.name}
+              {p.enabled ? '' : ` (${tr(t.off)})`}
+            </option>
+          ))}
+        </select>
+        {pending && <Spinner className="h-4 w-4 text-primary" />}
+      </div>
+      {pick && !pick.enabled && <p className="mt-1.5 text-xs font-semibold text-amber-700 dark:text-amber-400">{tr(cmErrors.not_earner)}</p>}
+      {error && <p className="mt-1.5 text-xs font-semibold text-destructive">{tr(cmErrors[error] ?? cmErrors.failed)}</p>}
+    </div>
+  )
+}
+
+function EarnerRow({ person, code, onSet }: { person: CommissionSetup['earners'][number]; code: string | null; onSet: typeof setEarner }) {
   const { tr } = useLanguage()
   const router = useRouter()
   const [pending, start] = useTransition()
@@ -113,6 +183,12 @@ function EarnerRow({ person, onSet }: { person: CommissionSetup['earners'][numbe
         <span className="block truncate text-sm font-semibold">{person.name}</span>
         <span className="block text-xs text-muted-foreground">
           {person.role === 'admin' ? 'Admin' : 'Staff'}
+          {code && (
+            <>
+              {' · '}
+              {tr(t.myRefCode)} <span className="font-mono font-semibold tracking-wider text-foreground">{code}</span>
+            </>
+          )}
           {error && <span className="ml-1 font-semibold text-destructive">· {tr(cmErrors[error] ?? cmErrors.failed)}</span>}
         </span>
       </span>

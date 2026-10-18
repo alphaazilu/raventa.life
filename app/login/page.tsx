@@ -9,6 +9,7 @@ import { LineAutoLogin } from '@/components/auth/line-auto-login'
 import { TabletSetupHint } from '@/components/console/tablet-setup-hint'
 import { googleLinkAccount } from '@/lib/auth/google-link-ticket'
 import { maskEmail } from '@/lib/email-verification'
+import { extractRefCode } from '@/lib/referral'
 
 export const metadata: Metadata = {
   title: 'Log In | RAVENTA Wellness Retreat',
@@ -18,7 +19,7 @@ export const metadata: Metadata = {
 export default async function LoginPage({
   searchParams,
 }: {
-  searchParams: Promise<{ next?: string; error?: string; via?: string }>
+  searchParams: Promise<{ next?: string; error?: string; via?: string; ref?: string }>
 }) {
   const params = await searchParams
   const next = params.next && params.next.startsWith('/') ? params.next : '/account'
@@ -79,6 +80,7 @@ export default async function LoginPage({
           authError={authError}
           hideGoogle={inLineApp}
           googleLinkEmail={googleLink ? maskEmail(googleLink.email) : null}
+          refCode={params.ref ? extractRefCode(params.ref) : ''}
         />
       </main>
       <SiteFooter />

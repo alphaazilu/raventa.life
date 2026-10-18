@@ -7,6 +7,7 @@ import { loadCatalog } from '@/lib/console/catalog'
 import { bangkokToday } from '@/lib/check-in/day'
 import { CATALOG_PATH, DESK_PATH, isAdmin } from '@/lib/auth/roles'
 import { listEarners, listRules } from '@/lib/console/commission'
+import { allCodes, getDefaultReferrer } from '@/lib/console/referral'
 
 export const metadata: Metadata = {
   title: 'สินค้าและราคา | RAVENTA Back Office',
@@ -31,8 +32,18 @@ export default async function CatalogPage({ searchParams }: { searchParams: Prom
   // Commission (§33, v0.34): who earns, and the rates. null = §33 not run.
   const commission =
     view === 'commission'
-      ? await Promise.all([listEarners(), listRules()])
-          .then(([earners, rules]) => (earners && rules ? { earners, rules } : null))
+      ? await Promise.all([listEarners(), listRules(), getDefaultReferrer().catch(() => undefined)])
+          .then(async ([earners, rules, defaultReferrer]) =>
+            earners && rules
+              ? {
+                  earners,
+                  rules,
+                  // §36: undefined / null = not run yet
+                  defaultReferrer,
+                  codes: defaultReferrer === undefined ? null : await allCodes(earners.map((e) => e.id)).catch(() => null),
+                }
+              : null,
+          )
           .catch((err) => {
             console.error('commission load failed', err)
             return null

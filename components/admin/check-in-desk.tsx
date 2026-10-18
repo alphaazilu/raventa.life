@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState, useTransition } from 'react'
 import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
-import { Gift, LogIn, Lock, LogOut, RotateCcw, Search, ShoppingBag, Undo2, UserPlus, X } from 'lucide-react'
+import { Gift, LogIn, Lock, LogOut, RotateCcw, Search, ShoppingBag, Undo2, X } from 'lucide-react'
 import { useLanguage } from '@/components/language-provider'
 import { AvatarCircle } from '@/components/account/avatar-circle'
 import { QrScanner } from '@/components/admin/qr-scanner'
@@ -30,7 +30,6 @@ import {
   getFloor,
   getMember,
   lookupByToken,
-  lookupReferrer,
   searchMembers,
   voidSale,
   type BillInput,
@@ -49,8 +48,6 @@ type Panel =
   | { kind: 'empty' }
   | { kind: 'hits'; hits: MemberHit[] }
   | { kind: 'member'; member: DeskMember }
-  // A team member who earns commission was scanned: referrer or customer? (§33)
-  | { kind: 'staff'; member: DeskMember }
 
 const FLOOR_REFRESH_MS = 30_000
 
@@ -89,9 +86,6 @@ export function CheckInDesk({
   const [searchOpen, setSearchOpen] = useState(false)
   // 'floor' = who's in today (and check-outs), so the sale screen fits one screen.
   const [view, setView] = useState<'desk' | 'floor'>(initialView)
-  // Commission: the bill's referrer, and whether the camera is reading their card.
-  const [referrer, setReferrer] = useState<{ id: string; name: string } | null>(null)
-  const [scanFor, setScanFor] = useState<'guest' | 'referrer'>('guest')
   // A booking's service put on the bill (§34): the lines, and which bookings.
   const [preset, setPreset] = useState<{ lines: BillLine[]; bookingIds: string[] }>({ lines: [], bookingIds: [] })
   // The tab is in the address (?tab=floor) so the side menu's sub-items
@@ -155,28 +149,9 @@ export function CheckInDesk({
       setError('qr_invalid')
       return
     }
-    if (scanFor === 'referrer') {
-      run(
-        () => lookupReferrer(token),
-        (p) => {
-          setReferrer({ id: p.id, name: p.name })
-          setScanFor('guest')
-          setNotice(fill(tr(cmCopy.referrerSet), { name: p.name }))
-        },
-      )
-      return
-    }
-    run(
-      () => lookupByToken(token),
-      (m) => {
-        // A team member who earns: most likely here to refer this bill.
-        if (commission?.ready && !m.isSelf && commission.staff.some((p) => p.id === m.id)) {
-          setPanel({ kind: 'staff', member: m })
-          return
-        }
-        showMember(m)
-      },
-    )
+    // The per-bill referrer scan is gone (v0.36): referrals are given when
+    // a member signs up, and earn on their first bill.
+    run(() => lookupByToken(token), showMember)
   }
 
   const handleSearch = (e: React.FormEvent) => {
@@ -205,8 +180,6 @@ export function CheckInDesk({
     setPanel({ kind: 'empty' })
     setError(null)
     closeSearch()
-    setReferrer(null)
-    setScanFor('guest')
   }
 
   const reloadMember = (id: string) => run(() => getMember(id), showMember)
@@ -215,21 +188,6 @@ export function CheckInDesk({
     void refreshFloor()
     void getDeskCatalog().then((r) => r.ok && setCatalog(r.data))
     setBillKey((k) => k + 1)
-  }
-
-  const scanReferrer = () => {
-    if (!commission?.ready) {
-      setError('not_ready')
-      return
-    }
-    setError(null)
-    closeSearch()
-    setScanFor('referrer')
-    if (view !== 'desk') go('desk')
-    // Phones: the camera sits above the bill.
-    try {
-      document.getElementById('desk-scanner')?.scrollIntoView({ behavior: 'smooth', block: 'center' })
-    } catch {}
   }
 
   const pay = (
@@ -242,7 +200,7 @@ export function CheckInDesk({
         return checkoutBill({
           memberId,
           ...rest,
-          commission: commission ? { referrerId: referrer?.id ?? null, lineStaff } : undefined,
+          commission: commission ? { lineStaff } : undefined,
           bookingIds: preset.bookingIds,
         })
       },
@@ -254,16 +212,12 @@ export function CheckInDesk({
         } else {
           setNotice(`${tr(deskCopy.doneSale)} ${done.total.toLocaleString()} ${tr(deskCopy.baht)}${receipt}`)
         }
-        setReferrer(null)
-        setScanFor('guest')
         setPreset({ lines: [], bookingIds: [] })
         afterChange()
       },
     )
 
   const member = panel.kind === 'member' ? panel.member : null
-  const staffScan = panel.kind === 'staff' ? panel.member : null
-  const readingReferrer = scanFor === 'referrer'
   const inside = floor?.visits.filter((v) => !v.checkedOutAt).length ?? 0
   // Right side: the member's bill (Day Pass + items) when they can check in;
   // otherwise items only — for a walk-up, or a member already in today.
@@ -349,30 +303,16 @@ export function CheckInDesk({
               if the guest's details are taller than the screen, this side scrolls on its own. */}
           <div className="relative md:sticky md:top-[69px] xl:top-[77px]">
             <section className="relative rounded-2xl border border-border bg-card p-4 md:max-h-[calc(100dvh-81px)] md:overflow-y-auto md:overscroll-contain xl:max-h-[calc(100dvh-89px)]">
-              {readingReferrer && (
-                <p className="mb-3 flex items-center gap-2 rounded-xl bg-accent/15 px-3 py-2 text-xs font-semibold text-accent">
-                  <UserPlus className="h-4 w-4 shrink-0" aria-hidden="true" />
-                  {tr(cmCopy.scanReferrer)}
-                </p>
-              )}
               <div id="desk-scanner" className="relative mx-auto w-full max-w-[15rem]">
                 <QrScanner
                   round
                   hint={null}
                   onCode={handleCode}
-                  paused={busy || searchOpen || (!readingReferrer && (member !== null || staffScan !== null))}
+                  paused={busy || searchOpen || member !== null}
                   pausedText={tr(deskCopy.scanChecking)}
-                  cover={
-                    readingReferrer ? undefined : member || staffScan ? (
-                      <AvatarCircle src={(member ?? staffScan)!.avatarUrl} name={(member ?? staffScan)!.name} className="h-full w-full text-6xl" />
-                    ) : undefined
-                  }
+                  cover={member ? <AvatarCircle src={member.avatarUrl} name={member.name} className="h-full w-full text-6xl" /> : undefined}
                   corner={
-                    readingReferrer ? (
-                      <CornerButton label={tr(cmCopy.cancelScan)} onClick={() => setScanFor('guest')}>
-                        <X className="h-5 w-5" aria-hidden="true" />
-                      </CornerButton>
-                    ) : member || staffScan ? (
+                    member ? (
                       <CornerButton label={tr(deskCopy.nextGuest)} onClick={reset}>
                         <RotateCcw className="h-5 w-5" aria-hidden="true" />
                       </CornerButton>
@@ -459,31 +399,6 @@ export function CheckInDesk({
                       )
                     }
                   />
-                ) : staffScan ? (
-                  <div className="text-center">
-                    <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{tr(cmCopy.staffScanned)}</p>
-                    <p className="mt-1 font-display text-lg font-bold">{staffScan.name}</p>
-                    <p className="mt-1 text-xs text-muted-foreground">{fill(tr(cmCopy.staffScannedSub), { name: staffScan.name })}</p>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setReferrer({ id: staffScan.id, name: staffScan.name })
-                        setPanel({ kind: 'empty' })
-                        setNotice(fill(tr(cmCopy.referrerSet), { name: staffScan.name }))
-                      }}
-                      className="mt-3 inline-flex h-11 w-full items-center justify-center gap-1.5 rounded-full bg-primary text-sm font-bold text-primary-foreground"
-                    >
-                      <UserPlus className="h-4 w-4" aria-hidden="true" />
-                      {tr(cmCopy.asReferrer)}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => showMember(staffScan)}
-                      className="mt-2 inline-flex h-11 w-full items-center justify-center rounded-full border border-border text-sm font-semibold"
-                    >
-                      {tr(cmCopy.asCustomer)}
-                    </button>
-                  </div>
                 ) : panel.kind === 'hits' ? (
                   <HitList hits={panel.hits} onPick={(id) => run(() => getMember(id), showMember)} onBack={reset} />
                 ) : (
@@ -522,7 +437,7 @@ export function CheckInDesk({
                 busy={busy}
                 commission={
                   commission
-                    ? { data: commission, referrer, onScanReferrer: scanReferrer, onClearReferrer: () => setReferrer(null) }
+                    ? { data: commission }
                     : null
                 }
               onPay={(bill) => pay(member && !member.isSelf ? member.id : null, bill)}

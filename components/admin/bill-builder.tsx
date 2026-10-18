@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Ban, Gift, Minus, Package as PackageIcon, Plus, ShoppingBag, Tag, Trash2, UserPlus, X } from 'lucide-react'
+import { Ban, Gift, Minus, Package as PackageIcon, Plus, ShoppingBag, Tag, Trash2, X } from 'lucide-react'
 import { useLanguage } from '@/components/language-provider'
 import { Spinner } from '@/components/ui/spinner'
 import { deskCopy, deskErrors, fill } from '@/lib/check-in/copy'
@@ -61,13 +61,9 @@ export function BillBuilder({
   hint?: React.ReactNode
   // Injected only by design previews; the counter always asks the database.
   quoteFn?: typeof quoteBill
-  // Commission (§33, v0.34): the bill's referrer and who may earn. null = off.
-  commission?: {
-    data: NonNullable<DeskCommission>
-    referrer: { id: string; name: string } | null
-    onScanReferrer: () => void
-    onClearReferrer: () => void
-  } | null
+  // Commission (§33, v0.34): who may be picked per line. null = off.
+  // (v0.36: no per-bill referrer — a member's referrer earns on their first bill.)
+  commission?: { data: NonNullable<DeskCommission> } | null
   // Items already on the bill when it opens (a booking's service, §34).
   initialLines?: BillLine[]
 }) {
@@ -174,8 +170,8 @@ export function BillBuilder({
         : fill(tr(dayPass === 'none' ? deskCopy.payOnly : deskCopy.payAndCheckIn), { price: total.toLocaleString() })
 
   const cm = commission?.data.ready ? commission.data : null
-  // No referrer → nobody earns (the person selling doesn't, v0.34.1).
-  const defaultEarner = commission?.referrer?.name ?? null
+  // Not picked → the member's referrer on their first bill, else nobody (v0.36).
+  const defaultEarner = tr(cmCopy.earnerAuto)
   const earnerPick = (key: string) =>
     cm ? (
       <EarnerPick
@@ -208,35 +204,6 @@ export function BillBuilder({
             {subtitle}
             {count > 0 && ` · ${fill(tr(deskCopy.itemCount), { n: count })}`}
           </p>
-          {commission && (
-            <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
-              {commission.referrer ? (
-                <span className="inline-flex items-center gap-1 rounded-full bg-accent/15 py-1 pl-2.5 pr-1 text-xs font-semibold text-accent">
-                  <UserPlus className="h-3.5 w-3.5" aria-hidden="true" />
-                  {tr(cmCopy.referrer)}: {commission.referrer.name}
-                  <button
-                    type="button"
-                    onClick={commission.onClearReferrer}
-                    aria-label={tr(cmCopy.removeReferrer)}
-                    title={tr(cmCopy.removeReferrer)}
-                    className="flex h-5 w-5 items-center justify-center rounded-full hover:bg-accent/20"
-                  >
-                    <X className="h-3 w-3" aria-hidden="true" />
-                  </button>
-                </span>
-              ) : (
-                <button
-                  type="button"
-                  onClick={commission.onScanReferrer}
-                  disabled={busy}
-                  className="inline-flex items-center gap-1 rounded-full border border-border px-2.5 py-1 text-xs font-semibold text-muted-foreground hover:border-primary/40 hover:text-foreground"
-                >
-                  <UserPlus className="h-3.5 w-3.5" aria-hidden="true" />
-                  {tr(cmCopy.addReferrer)}
-                </button>
-              )}
-            </div>
-          )}
           {dirty && (
             <button
               type="button"
@@ -540,7 +507,7 @@ export function BillBuilder({
   )
 }
 
-// Who earns this line's commission: as the bill (referrer, else the seller), or someone else.
+// Who earns this line's commission: automatic (the member's referrer on their first bill), or someone picked.
 function EarnerPick({
   value,
   staff,

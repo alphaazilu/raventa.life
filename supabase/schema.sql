@@ -2649,3 +2649,39 @@ alter table public.booking_types add column if not exists whole_day boolean not 
 -- for the shop to know; places stay per day.
 alter table public.booking_types add column if not exists pick_arrival boolean not null default false;
 alter table public.bookings add column if not exists arrive_time time;
+
+
+-- 36. Member referrals (v0.36). A new member can type (or scan) a team
+-- member's referral code when signing up — optional. Codes are only for
+-- staff/admins. Members who give none are credited to the default referrer
+-- an admin sets (app_settings.default_referrer_id), if any. The referrer
+-- earns commission once, on the member's first paid bill (a voided first
+-- bill doesn't count — the next one does), at the rates already set per
+-- product; lines picked for someone else at the counter stay theirs.
+-- The per-bill "scan referrer" at the counter is gone (old bills keep
+-- source 'referrer'). Server (service-role) only.
+create table if not exists public.staff_ref_codes (
+  staff_id uuid primary key references auth.users(id) on delete cascade,
+  code text not null unique check (code ~ '^[A-Z2-9]{6}$'),
+  created_at timestamptz not null default now()
+);
+alter table public.staff_ref_codes enable row level security;
+revoke all on public.staff_ref_codes from anon, authenticated;
+
+create table if not exists public.member_referrals (
+  member_id uuid primary key references auth.users(id) on delete cascade,
+  referrer_id uuid references auth.users(id) on delete set null,
+  via text not null check (via in ('code', 'qr', 'admin', 'default')),
+  paid_sale_id uuid references public.sales(id) on delete set null,   -- the first bill commission was worked out on
+  set_by uuid references auth.users(id) on delete set null,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+create index if not exists member_referrals_referrer_idx on public.member_referrals (referrer_id);
+alter table public.member_referrals enable row level security;
+revoke all on public.member_referrals from anon, authenticated;
+
+alter table public.app_settings add column if not exists default_referrer_id uuid references auth.users(id) on delete set null;
+
+alter table public.sale_commissions drop constraint if exists sale_commissions_source_check;
+alter table public.sale_commissions add constraint sale_commissions_source_check check (source in ('cashier', 'referrer', 'line', 'signup'));

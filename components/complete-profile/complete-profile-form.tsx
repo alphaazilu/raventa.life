@@ -1,6 +1,7 @@
 'use client'
 
 import { useActionState, useState } from 'react'
+import { ReferralField } from '@/components/auth/referral-field'
 import { useLanguage } from '@/components/language-provider'
 import { authCopy } from '@/lib/auth/copy'
 import { THAILAND_PROVINCES } from '@/lib/thailand-provinces'
@@ -27,6 +28,7 @@ export function CompleteProfileForm({
   defaultPhone,
   defaultProvince,
   defaultNationality,
+  showReferral = false,
 }: {
   next: string
   // True when the account came in without an email (LINE) — only then is
@@ -40,6 +42,8 @@ export function CompleteProfileForm({
   defaultPhone: string
   defaultProvince: string
   defaultNationality: string
+  // A brand-new Google/LINE sign-up: ask for a referral code too (§36).
+  showReferral?: boolean
 }) {
   const { tr } = useLanguage()
   const [state, formAction, pending] = useActionState(completeProfile, initialState)
@@ -239,6 +243,8 @@ export function CompleteProfileForm({
               ))}
             </select>
           </div>
+
+          {showReferral && <ReferralField inputClass={inputBaseClass} />}
 
           <div>
             <label className="flex items-start gap-2.5 text-xs leading-relaxed text-muted-foreground">

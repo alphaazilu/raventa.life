@@ -35,6 +35,20 @@ export async function setEarner(staffId: string, enabled: boolean): Promise<Comm
   return done()
 }
 
+// Members who sign up without a referral code count as this person's (§36, v0.36). null = nobody.
+export async function setDefaultReferrer(staffId: string | null): Promise<CommissionResult> {
+  const ctx = await requireAdmin()
+  if ('error' in ctx) return { ok: false, error: ctx.error }
+  const db = createAdminClient()
+  if (staffId) {
+    const { data: p } = await db.from('profiles').select('role').eq('id', staffId).maybeSingle()
+    if (!p || (p.role !== 'staff' && p.role !== 'admin')) return { ok: false, error: 'not_staff_member' }
+  }
+  const { error } = await db.from('app_settings').upsert({ id: 1, default_referrer_id: staffId, updated_by: ctx.userId, updated_at: new Date().toISOString() })
+  if (error) return { ok: false, error: /default_referrer_id/.test(error.message ?? '') || isMissingTable(error) ? 'not_ref_set_up' : 'failed' }
+  return done()
+}
+
 // One rate for a product, or the default for a kind. mode null = remove it.
 export async function saveCommissionRule(input: {
   productId?: string | null

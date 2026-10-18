@@ -4,6 +4,9 @@ import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { isPhoneTaken } from '@/lib/supabase/phone'
+import { cookies } from 'next/headers'
+import { saveSignupReferral } from '@/lib/console/referral'
+import { REF_COOKIE } from '@/lib/referral'
 
 export type AuthActionState = {
   error?: string
@@ -60,6 +63,9 @@ export async function signUp(_prevState: AuthActionState, formData: FormData): P
   const province = String(formData.get('province') ?? '').trim()
   const nationality = String(formData.get('nationality') ?? '').trim()
   const acceptPrivacy = formData.get('acceptPrivacy') === 'on'
+  // Optional (§36, v0.36): a team member's referral code, typed or scanned.
+  const refCode = String(formData.get('refCode') ?? '').slice(0, 300)
+  const refVia = formData.get('refVia') === 'qr' ? 'qr' : 'code'
   const siteUrl = process.env.SITE_URL ?? 'http://localhost:3000'
 
   // Collect every problem at once rather than stopping at the first one,
@@ -132,6 +138,12 @@ export async function signUp(_prevState: AuthActionState, formData: FormData): P
   if (data.user && data.user.identities?.length === 0) {
     return { error: EMAIL_TAKEN_MESSAGE, fieldErrors: { email: EMAIL_TAKEN_MESSAGE } }
   }
+
+  // Kept even with no code (→ the default referrer later). An unknown code never stops the sign-up.
+  if (data.user) await saveSignupReferral(data.user.id, refCode, refVia)
+  try {
+    ;(await cookies()).delete(REF_COOKIE)
+  } catch {}
 
   return { success: 'checkEmail' }
 }

@@ -8,6 +8,9 @@ import { getResendClient } from '@/lib/resend'
 import { welcomeEmail, teamNotificationEmail } from '@/lib/email-templates'
 import { saveLineUserId } from '@/lib/supabase/line'
 import { saveProviderAvatar } from '@/lib/supabase/avatar'
+import { cookies } from 'next/headers'
+import { saveSignupReferral } from '@/lib/console/referral'
+import { REF_COOKIE } from '@/lib/referral'
 import { applyVerifiedEmail, checkEmailCode, maskEmail, sendEmailCode } from '@/lib/email-verification'
 
 export type CompleteProfileState = {
@@ -47,6 +50,9 @@ export async function completeProfile(
   const nationality = String(formData.get('nationality') ?? '').trim()
   const acceptPrivacy = formData.get('acceptPrivacy') === 'on'
   const next = safeNext(formData.get('next'))
+  // Optional (§36, v0.36): a team member's referral code, typed or scanned.
+  const refCode = String(formData.get('refCode') ?? '').slice(0, 300)
+  const refVia = formData.get('refVia') === 'qr' ? 'qr' : 'code'
 
   // Collect every problem at once so every field that needs fixing can be
   // highlighted together, instead of the person fixing one and resubmitting
@@ -133,6 +139,7 @@ export async function completeProfile(
       return { error: PHONE_TAKEN_MESSAGE_TH, fieldErrors: { phone: PHONE_TAKEN_MESSAGE_TH } }
     }
     if (saveErr) return { error: saveErr.message }
+    await saveSignupReferral(user.id, refCode, refVia)
 
     const sent = await sendEmailCode(user.id, email)
     if (sent.ok) return { verifyEmail: { email, maskedEmail: sent.maskedEmail } }
@@ -172,6 +179,10 @@ export async function completeProfile(
     return { error: PHONE_TAKEN_MESSAGE_TH, fieldErrors: { phone: PHONE_TAKEN_MESSAGE_TH } }
   }
   if (error) return { error: error.message }
+  if (isNewSignup) await saveSignupReferral(user.id, refCode, refVia)
+  try {
+    ;(await cookies()).delete(REF_COOKIE)
+  } catch {}
 
   // A LINE member whose profile row had to be (re)created just now — the
   // callback's copy found no row to write to in that case.

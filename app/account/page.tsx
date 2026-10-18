@@ -12,7 +12,8 @@ import { loadMyShifts } from '@/lib/my-shifts'
 import { dueNow } from '@/lib/console/checklist'
 import { upcomingOutside, upcomingTeam } from '@/lib/console/calendar'
 import { pendingVisit } from '@/lib/console/feedback'
-import { myCommissionCard } from '@/lib/console/commission'
+import { isEarner, myCommissionCard } from '@/lib/console/commission'
+import { codeFor } from '@/lib/console/referral'
 import { listTypes, memberBookings } from '@/lib/console/booking'
 
 export const metadata: Metadata = {
@@ -87,6 +88,15 @@ export default async function AccountPage({
     listTypes(true).then((t) => (t ?? []).some((x) => x.memberBooking)).catch(() => false),
     memberBookings(user.id).catch(() => null),
   ])
+  // §36: my referral code + QR (team) — the QR opens sign-up with it filled in.
+  const refCode = team ? await codeFor(user.id).catch(() => null) : null
+  const referral = refCode
+    ? {
+        code: refCode,
+        link: `${(process.env.SITE_URL ?? 'https://www.raventawellness.com').replace(/\/$/, '')}/login?ref=${refCode}`,
+        earns: Boolean(await isEarner(user.id).catch(() => false)),
+      }
+    : null
   const booking =
     bookable || (myBookings?.upcoming.length ?? 0) > 0 ? { next: myBookings?.upcoming[0] ?? null, count: myBookings?.upcoming.length ?? 0 } : null
   const fullName = [profile?.first_name, profile?.last_name].filter(Boolean).join(' ')
@@ -115,6 +125,7 @@ export default async function AccountPage({
           teamSoon={teamSoon}
           feedbackVisit={feedbackVisit}
           commission={commission}
+          referral={referral}
           booking={booking}
           // /account?card=1 (the LINE rich menu's member card button) opens
           // the check-in QR straight away.

@@ -8,7 +8,7 @@ import { receiptLabel } from '@/lib/console/catalog'
 // Back Office › Reports › Commission › Export (v0.34): one row per line that
 // earned commission, then a total per person. UTF-8 with BOM for Excel.
 
-const SOURCE: Record<string, string> = { cashier: 'ขายเอง', referrer: 'แนะนำ', line: 'เลือกที่รายการ' }
+const SOURCE: Record<string, string> = { cashier: 'ขายเอง', referrer: 'แนะนำ', line: 'เลือกที่รายการ', signup: 'แนะนำสมาชิก (บิลแรก)' }
 
 function csv(rows: (string | number | null)[][]): string {
   const cell = (v: string | number | null) => {

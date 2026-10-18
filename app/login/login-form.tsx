@@ -1,6 +1,6 @@
 'use client'
 
-import { useActionState, useState } from 'react'
+import { useActionState, useEffect, useState } from 'react'
 import { useLanguage } from '@/components/language-provider'
 import { authCopy } from '@/lib/auth/copy'
 import { THAILAND_PROVINCES } from '@/lib/thailand-provinces'
@@ -10,6 +10,8 @@ import { fieldClass } from '@/lib/form-field-class'
 import { signIn, signUp, type AuthActionState } from './actions'
 import { Spinner } from '@/components/ui/spinner'
 import { GoogleLinkPanel } from '@/components/auth/google-link-panel'
+import { ReferralField } from '@/components/auth/referral-field'
+import { REF_COOKIE } from '@/lib/referral'
 
 type Mode = 'login' | 'signup'
 
@@ -28,6 +30,7 @@ export function LoginForm({
   authError,
   hideGoogle = false,
   googleLinkEmail = null,
+  refCode = '',
 }: {
   next: string
   authError?: 'cancelled' | 'failed' | 'google_existing'
@@ -35,9 +38,19 @@ export function LoginForm({
   hideGoogle?: boolean
   // Masked email of the account a refused Google sign-in belongs to.
   googleLinkEmail?: string | null
+  // A team member's referral code from their QR (/login?ref=…, §36).
+  refCode?: string
 }) {
   const { tr } = useLanguage()
-  const [mode, setMode] = useState<Mode>('login')
+  // Came from a team member's referral QR → straight to sign-up.
+  const [mode, setMode] = useState<Mode>(refCode ? 'signup' : 'login')
+  // Keep the code through a Google/LINE sign-up (read back on Complete profile).
+  useEffect(() => {
+    if (!refCode) return
+    try {
+      document.cookie = `${REF_COOKIE}=${encodeURIComponent(refCode)}; path=/; max-age=${60 * 60 * 24 * 30}; samesite=lax`
+    } catch {}
+  }, [refCode])
 
   // Every field is a controlled input. Without this, React resets
   // uncontrolled <form> fields after a Server Action finishes — including
@@ -302,6 +315,8 @@ export function LoginForm({
                 )}
               </div>
             )}
+
+            {mode === 'signup' && <ReferralField initial={refCode} inputClass={inputBaseClass} />}
 
             {mode === 'signup' && (
               <div>

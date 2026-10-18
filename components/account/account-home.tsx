@@ -24,6 +24,7 @@ import { cmCopy, money } from '@/lib/commission'
 import { bkCopy, bkkHm, type Booking } from '@/lib/booking'
 import { MY_BOOKINGS_PATH } from '@/lib/auth/roles'
 import type { MyCommissionCard } from '@/lib/console/commission'
+import { ReferralCard, type MyReferral } from '@/components/account/referral-card'
 
 // Staff: "My work" (today's checklists, my shifts / leave) sits under the
 // card, apart from the member things (stamps, packages) — v0.30.
@@ -49,6 +50,7 @@ export function AccountHome({
   teamSoon = [],
   feedbackVisit = null,
   commission = null,
+  referral = null,
   booking = null,
 }: {
   name: string
@@ -67,6 +69,7 @@ export function AccountHome({
   teamSoon?: Occurrence[] // calendar: team items, next 7 days (staff/admin)
   feedbackVisit?: PendingVisit | null // a visit waiting to be rated (§32)
   commission?: MyCommissionCard | null // my commission this pay period (§33)
+  referral?: MyReferral | null // team: my referral code + QR (§36)
   booking?: { next: Booking | null; count: number } | null // bookings (§34); null = nothing bookable
 }) {
   const { tr, lang } = useLanguage()
@@ -111,7 +114,7 @@ export function AccountHome({
         </Link>
       )}
 
-      {(checklist || myShifts || teamSoon.length > 0 || commission) && <h2 className="mt-8 text-base font-semibold text-card-foreground">{tr(myWork)}</h2>}
+      {(checklist || myShifts || teamSoon.length > 0 || commission || referral) && <h2 className="mt-8 text-base font-semibold text-card-foreground">{tr(myWork)}</h2>}
 
       {checklist && (
         <Link
@@ -157,6 +160,8 @@ export function AccountHome({
           </span>
         </section>
       )}
+
+      {referral && <ReferralCard data={referral} />}
 
       {myShifts && <MyShifts data={myShifts} />}
 
