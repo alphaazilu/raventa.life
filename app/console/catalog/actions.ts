@@ -49,6 +49,8 @@ export async function saveProduct(input: {
   active: boolean
   sort: number
   pkg?: PackageRules | null
+  // v0.37.1: what a package holds — for now one entry product (the Day Pass).
+  pkgItems?: { itemId: string; qty: number | null }[]
   // v0.37: this product's own commission — 'cat' = follow its category, 'none' = never.
   commission?: { mode: 'cat' | 'none' | 'pct' | 'thb'; value?: number }
 }): Promise<CatalogResult> {
@@ -82,6 +84,15 @@ export async function saveProduct(input: {
       price_holiday: null,
       track_stock: false,
     }
+  }
+  // For now a package holds one entry product (the Day Pass), as many times
+  // as its visit count (v0.37.1); other items come later.
+  if (input.kind === 'package' && input.pkgItems) {
+    const first = input.pkgItems[0]
+    if (input.pkgItems.length !== 1 || !first) return { ok: false, error: 'bad_package_items' }
+    const { data: it } = await createAdminClient().from('products').select('kind').eq('id', first.itemId).maybeSingle()
+    if (it?.kind !== 'day_pass') return { ok: false, error: 'bad_package_items' }
+    input.pkgItems = [{ itemId: first.itemId, qty: input.pkg?.visits ?? null }]
   }
   if (!nameTh) return { ok: false, error: 'need_name' }
   const wd = price(input.priceWeekday)
@@ -122,12 +133,14 @@ export async function saveProduct(input: {
     const { error } = await admin.from('products').update({ ...row, ...extra }).eq('id', input.id)
     if (error) return { ok: false, error: dbError(error) }
     if (cm) await saveProductRate(admin, input.id, cm, ctx.userId)
+    if (input.kind === 'package' && input.pkgItems) await savePackageItems(admin, input.id, input.pkgItems)
   } else {
     const kind: ProductKind = general ? 'merch' : input.kind === 'package' ? 'package' : ('' as ProductKind)
     if (!SELLABLE.includes(kind)) return { ok: false, error: 'bad_kind' }
     const { data, error } = await admin.from('products').insert({ track_stock: input.trackStock, ...row, kind }).select('id').single()
     if (error) return { ok: false, error: dbError(error) }
     if (cm && data) await saveProductRate(admin, data.id as string, cm, ctx.userId)
+    if (data && kind === 'package' && input.pkgItems) await savePackageItems(admin, data.id as string, input.pkgItems)
   }
   return done()
 }
@@ -147,6 +160,19 @@ async function saveProductRate(
     await admin.from('commission_rules').insert({ product_id: productId, mode: cm.mode, value, updated_by: by, updated_at: new Date().toISOString() })
   } catch (err) {
     console.error('product rate failed', (err as Error).message)
+  }
+}
+
+// What a package holds (§38). Never fails the save (before §38 the visit
+// count on the product is all there is).
+async function savePackageItems(admin: ReturnType<typeof createAdminClient>, packageId: string, items: { itemId: string; qty: number | null }[]) {
+  try {
+    const { error } = await admin.from('package_items').delete().eq('package_id', packageId)
+    if (error) return
+    const rows = items.slice(0, 20).map((x, i) => ({ package_id: packageId, item_id: x.itemId, qty: x.qty, sort: i }))
+    if (rows.length) await admin.from('package_items').insert(rows)
+  } catch (err) {
+    console.error('package items failed', (err as Error).message)
   }
 }
 

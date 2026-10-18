@@ -239,6 +239,7 @@ function Products({ catalog, rules, saleTypes }: { catalog: Catalog; rules: Comm
               categories={catalog.categories}
               saleTypes={saleTypes}
               rules={rules}
+              entries={catalog.products.filter((p) => p.kind === 'day_pass')}
               onCreated={() => setFresh((n) => n + 1)}
             />
             {product && product.kind !== 'day_pass' && product.kind !== 'package' && <Variants key={`v-${product.id}`} product={product} />}
@@ -472,12 +473,14 @@ function ProductForm({
   categories,
   saleTypes,
   rules,
+  entries = [],
   onCreated,
 }: {
   product: Product | null
   categories: ProductCategory[] | null
   saleTypes: SaleTypeNames
   rules: CommissionRule[] | null // null = commission (§33) not set up
+  entries?: Product[] // entry products a package can hold (v0.37.1)
   onCreated: () => void
 }) {
   const { tr, lang } = useLanguage()
@@ -506,6 +509,8 @@ function ProductForm({
   const pk = product?.pkg
   const [pkgUnlimited, setPkgUnlimited] = useState(pk ? pk.visits === null : false)
   const [pkgVisits, setPkgVisits] = useState(String(pk?.visits ?? 10))
+  // What the package holds (§38): for now one entry product.
+  const [pkgItem, setPkgItem] = useState(product?.pkgItems?.[0]?.itemId ?? entries[0]?.id ?? '')
   const monthly = pk ? pk.days % 30 === 0 : true
   const [pkgUnit, setPkgUnit] = useState<'days' | 'months'>(monthly ? 'months' : 'days')
   const [pkgLen, setPkgLen] = useState(String(pk ? (monthly ? pk.days / 30 : pk.days) : 3))
@@ -546,6 +551,7 @@ function ProductForm({
                     share: pkgUnlimited && pkgShare === 'split' ? 'off' : pkgShare,
                   }
                 : null,
+              pkgItems: isPkg && pkgItem ? [{ itemId: pkgItem, qty: pkgUnlimited ? null : Number(pkgVisits) }] : undefined,
             }),
           product ? undefined : onCreated,
         )
@@ -614,19 +620,41 @@ function ProductForm({
           <fieldset className="space-y-3 rounded-xl border border-primary/30 bg-primary/5 p-3">
             <legend className="px-1 text-xs font-bold text-primary">{tr(c.pkgHeading)}</legend>
             <div>
-              <span className={label}>{tr(c.pkgType)}</span>
-              <div className="mt-1 flex flex-wrap gap-1.5">
-                <button type="button" onClick={() => setPkgUnlimited(false)} className={chipCls(!pkgUnlimited)}>{tr(c.pkgCount)}</button>
-                <button type="button" onClick={() => setPkgUnlimited(true)} className={chipCls(pkgUnlimited)}>{tr(c.pkgUnlimited)}</button>
-              </div>
+              <span className={label}>{tr(c.pkgHolds)}</span>
+              {entries.length === 0 ? (
+                <p className="mt-1 text-xs font-semibold text-destructive">{tr(c.pkgNoEntry)}</p>
+              ) : (
+                <div className="mt-1 flex flex-wrap items-center gap-2 rounded-xl border border-border bg-background p-2 text-sm">
+                  <select className={cn(input, 'w-auto min-w-0 flex-1 py-1.5')} value={pkgItem} onChange={(e) => setPkgItem(e.target.value)} aria-label={tr(c.pkgHolds)}>
+                    {entries.map((x) => (
+                      <option key={x.id} value={x.id}>
+                        {lang === 'en' && x.nameEn ? x.nameEn : x.nameTh}
+                      </option>
+                    ))}
+                  </select>
+                  <span className="text-muted-foreground">×</span>
+                  <input
+                    className={cn(input, 'w-20 py-1.5', pkgUnlimited && 'opacity-40')}
+                    inputMode="numeric"
+                    value={pkgUnlimited ? '' : pkgVisits}
+                    disabled={pkgUnlimited}
+                    onChange={(e) => setPkgVisits(e.target.value.replace(/\D/g, ''))}
+                    aria-label={tr(c.pkgVisits)}
+                    required={!pkgUnlimited}
+                  />
+                  <span>{tr(c.pkgTimes)}</span>
+                  <label className="flex items-center gap-1.5">
+                    <input type="checkbox" checked={pkgUnlimited} onChange={(e) => setPkgUnlimited(e.target.checked)} className="h-4 w-4 accent-[var(--primary)]" />
+                    {tr(c.pkgUnlimitedShort)}
+                  </label>
+                </div>
+              )}
+              <button type="button" disabled className="mt-2 rounded-full border border-dashed border-border px-3 py-1 text-xs font-semibold text-muted-foreground opacity-60">
+                {tr(c.pkgAddItem)}
+              </button>
+              <p className="mt-1 text-[11px] text-muted-foreground">{tr(c.pkgAddLater)}</p>
             </div>
             <div className="flex flex-wrap items-end gap-3">
-              {!pkgUnlimited && (
-                <label>
-                  <span className={label}>{tr(c.pkgVisits)}</span>
-                  <input className={cn(input, 'mt-1 w-24')} inputMode="numeric" value={pkgVisits} onChange={(e) => setPkgVisits(e.target.value.replace(/\D/g, ''))} required />
-                </label>
-              )}
               <label>
                 <span className={label}>{tr(c.pkgValid)}</span>
                 <input className={cn(input, 'mt-1 w-20')} inputMode="numeric" value={pkgLen} onChange={(e) => setPkgLen(e.target.value.replace(/\D/g, ''))} required />

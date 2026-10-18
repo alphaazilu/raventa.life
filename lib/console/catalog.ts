@@ -65,6 +65,8 @@ export type Product = {
   variants: Variant[]
   // Package rules (§21); null for other kinds.
   pkg: PackageRules | null
+  // What a package holds (§38, v0.37.1): products and how many times (null = unlimited).
+  pkgItems?: { itemId: string; qty: number | null }[]
 }
 
 export type PackageRules = {
@@ -115,12 +117,13 @@ function toVariant(v: Row): Variant {
 
 // null = §18 hasn't been run yet.
 export async function loadCatalog(client: Client): Promise<Catalog | null> {
-  const [p, v, pr, h, pc] = await Promise.all([
+  const [p, v, pr, h, pc, pi] = await Promise.all([
     client.from('products').select('*').order('sort').order('created_at'),
     client.from('product_variants').select('*').order('sort').order('created_at'),
     client.from('promotions').select('*').order('created_at', { ascending: false }),
     client.from('holidays').select('*').order('day'),
     client.from('product_categories').select('id, name_th, name_en, sort').order('sort').order('created_at'),
+    client.from('package_items').select('package_id, item_id, qty, sort').order('sort').order('created_at'),
   ])
   const err = [p.error, v.error, pr.error, h.error].find(Boolean) as { code?: string } | undefined
   if (err) {
@@ -149,6 +152,10 @@ export async function loadCatalog(client: Client): Promise<Catalog | null> {
         active: Boolean(r.is_active),
         sort: Number(r.sort ?? 0),
         categoryId: (r.category_id as string | null | undefined) ?? null,
+        // §38 not run → none listed (the form shows the visit count as before).
+        pkgItems: pi.error
+          ? undefined
+          : ((pi.data ?? []) as Row[]).filter((x) => x.package_id === r.id).map((x) => ({ itemId: x.item_id as string, qty: x.qty == null ? null : Number(x.qty) })),
         variants: byProduct.get(r.id as string) ?? [],
         pkg:
           r.kind === 'package'

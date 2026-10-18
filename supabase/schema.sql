@@ -2742,3 +2742,31 @@ alter table public.commission_rules add constraint commission_rules_value_check 
 
 -- Sale type names and which are offered: {"item":{"th":"…","en":"…","on":true}, "entry":…, "package":…}
 alter table public.app_settings add column if not exists sale_types jsonb not null default '{}'::jsonb;
+
+
+-- 38. What a package holds (v0.37.1). A package lists products from the
+-- catalog with how many times each (null = unlimited). For now it holds
+-- one entry product (the Day Pass) — its count is products.pkg_visits,
+-- which selling a package still copies; other items come in a later step
+-- (redeeming them at the counter). Existing packages are filled in with the
+-- Day Pass and their visit count (once per package).
+create table if not exists public.package_items (
+  id uuid primary key default gen_random_uuid(),
+  package_id uuid not null references public.products(id) on delete cascade,
+  item_id uuid not null references public.products(id) on delete restrict,
+  qty integer check (qty between 1 and 1000),   -- null = unlimited
+  sort integer not null default 0,
+  created_at timestamptz not null default now(),
+  constraint package_items_not_self check (package_id <> item_id),
+  constraint package_items_once unique (package_id, item_id)
+);
+alter table public.package_items enable row level security;
+revoke insert, update, delete on public.package_items from anon, authenticated;
+drop policy if exists "Staff read" on public.package_items;
+create policy "Staff read" on public.package_items for select to authenticated using (public.is_staff());
+
+insert into public.package_items (package_id, item_id, qty)
+select p.id, dp.id, p.pkg_visits
+from public.products p
+cross join (select id from public.products where kind = 'day_pass' limit 1) dp
+where p.kind = 'package' and not exists (select 1 from public.package_items i where i.package_id = p.id);
