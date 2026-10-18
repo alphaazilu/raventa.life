@@ -4,7 +4,7 @@ import { Gift, Package } from 'lucide-react'
 import { useLanguage } from '@/components/language-provider'
 import { deskCopy, fill } from '@/lib/check-in/copy'
 import { formatMemberDate } from '@/lib/format-date'
-import { isGift, packageAlive, packageLeft, pieceOpen, type MemberPackage } from '@/lib/packages'
+import { isGift, itemLeft, packageAlive, packageLeft, pieceOpen, type MemberPackage, type PackageItem } from '@/lib/packages'
 import { bangkokToday } from '@/lib/check-in/day'
 import { cn } from '@/lib/utils'
 
@@ -15,6 +15,8 @@ export function PackageList({
   useToday = null,
   heading = false,
   extra,
+  onUseItem,
+  busy = false,
   className,
 }: {
   packages: MemberPackage[]
@@ -22,6 +24,9 @@ export function PackageList({
   heading?: boolean
   // Extra controls under a package (the member's share panel).
   extra?: (k: MemberPackage) => React.ReactNode
+  // The desk hands out other items in a package (§40).
+  onUseItem?: (k: MemberPackage, x: PackageItem) => void
+  busy?: boolean
   className?: string
 }) {
   const { tr, lang } = useLanguage()
@@ -73,6 +78,33 @@ export function PackageList({
                     n: friends
                       .map((f) => (f.kind === 'piece' ? `${f.name} (${fill(tr(deskCopy.pkgLeft), { n: (f.total ?? 0) - (f.used ?? 0) })})` : f.name))
                       .join(', '),
+                  })}
+                </span>
+              )}
+              {(k.items ?? []).length > 0 && (
+                <span className="mt-1 block space-y-1">
+                  {k.items!.map((x) => {
+                    const n = itemLeft(x)
+                    return (
+                      <span key={x.id} className="flex items-center gap-2 text-xs">
+                        <span className="min-w-0 flex-1 truncate">
+                          <span className="font-semibold text-card-foreground">{lang === 'en' ? x.nameEn : x.name}</span>{' '}
+                          <span className="text-muted-foreground">
+                            {n === null ? tr(deskCopy.pkgItemUnlimited) : `${fill(tr(deskCopy.pkgLeft), { n })} / ${x.total}`}
+                          </span>
+                        </span>
+                        {onUseItem && !ended && n !== 0 && (
+                          <button
+                            type="button"
+                            disabled={busy}
+                            onClick={() => onUseItem(k, x)}
+                            className="shrink-0 rounded-full bg-primary px-2.5 py-1 text-[11px] font-bold text-primary-foreground disabled:opacity-40"
+                          >
+                            {tr(deskCopy.pkgItemUse)}
+                          </button>
+                        )}
+                      </span>
+                    )
                   })}
                 </span>
               )}

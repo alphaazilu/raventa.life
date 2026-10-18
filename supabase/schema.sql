@@ -3191,3 +3191,194 @@ begin
   return jsonb_build_object('sale_id', v_sale.id, 'receipt_no', v_sale.receipt_no, 'total', v_total, 'visit_id', v_visit);
 end;
 $$;
+
+
+-- 40. Other things in a package (v0.37.3). Besides the entry (Day Pass ×
+-- visits), a package can hold other items — 5 massages, 10 drinks — with a
+-- count or unlimited. Each package bought gets its own balance per item
+-- (copied when it's created, so editing the product later doesn't change
+-- what was bought); the counter hands them out one by one ("use") and can
+-- take back a mistake the same day. Handing out takes it out of stock.
+create table if not exists public.member_package_items (
+  id uuid primary key default gen_random_uuid(),
+  member_package_id uuid not null references public.member_packages(id) on delete cascade,
+  item_id uuid references public.products(id) on delete set null,
+  name text not null,
+  name_en text,
+  qty_total integer check (qty_total between 1 and 1000),   -- null = unlimited
+  qty_used integer not null default 0 check (qty_used >= 0),
+  sort integer not null default 0,
+  created_at timestamptz not null default now(),
+  constraint member_package_items_within check (qty_total is null or qty_used <= qty_total)
+);
+create index if not exists member_package_items_pkg_idx on public.member_package_items (member_package_id);
+alter table public.member_package_items enable row level security;
+revoke insert, update, delete on public.member_package_items from anon, authenticated;
+drop policy if exists "Staff or owner read" on public.member_package_items;
+create policy "Staff or owner read" on public.member_package_items for select to authenticated using (
+  public.is_staff()
+  or exists (select 1 from public.member_packages mp where mp.id = member_package_id and mp.member_id = auth.uid())
+);
+
+create table if not exists public.package_item_uses (
+  id uuid primary key default gen_random_uuid(),
+  item_row_id uuid not null references public.member_package_items(id) on delete cascade,
+  member_id uuid references auth.users(id) on delete set null,
+  qty integer not null check (qty between 1 and 99),
+  used_at timestamptz not null default now(),
+  used_by uuid references auth.users(id) on delete set null,
+  undone_at timestamptz,
+  undone_by uuid references auth.users(id) on delete set null
+);
+create index if not exists package_item_uses_row_idx on public.package_item_uses (item_row_id);
+alter table public.package_item_uses enable row level security;
+revoke insert, update, delete on public.package_item_uses from anon, authenticated;
+drop policy if exists "Staff read" on public.package_item_uses;
+create policy "Staff read" on public.package_item_uses for select to authenticated using (public.is_staff());
+
+-- A package bought (not a friend's handed-over visit) gets its items.
+create or replace function public.member_package_items_fill()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $fn$
+begin
+  if new.product_id is null or new.shared_from is not null then
+    return new;
+  end if;
+  insert into public.member_package_items (member_package_id, item_id, name, name_en, qty_total, sort)
+  select new.id, p.id, p.name_th, nullif(p.name_en, ''), i.qty, i.sort
+  from public.package_items i join public.products p on p.id = i.item_id
+  where i.package_id = new.product_id and p.kind <> 'day_pass';
+  return new;
+end;
+$fn$;
+drop trigger if exists member_package_items_fill on public.member_packages;
+create trigger member_package_items_fill after insert on public.member_packages
+for each row execute function public.member_package_items_fill();
+
+-- Hand out p_qty of one item from a member's package. Returns {use_id, left}.
+create or replace function public.staff_use_package_item(p_row uuid, p_qty integer)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $fn$
+declare
+  r public.member_package_items;
+  k public.member_packages;
+  v_today date := public.bkk_today();
+  v_track boolean;
+  v_use uuid;
+begin
+  if not public.is_staff() then
+    raise exception 'not_staff';
+  end if;
+  if p_qty is null or p_qty < 1 or p_qty > 99 then
+    raise exception 'bad_qty';
+  end if;
+  select * into r from public.member_package_items where id = p_row for update;
+  if not found then
+    raise exception 'not_found';
+  end if;
+  select * into k from public.member_packages where id = r.member_package_id for update;
+  if k.cancelled_at is not null then
+    raise exception 'package_cancelled';
+  end if;
+  if k.member_id = auth.uid() then
+    raise exception 'self_service';
+  end if;
+  if (k.expires_on is not null and k.expires_on < v_today)
+     or (k.starts_on is null and k.activate_by is not null and k.activate_by < v_today) then
+    raise exception 'package_expired';
+  end if;
+  if r.qty_total is not null and r.qty_used + p_qty > r.qty_total then
+    raise exception 'not_enough';
+  end if;
+  if r.item_id is not null then
+    select track_stock into v_track from public.products where id = r.item_id;
+    if v_track then
+      begin
+        update public.products set stock = stock - p_qty where id = r.item_id;
+      exception when check_violation then
+        raise exception 'out_of_stock';
+      end;
+    end if;
+  end if;
+  -- A "starts on first use" package starts with whatever is used first.
+  update public.member_packages
+  set starts_on = coalesce(starts_on, v_today), expires_on = coalesce(expires_on, v_today + valid_days - 1)
+  where id = k.id and starts_on is null;
+  update public.member_package_items set qty_used = qty_used + p_qty where id = r.id;
+  insert into public.package_item_uses (item_row_id, member_id, qty, used_by)
+  values (r.id, k.member_id, p_qty, auth.uid()) returning id into v_use;
+  insert into public.staff_actions (actor_id, member_id, action, detail)
+  values (auth.uid(), k.member_id, 'package_item', jsonb_build_object(
+    'package_id', k.id, 'item', r.name, 'qty', p_qty, 'use_id', v_use));
+  return jsonb_build_object('use_id', v_use,
+    'left', case when r.qty_total is null then null else r.qty_total - r.qty_used - p_qty end);
+end;
+$fn$;
+revoke execute on function public.staff_use_package_item(uuid, integer) from public, anon;
+grant execute on function public.staff_use_package_item(uuid, integer) to authenticated;
+
+-- Take a hand-out back (a mistake): same day, or an admin any time.
+create or replace function public.staff_undo_package_item(p_use uuid)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $fn$
+declare
+  u public.package_item_uses;
+  r public.member_package_items;
+  v_track boolean;
+begin
+  if not public.is_staff() then
+    raise exception 'not_staff';
+  end if;
+  select * into u from public.package_item_uses where id = p_use for update;
+  if not found or u.undone_at is not null then
+    raise exception 'not_found';
+  end if;
+  if not public.is_admin() and (u.used_at at time zone 'Asia/Bangkok')::date <> public.bkk_today() then
+    raise exception 'cancel_window_passed';
+  end if;
+  select * into r from public.member_package_items where id = u.item_row_id for update;
+  update public.member_package_items set qty_used = greatest(qty_used - u.qty, 0) where id = r.id;
+  if r.item_id is not null then
+    select track_stock into v_track from public.products where id = r.item_id;
+    if v_track then
+      update public.products set stock = stock + u.qty where id = r.item_id;
+    end if;
+  end if;
+  update public.package_item_uses set undone_at = now(), undone_by = auth.uid() where id = u.id;
+  insert into public.staff_actions (actor_id, member_id, action, detail)
+  values (auth.uid(), u.member_id, 'package_item_undo', jsonb_build_object('item', r.name, 'qty', u.qty, 'use_id', u.id));
+end;
+$fn$;
+revoke execute on function public.staff_undo_package_item(uuid) from public, anon;
+grant execute on function public.staff_undo_package_item(uuid) to authenticated;
+
+-- A bill whose package has handed items out is "used": only an admin voids it.
+create or replace function public.sales_void_guard_items()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $fn$
+begin
+  if new.voided_at is not null and old.voided_at is null and not public.is_admin()
+     and exists (
+       select 1 from public.member_package_items r join public.member_packages k on k.id = r.member_package_id
+       where k.sale_id = new.id and r.qty_used > 0
+     ) then
+    raise exception 'package_used';
+  end if;
+  return new;
+end;
+$fn$;
+drop trigger if exists sales_void_guard_items on public.sales;
+create trigger sales_void_guard_items before update of voided_at on public.sales
+for each row execute function public.sales_void_guard_items();

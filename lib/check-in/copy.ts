@@ -96,6 +96,12 @@ export const deskCopy = {
   packages: { th: 'แพ็กเกจ', en: 'Packages' },
   pkgLeft: { th: 'เหลือ {n} ครั้ง', en: '{n} left' },
   pkgUnlimited: { th: 'ไม่จำกัดครั้ง', en: 'Unlimited' },
+  // Other things in a package (§40, v0.37.3)
+  pkgItemUse: { th: 'ใช้ 1', en: 'Use 1' },
+  pkgItemUnlimited: { th: 'ไม่จำกัด', en: 'unlimited' },
+  doneUseItem: { th: 'ใช้ {name} 1 ครั้ง · เหลือ {n}', en: 'Used 1 {name} · {n} left' },
+  undo: { th: 'ย้อนกลับ', en: 'Undo' },
+  doneUndo: { th: 'ย้อนกลับแล้ว', en: 'Undone' },
   pkgUntil: { th: 'ถึง {d}', en: 'until {d}' },
   pkgNotStarted: { th: 'เริ่มนับเมื่อใช้ครั้งแรก (ภายใน {d})', en: 'Starts on first visit (by {d})' },
   pkgSharedFrom: { th: 'ของขวัญจากคุณ{n}', en: 'Gift from {n}' },
@@ -181,6 +187,10 @@ export const deskErrors: Record<string, Bilingual> = {
   promo_not_applicable: { th: 'โค้ดนี้ใช้กับรายการในบิลไม่ได้', en: 'This code doesn’t apply to these items' },
   sale_not_found: { th: 'ไม่พบบิลนี้ หรือถูกยกเลิกไปแล้ว', en: 'Bill not found or already voided' },
   void_bill_instead: { th: 'เช็คอินนี้มาจากบิล — ให้กด “ยกเลิกบิล”', en: 'This check-in came from a bill — use “Void bill”' },
+  not_enough: { th: 'เหลือไม่พอ', en: 'Not enough left' },
+  package_expired: { th: 'แพ็กเกจหมดอายุแล้ว', en: 'This package has expired' },
+  package_cancelled: { th: 'แพ็กเกจถูกยกเลิกแล้ว', en: 'This package was cancelled' },
+  not_found: { th: 'ไม่พบรายการ', en: 'Not found' },
   failed: { th: 'ทำรายการไม่สำเร็จ ลองอีกครั้ง', en: 'Something went wrong — try again' },
 }
 

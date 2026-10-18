@@ -18,7 +18,7 @@ import { receiptLabel } from '@/lib/console/catalog'
 import { cn } from '@/lib/utils'
 import { CASH_PATH, DESK_PATH } from '@/lib/auth/roles'
 import { cashCopy } from '@/lib/cash'
-import { isGift } from '@/lib/packages'
+import { isGift, type MemberPackage, type PackageItem } from '@/lib/packages'
 import { cmCopy, cmErrors, type DeskCommission } from '@/lib/commission'
 import { bkCopy, bkkHm } from '@/lib/booking'
 import {
@@ -26,6 +26,8 @@ import {
   checkoutBill,
   reEnter,
   checkOut,
+  redeemPackageItem,
+  undoPackageItem,
   getDeskCatalog,
   getFloor,
   getMember,
@@ -73,11 +75,13 @@ export function CheckInDesk({
   // Who earns commission and which items have a rate (§33, v0.34). null = off.
   commission?: DeskCommission
 }) {
-  const { tr } = useLanguage()
+  const { tr, lang } = useLanguage()
   const [panel, setPanel] = useState<Panel>(initialMember ? { kind: 'member', member: initialMember } : { kind: 'empty' })
   const [floor, setFloor] = useState<Floor | null>(initialFloor)
   const [error, setError] = useState<string | null>(initialError)
   const [notice, setNotice] = useState<string | null>(null)
+  // The last thing handed out from a package (§40) — can be taken back.
+  const [lastUse, setLastUse] = useState<{ useId: string; memberId: string } | null>(null)
   const [query, setQuery] = useState('')
   const [busy, startBusy] = useTransition()
   const [catalog, setCatalog] = useState<DeskCatalog>(initialCatalog)
@@ -116,6 +120,12 @@ export function CheckInDesk({
   }, [refreshFloor])
 
   useEffect(() => {
+    if (!lastUse) return
+    const id = setTimeout(() => setLastUse(null), 60_000)
+    return () => clearTimeout(id)
+  }, [lastUse])
+
+  useEffect(() => {
     if (!notice) return
     const id = setTimeout(() => setNotice(null), 3500)
     return () => clearTimeout(id)
@@ -133,6 +143,7 @@ export function CheckInDesk({
     const showMember = (member: DeskMember) => {
     setPreset((p) => (p.bookingIds.length || p.lines.length ? { lines: [], bookingIds: [] } : p))
     setPanel({ kind: 'member', member })
+    setLastUse((u) => (u && u.memberId === member.id ? u : null))
     setSearchOpen(false)
     setQuery('')
   }
@@ -254,9 +265,29 @@ export function CheckInDesk({
         </div>
       )}
 
-      {notice && (
-        <div role="status" className="mb-3 rounded-2xl bg-accent/15 px-4 py-3 text-sm font-semibold text-accent">
-          {notice}
+      {(notice || lastUse) && (
+        <div role="status" className="mb-3 flex items-center gap-3 rounded-2xl bg-accent/15 px-4 py-3 text-sm font-semibold text-accent">
+          <span className="min-w-0 flex-1">{notice}</span>
+          {lastUse && (
+            <button
+              type="button"
+              disabled={busy}
+              onClick={() => {
+                const u = lastUse
+                run(
+                  () => undoPackageItem(u.useId),
+                  () => {
+                    setLastUse(null)
+                    setNotice(tr(deskCopy.doneUndo))
+                    reloadMember(u.memberId)
+                  },
+                )
+              }}
+              className="shrink-0 rounded-full border border-accent/50 px-3 py-1 text-xs font-bold hover:bg-accent/10 disabled:opacity-40"
+            >
+              {tr(deskCopy.undo)}
+            </button>
+          )}
         </div>
       )}
       {error && (
@@ -368,6 +399,17 @@ export function CheckInDesk({
                       setPreset({ lines, bookingIds: [...preset.bookingIds, b.id] })
                       setBillKey((k) => k + 1)
                     }}
+                    onUseItem={(_, x) =>
+                      run(
+                        () => redeemPackageItem(x.id),
+                        (d) => {
+                          const name = lang === 'en' ? x.nameEn : x.name
+                          setNotice(fill(tr(deskCopy.doneUseItem), { name, n: d.left === null ? tr(deskCopy.pkgItemUnlimited) : d.left }))
+                          setLastUse({ useId: d.useId, memberId: member.id })
+                          reloadMember(member.id)
+                        },
+                      )
+                    }
                     onCheckOut={(visitId) =>
                       run(
                         () => checkOut(visitId),
@@ -520,6 +562,7 @@ function MemberInfo({
   busy,
   added,
   onAddBooking,
+  onUseItem,
   onCheckOut,
   onReEnter,
   onCancel,
@@ -528,6 +571,7 @@ function MemberInfo({
   busy: boolean
   added: string[]
   onAddBooking: (b: DeskMember['bookingsToday'][number]) => void
+  onUseItem: (k: MemberPackage, x: PackageItem) => void
   onCheckOut: (visitId: string) => void
   onReEnter: (visitId: string) => void
   onCancel: (visit: NonNullable<DeskMember['today']>, reason: string) => void
@@ -602,7 +646,13 @@ function MemberInfo({
       )}
 
       {member.stamps && <StampRow progress={member.stamps.progress} rewardReady={rewardReady} />}
-      <PackageList packages={member.packages} useToday={member.today ? null : member.packageToday} className="mt-3" />
+      <PackageList
+        packages={member.packages}
+        useToday={member.today ? null : member.packageToday}
+        onUseItem={member.isSelf ? undefined : onUseItem}
+        busy={busy}
+        className="mt-3"
+      />
 
       {member.isSelf ? (
         <p className="mt-4 rounded-2xl bg-amber-500/15 px-4 py-3 text-sm font-semibold text-amber-800 dark:text-amber-300">

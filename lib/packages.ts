@@ -22,6 +22,14 @@ export type MemberPackage = {
   isOwner: boolean // false = handed over by, or shared whole from, a friend
   ownerName: string | null // that friend's first name
   sharedWith: SharedPiece[] // for the owner: who they handed visits to
+  // Other things in the package (§40): each with its own balance.
+  items?: PackageItem[]
+}
+
+export type PackageItem = { id: string; name: string; nameEn: string; total: number | null; used: number }
+
+export function itemLeft(x: PackageItem): number | null {
+  return x.total === null ? null : Math.max(0, x.total - x.used)
 }
 
 // Who the owner shares with: 'piece' = visits handed to one friend (that
@@ -54,7 +62,9 @@ export function pieceOpen(f: SharedPiece, today: string): boolean {
 export function packageAlive(k: MemberPackage, today: string): boolean {
   if (k.cancelled) return false
   // All handed out still shows while a friend has visits the owner could take back.
-  if (packageLeft(k) === 0 && !k.sharedWith.some((f) => pieceOpen(f, today))) return false
+  // Visits all used still shows while other items are left (§40).
+  const itemsLeft = (k.items ?? []).some((x) => itemLeft(x) !== 0)
+  if (packageLeft(k) === 0 && !itemsLeft && !k.sharedWith.some((f) => pieceOpen(f, today))) return false
   if (k.expiresOn && k.expiresOn < today) return false
   if (!k.startsOn && k.activateBy && k.activateBy < today) return false
   return true
@@ -101,5 +111,26 @@ export async function loadMemberPackages(
       sharedWith: (r.shared_with as SharedPiece[] | null) ?? [],
     }),
   )
+  // Other things in each package (§40) — missing before §40 is run.
+  if (list.length > 0) {
+    const { data: its, error: itErr } = await supabase
+      .from('member_package_items')
+      .select('id, member_package_id, name, name_en, qty_total, qty_used, sort')
+      .in('member_package_id', list.map((k) => k.id))
+      .order('sort')
+    if (!itErr) {
+      for (const k of list) k.items = []
+      const byId = new Map(list.map((k) => [k.id, k]))
+      for (const r of its ?? []) {
+        byId.get(r.member_package_id as string)?.items?.push({
+          id: r.id as string,
+          name: r.name as string,
+          nameEn: (r.name_en as string | null) || (r.name as string),
+          total: (r.qty_total as number | null) ?? null,
+          used: Number(r.qty_used),
+        })
+      }
+    }
+  }
   return all ? list : list.filter((k) => packageAlive(k, today))
 }

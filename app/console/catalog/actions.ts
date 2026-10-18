@@ -87,14 +87,25 @@ export async function saveProduct(input: {
       track_stock: false,
     }
   }
-  // For now a package holds one entry product (the Day Pass), as many times
-  // as its visit count (v0.37.1); other items come later.
+  // A package holds one entry product (the Day Pass) as many times as its
+  // visit count (v0.37.1), plus up to 10 other items, each a count or
+  // unlimited (§40, v0.37.3) — ordinary items without variants.
   if (input.kind === 'package' && input.pkgItems) {
-    const first = input.pkgItems[0]
-    if (input.pkgItems.length !== 1 || !first) return { ok: false, error: 'bad_package_items' }
-    const { data: it } = await createAdminClient().from('products').select('kind').eq('id', first.itemId).maybeSingle()
-    if (it?.kind !== 'day_pass') return { ok: false, error: 'bad_package_items' }
-    input.pkgItems = [{ itemId: first.itemId, qty: input.pkg?.visits ?? null }]
+    const list = input.pkgItems.filter((x) => x.itemId).slice(0, 11)
+    const ids = [...new Set(list.map((x) => x.itemId))]
+    if (ids.length !== list.length) return { ok: false, error: 'include_twice' }
+    const { data: rows } = await createAdminClient().from('products').select('id, kind, product_variants(is_active)').in('id', ids)
+    const kindOf = new Map((rows ?? []).map((r) => [r.id as string, r]))
+    const entries = list.filter((x) => kindOf.get(x.itemId)?.kind === 'day_pass')
+    const others = list.filter((x) => kindOf.get(x.itemId)?.kind !== 'day_pass')
+    if (entries.length !== 1) return { ok: false, error: 'bad_package_items' }
+    for (const x of others) {
+      const r = kindOf.get(x.itemId) as { kind?: string; product_variants?: { is_active: boolean }[] } | undefined
+      if (!r || r.kind === 'package' || x.itemId === input.id) return { ok: false, error: 'bad_include' }
+      if ((r.product_variants ?? []).some((v) => v.is_active)) return { ok: false, error: 'include_variants' }
+      if (x.qty !== null && (!Number.isInteger(x.qty) || x.qty < 1 || x.qty > 1000)) return { ok: false, error: 'bad_qty' }
+    }
+    input.pkgItems = [{ itemId: entries[0].itemId, qty: input.pkg?.visits ?? null }, ...others]
   }
   if (!nameTh) return { ok: false, error: 'need_name' }
   const wd = price(input.priceWeekday)

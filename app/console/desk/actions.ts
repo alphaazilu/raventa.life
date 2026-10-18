@@ -256,6 +256,23 @@ export async function checkOut(visitId: string): Promise<DeskResult<null>> {
   return { ok: true, data: null }
 }
 
+// Hand out one thing from a member's package (§40). Returns the use (to undo) and what's left.
+export async function redeemPackageItem(rowId: string): Promise<DeskResult<{ useId: string; left: number | null }>> {
+  const ctx = await requireDesk()
+  if ('error' in ctx) return { ok: false, error: ctx.error }
+  const { data, error } = await ctx.supabase.rpc('staff_use_package_item', { p_row: rowId, p_qty: 1 })
+  if (error) return { ok: false, error: errorCode(error) }
+  const d = data as { use_id: string; left: number | null }
+  return { ok: true, data: { useId: d.use_id, left: d.left ?? null } }
+}
+
+export async function undoPackageItem(useId: string): Promise<DeskResult<null>> {
+  const ctx = await requireDesk()
+  if ('error' in ctx) return { ok: false, error: ctx.error }
+  const { error } = await ctx.supabase.rpc('staff_undo_package_item', { p_use: useId })
+  return error ? { ok: false, error: errorCode(error) } : { ok: true, data: null }
+}
+
 export async function cancelVisit(visitId: string, reason: string): Promise<DeskResult<null>> {
   const ctx = await requireDesk()
   if ('error' in ctx) return { ok: false, error: ctx.error }
