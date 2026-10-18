@@ -59,6 +59,11 @@ export const deskCopy = {
   free: { th: 'สิทธิ์ฟรี', en: 'Free pass' },
 
   checkOut: { th: 'เช็คเอาต์', en: 'Check out' },
+  // Comes-with items (§39, v0.37.2)
+  inclGiven: { th: 'รวมมาด้วย (ให้เลย)', en: 'Included (to keep)' },
+  inclLent: { th: 'ยืม — ต้องคืนตอนออก', en: 'Lent — return on the way out' },
+  onLoan: { th: 'ยืม', en: 'On loan' },
+  returnAndOut: { th: 'คืนของ + เช็คเอาต์', en: 'Return + check out' },
   cancelVisit: { th: 'ยกเลิกเช็คอิน', en: 'Undo check-in' },
   cancelReason: { th: 'เหตุผล (จำเป็น)', en: 'Reason (required)' },
   cancelConfirm: { th: 'ยืนยันยกเลิก', en: 'Confirm undo' },

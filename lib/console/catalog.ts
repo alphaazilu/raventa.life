@@ -67,6 +67,8 @@ export type Product = {
   pkg: PackageRules | null
   // What a package holds (§38, v0.37.1): products and how many times (null = unlimited).
   pkgItems?: { itemId: string; qty: number | null }[]
+  // What comes with it (§39, v0.37.2): given (on the bill at 0) or lent (back at check-out).
+  includes?: { itemId: string; qty: number; lend: boolean }[]
 }
 
 export type PackageRules = {
@@ -97,7 +99,13 @@ export type Promotion = {
 export type Holiday = { day: string; name: string }
 
 // categories: null = §37 not run yet.
-export type Catalog = { products: Product[]; promotions: Promotion[]; holidays: Holiday[]; categories: ProductCategory[] | null }
+export type Catalog = {
+  products: Product[]
+  promotions: Promotion[]
+  holidays: Holiday[]
+  categories: ProductCategory[] | null
+  includesReady?: boolean // §39 run: products can bring items along
+}
 
 export const PRODUCT_KINDS: ProductKind[] = ['day_pass', 'package', 'addon', 'merch', 'souvenir']
 
@@ -117,13 +125,14 @@ function toVariant(v: Row): Variant {
 
 // null = §18 hasn't been run yet.
 export async function loadCatalog(client: Client): Promise<Catalog | null> {
-  const [p, v, pr, h, pc, pi] = await Promise.all([
+  const [p, v, pr, h, pc, pi, inc] = await Promise.all([
     client.from('products').select('*').order('sort').order('created_at'),
     client.from('product_variants').select('*').order('sort').order('created_at'),
     client.from('promotions').select('*').order('created_at', { ascending: false }),
     client.from('holidays').select('*').order('day'),
     client.from('product_categories').select('id, name_th, name_en, sort').order('sort').order('created_at'),
     client.from('package_items').select('package_id, item_id, qty, sort').order('sort').order('created_at'),
+    client.from('product_includes').select('product_id, item_id, qty, lend, sort').order('sort').order('created_at'),
   ])
   const err = [p.error, v.error, pr.error, h.error].find(Boolean) as { code?: string } | undefined
   if (err) {
@@ -156,6 +165,10 @@ export async function loadCatalog(client: Client): Promise<Catalog | null> {
         pkgItems: pi.error
           ? undefined
           : ((pi.data ?? []) as Row[]).filter((x) => x.package_id === r.id).map((x) => ({ itemId: x.item_id as string, qty: x.qty == null ? null : Number(x.qty) })),
+        // §39 not run → undefined (the form hides the section).
+        includes: inc.error
+          ? undefined
+          : ((inc.data ?? []) as Row[]).filter((x) => x.product_id === r.id).map((x) => ({ itemId: x.item_id as string, qty: Number(x.qty), lend: Boolean(x.lend) })),
         variants: byProduct.get(r.id as string) ?? [],
         pkg:
           r.kind === 'package'
@@ -177,6 +190,7 @@ export async function loadCatalog(client: Client): Promise<Catalog | null> {
     ? null
     : ((pc.data ?? []) as Row[]).map((r) => ({ id: r.id as string, nameTh: r.name_th as string, nameEn: (r.name_en as string) ?? '', sort: Number(r.sort ?? 0) }))
   return {
+    includesReady: !inc.error,
     categories,
     products,
     promotions: ((pr.data ?? []) as Row[]).map((r) => ({

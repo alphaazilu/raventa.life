@@ -51,6 +51,8 @@ export async function saveProduct(input: {
   pkg?: PackageRules | null
   // v0.37.1: what a package holds — for now one entry product (the Day Pass).
   pkgItems?: { itemId: string; qty: number | null }[]
+  // v0.37.2: what comes with it — given, or lent (back at check-out). undefined = leave as is.
+  includes?: { itemId: string; qty: number; lend: boolean }[]
   // v0.37: this product's own commission — 'cat' = follow its category, 'none' = never.
   commission?: { mode: 'cat' | 'none' | 'pct' | 'thb'; value?: number }
 }): Promise<CatalogResult> {
@@ -134,6 +136,10 @@ export async function saveProduct(input: {
     if (error) return { ok: false, error: dbError(error) }
     if (cm) await saveProductRate(admin, input.id, cm, ctx.userId)
     if (input.kind === 'package' && input.pkgItems) await savePackageItems(admin, input.id, input.pkgItems)
+    if (input.includes) {
+      const e = await saveIncludes(admin, input.id, input.includes)
+      if (e) return { ok: false, error: e }
+    }
   } else {
     const kind: ProductKind = general ? 'merch' : input.kind === 'package' ? 'package' : ('' as ProductKind)
     if (!SELLABLE.includes(kind)) return { ok: false, error: 'bad_kind' }
@@ -141,6 +147,10 @@ export async function saveProduct(input: {
     if (error) return { ok: false, error: dbError(error) }
     if (cm && data) await saveProductRate(admin, data.id as string, cm, ctx.userId)
     if (data && kind === 'package' && input.pkgItems) await savePackageItems(admin, data.id as string, input.pkgItems)
+    if (data && input.includes) {
+      const e = await saveIncludes(admin, data.id as string, input.includes)
+      if (e) return { ok: false, error: e }
+    }
   }
   return done()
 }
@@ -174,6 +184,30 @@ async function savePackageItems(admin: ReturnType<typeof createAdminClient>, pac
   } catch (err) {
     console.error('package items failed', (err as Error).message)
   }
+}
+
+// What comes with a product (§39): ordinary items without variants, not itself.
+// Returns an error code, or null.
+async function saveIncludes(admin: ReturnType<typeof createAdminClient>, productId: string, list: { itemId: string; qty: number; lend: boolean }[]): Promise<string | null> {
+  const items = list.slice(0, 10).filter((x) => x.itemId && x.itemId !== productId)
+  const ids = [...new Set(items.map((x) => x.itemId))]
+  if (ids.length !== items.length) return 'include_twice'
+  if (items.some((x) => !Number.isInteger(x.qty) || x.qty < 1 || x.qty > 20)) return 'bad_qty'
+  if (ids.length) {
+    const [{ data: ps }, { data: vs }] = await Promise.all([
+      admin.from('products').select('id, kind').in('id', ids),
+      admin.from('product_variants').select('product_id').in('product_id', ids).eq('is_active', true),
+    ])
+    if ((ps ?? []).length !== ids.length || (ps ?? []).some((p) => p.kind === 'day_pass' || p.kind === 'package')) return 'bad_include'
+    if ((vs ?? []).length) return 'include_variants'
+  }
+  const { error } = await admin.from('product_includes').delete().eq('product_id', productId)
+  if (error) return isMissingTable(error) ? null : 'failed'
+  if (items.length) {
+    const { error: e2 } = await admin.from('product_includes').insert(items.map((x, i) => ({ product_id: productId, item_id: x.itemId, qty: x.qty, lend: Boolean(x.lend), sort: i })))
+    if (e2) return 'failed'
+  }
+  return null
 }
 
 // Sale type names and which are offered (§37, v0.37).

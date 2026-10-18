@@ -2770,3 +2770,424 @@ select p.id, dp.id, p.pkg_visits
 from public.products p
 cross join (select id from public.products where kind = 'day_pass' limit 1) dp
 where p.kind = 'package' and not exists (select 1 from public.package_items i where i.package_id = p.id);
+
+
+-- 39. What comes with a product (v0.37.2). Any product can bring other
+-- products along when it's sold — a Day Pass with a towel, a wristband and a
+-- locker key. Each is either given (on the bill at 0, out of stock; skipped
+-- when there's none left) or lent (not on the bill or stock; listed on the
+-- visit and taken back at check-out). Included items are ordinary items
+-- without size/colour variants. pos_quote / pos_checkout below are the §18
+-- ones with this added.
+create table if not exists public.product_includes (
+  id uuid primary key default gen_random_uuid(),
+  product_id uuid not null references public.products(id) on delete cascade,
+  item_id uuid not null references public.products(id) on delete cascade,
+  qty integer not null default 1 check (qty between 1 and 20),
+  lend boolean not null default false,
+  sort integer not null default 0,
+  created_at timestamptz not null default now(),
+  constraint product_includes_not_self check (product_id <> item_id),
+  constraint product_includes_once unique (product_id, item_id)
+);
+alter table public.product_includes enable row level security;
+revoke insert, update, delete on public.product_includes from anon, authenticated;
+drop policy if exists "Staff read" on public.product_includes;
+create policy "Staff read" on public.product_includes for select to authenticated using (public.is_staff());
+
+create table if not exists public.visit_loans (
+  id uuid primary key default gen_random_uuid(),
+  sale_id uuid not null references public.sales(id) on delete cascade,
+  visit_id uuid references public.visits(id) on delete set null,
+  member_id uuid references auth.users(id) on delete set null,
+  item_id uuid references public.products(id) on delete set null,
+  name text not null,
+  qty integer not null check (qty between 1 and 999),
+  created_at timestamptz not null default now(),
+  returned_at timestamptz,
+  returned_by uuid references auth.users(id) on delete set null
+);
+create index if not exists visit_loans_visit_idx on public.visit_loans (visit_id) where returned_at is null;
+alter table public.visit_loans enable row level security;
+revoke insert, update, delete on public.visit_loans from anon, authenticated;
+drop policy if exists "Staff read" on public.visit_loans;
+create policy "Staff read" on public.visit_loans for select to authenticated using (public.is_staff());
+
+-- Lent items handed back (at check-out). Returns how many rows came back.
+create or replace function public.staff_return_loans(p_visit_id uuid)
+returns integer
+language plpgsql
+security definer
+set search_path = public
+as $fn$
+declare
+  v_n integer;
+begin
+  if not public.is_staff() then
+    raise exception 'not_staff';
+  end if;
+  update public.visit_loans set returned_at = now(), returned_by = auth.uid()
+  where visit_id = p_visit_id and returned_at is null;
+  get diagnostics v_n = row_count;
+  return v_n;
+end;
+$fn$;
+revoke execute on function public.staff_return_loans(uuid) from public, anon;
+grant execute on function public.staff_return_loans(uuid) to authenticated;
+
+-- What p_qty of a product brings along: {"lines": [given, at 0], "loans": [lent]}.
+create or replace function public.pos_includes(p_product uuid, p_qty integer)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+stable
+as $fn$
+declare
+  r record;
+  v_lines jsonb := '[]'::jsonb;
+  v_loans jsonb := '[]'::jsonb;
+  v_n integer;
+begin
+  for r in
+    select i.qty, i.lend, p.id, p.name_th, p.name_en, p.kind, p.track_stock, p.stock
+    from public.product_includes i join public.products p on p.id = i.item_id
+    where i.product_id = p_product and p.is_active and p.kind not in ('day_pass', 'package')
+      and not exists (select 1 from public.product_variants v where v.product_id = p.id and v.is_active)
+    order by i.sort, i.created_at
+  loop
+    v_n := r.qty * greatest(coalesce(p_qty, 1), 1);
+    if r.lend then
+      v_loans := v_loans || jsonb_build_object('item_id', r.id, 'name', r.name_th, 'name_en', r.name_en, 'qty', v_n);
+    elsif not r.track_stock or r.stock >= v_n then
+      v_lines := v_lines || jsonb_build_object(
+        'product_id', r.id, 'variant_id', null, 'kind', r.kind,
+        'name', r.name_th || ' · รวมมาด้วย', 'name_en', coalesce(nullif(r.name_en, ''), r.name_th) || ' · included', 'qty', v_n,
+        'unit_price', 0, 'line_total', 0, 'reward', false, 'included', true
+      );
+    end if;
+  end loop;
+  return jsonb_build_object('lines', v_lines, 'loans', v_loans);
+end;
+$fn$;
+revoke execute on function public.pos_includes(uuid, integer) from public, anon;
+grant execute on function public.pos_includes(uuid, integer) to authenticated;
+
+create or replace function public.pos_quote(
+  p_member_id uuid,
+  p_day_pass text,
+  p_items jsonb,
+  p_promo_code text default null
+)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+stable
+as $$
+declare
+  v_today date := public.bkk_today();
+  v_type text := public.day_type(v_today);
+  v_lines jsonb := '[]'::jsonb;
+  v_sub integer := 0;
+  v_price integer;
+  v_available integer;
+  v_dp public.products;
+  v_p public.products;
+  v_v public.product_variants;
+  v_item jsonb;
+  v_qty integer;
+  v_vid uuid;
+  v_stock integer;
+  v_name text;
+  v_code text := upper(btrim(coalesce(p_promo_code, '')));
+  v_promo public.promotions;
+  v_best public.promotions;
+  v_disc integer := 0;
+  v_d integer;
+  v_pkg uuid;
+  v_inc jsonb;
+  v_loans jsonb := '[]'::jsonb;
+begin
+  if not public.is_staff() then
+    raise exception 'not_staff';
+  end if;
+  if p_member_id is not null and p_member_id = auth.uid() then
+    raise exception 'self_service';
+  end if;
+  if coalesce(p_day_pass, 'none') not in ('none', 'paid', 'reward', 'package') then
+    raise exception 'bad_entry_type';
+  end if;
+
+  if coalesce(p_day_pass, 'none') <> 'none' then
+    if p_member_id is null then
+      raise exception 'member_required';
+    end if;
+    if not exists (select 1 from public.profiles where id = p_member_id) then
+      raise exception 'member_not_found';
+    end if;
+    if exists (
+      select 1 from public.visits
+      where member_id = p_member_id and visit_date = v_today and cancelled_at is null
+    ) then
+      raise exception 'already_checked_in';
+    end if;
+    select * into v_dp from public.products where kind = 'day_pass';
+    if not found or not v_dp.is_active then
+      raise exception 'day_pass_off';
+    end if;
+    if p_day_pass = 'reward' then
+      if v_type <> 'weekday' then
+        raise exception 'reward_weekday_only';
+      end if;
+      select rewards_available into v_available from public.member_stamp_status(p_member_id);
+      if coalesce(v_available, 0) < 1 then
+        raise exception 'no_reward';
+      end if;
+      v_price := 0;
+    elsif p_day_pass = 'package' then
+      -- §21: the member's usable package that runs out soonest.
+      v_pkg := public.usable_package(p_member_id, v_today);
+      if v_pkg is null then
+        raise exception 'no_package';
+      end if;
+      v_price := 0;
+    else
+      v_price := public.product_price(v_dp, v_today);
+    end if;
+    v_lines := v_lines || jsonb_build_object(
+      'product_id', v_dp.id, 'variant_id', null, 'kind', 'day_pass',
+      'name', v_dp.name_th, 'name_en', v_dp.name_en, 'qty', 1,
+      'unit_price', v_price, 'line_total', v_price, 'reward', p_day_pass = 'reward',
+      'package_id', v_pkg
+    );
+    v_sub := v_sub + v_price;
+    -- What comes with it (§39): given items at 0 on the bill, lent ones listed.
+    v_inc := public.pos_includes(v_dp.id, 1);
+    v_lines := v_lines || (v_inc->'lines');
+    v_loans := v_loans || (v_inc->'loans');
+  end if;
+
+  for v_item in select * from jsonb_array_elements(coalesce(p_items, '[]'::jsonb)) loop
+    v_qty := nullif(v_item->>'qty', '')::int;
+    if v_qty is null or v_qty < 1 or v_qty > 99 then
+      raise exception 'bad_qty';
+    end if;
+    select * into v_p from public.products
+    where id = nullif(v_item->>'product_id', '')::uuid and is_active and kind <> 'day_pass';
+    if not found then
+      raise exception 'product_unavailable';
+    end if;
+    -- A package (§21) belongs to someone: no walk-up sales.
+    if v_p.kind = 'package' and p_member_id is null then
+      raise exception 'package_needs_member';
+    end if;
+    v_vid := nullif(v_item->>'variant_id', '')::uuid;
+    v_name := v_p.name_th;
+    if exists (select 1 from public.product_variants where product_id = v_p.id and is_active) then
+      if v_vid is null then
+        raise exception 'variant_required';
+      end if;
+      select * into v_v from public.product_variants where id = v_vid and product_id = v_p.id and is_active;
+      if not found then
+        raise exception 'product_unavailable';
+      end if;
+      v_stock := v_v.stock;
+      v_name := v_p.name_th || ' · ' || v_v.label;
+    else
+      v_vid := null;
+      v_stock := v_p.stock;
+    end if;
+    if v_p.track_stock and v_stock < v_qty then
+      raise exception 'out_of_stock';
+    end if;
+    v_price := public.product_price(v_p, v_today);
+    v_lines := v_lines || jsonb_build_object(
+      'product_id', v_p.id, 'variant_id', v_vid, 'kind', v_p.kind,
+      'name', v_name, 'name_en', v_p.name_en, 'qty', v_qty,
+      'unit_price', v_price, 'line_total', v_price * v_qty, 'reward', false
+    );
+    v_sub := v_sub + v_price * v_qty;
+    v_inc := public.pos_includes(v_p.id, v_qty);
+    v_lines := v_lines || (v_inc->'lines');
+    v_loans := v_loans || (v_inc->'loans');
+  end loop;
+
+  if jsonb_array_length(v_lines) = 0 then
+    raise exception 'empty_bill';
+  end if;
+
+  if v_code <> '' then
+    select * into v_promo from public.promotions
+    where code = v_code and is_active
+      and (starts_on is null or starts_on <= v_today)
+      and (ends_on is null or ends_on >= v_today);
+    if not found then
+      raise exception 'promo_invalid';
+    end if;
+    v_disc := public.promo_discount(v_promo, v_lines);
+    if v_disc <= 0 then
+      raise exception 'promo_not_applicable';
+    end if;
+    v_best := v_promo;
+  else
+    for v_promo in
+      select * from public.promotions
+      where code is null and is_active
+        and (starts_on is null or starts_on <= v_today)
+        and (ends_on is null or ends_on >= v_today)
+    loop
+      v_d := public.promo_discount(v_promo, v_lines);
+      if v_d > v_disc then
+        v_disc := v_d;
+        v_best := v_promo;
+      end if;
+    end loop;
+  end if;
+  v_disc := least(v_disc, v_sub);
+
+  return jsonb_build_object(
+    'lines', v_lines,
+    'subtotal', v_sub,
+    'discount', v_disc,
+    'total', v_sub - v_disc,
+    'promotion_id', v_best.id,
+    'promo_name', v_best.name,
+    'day_type', v_type,
+    'loans', v_loans
+  );
+end;
+$$;
+
+create or replace function public.pos_checkout(
+  p_member_id uuid,
+  p_day_pass text,
+  p_items jsonb,
+  p_payment_method text default null,
+  p_promo_code text default null,
+  p_wristband text default null
+)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_q jsonb := public.pos_quote(p_member_id, p_day_pass, p_items, p_promo_code);
+  v_total integer := (v_q->>'total')::int;
+  v_member_no text;
+  v_sale public.sales;
+  v_line jsonb;
+  v_line_id bigint;
+  v_visit uuid;
+  v_track boolean;
+  v_entry text;
+  v_pkg_id uuid;
+  v_pkg_stamp boolean;
+  v_prod public.products;
+  v_today date := public.bkk_today();
+begin
+  if v_total > 0 or p_day_pass = 'paid' then
+    if p_payment_method is null or p_payment_method not in ('cash', 'transfer', 'card') then
+      raise exception 'payment_method_required';
+    end if;
+  else
+    p_payment_method := null;
+  end if;
+  if p_member_id is not null then
+    select member_no into v_member_no from public.profiles where id = p_member_id;
+  end if;
+
+  insert into public.sales (member_id, member_no, subtotal, discount, total, payment_method, promotion_id, promo_name, staff_id)
+  values (
+    p_member_id, v_member_no, (v_q->>'subtotal')::int, (v_q->>'discount')::int, v_total,
+    p_payment_method, nullif(v_q->>'promotion_id', '')::uuid, v_q->>'promo_name', auth.uid()
+  )
+  returning * into v_sale;
+
+  for v_line in select * from jsonb_array_elements(v_q->'lines') loop
+    insert into public.sale_lines (sale_id, product_id, variant_id, kind, name, qty, unit_price, line_total)
+    values (
+      v_sale.id, (v_line->>'product_id')::uuid, nullif(v_line->>'variant_id', '')::uuid, v_line->>'kind',
+      v_line->>'name', (v_line->>'qty')::int, (v_line->>'unit_price')::int, (v_line->>'line_total')::int
+    )
+    returning id into v_line_id;
+
+    if v_line->>'kind' = 'day_pass' then
+      v_entry := case
+        when (v_line->>'reward')::boolean then 'reward'
+        when v_line->>'package_id' is not null then 'package'
+        else 'paid' end;
+      if v_entry = 'package' then
+        -- Use one visit; a "starts on first use" package starts today.
+        update public.member_packages
+        set visits_used = visits_used + 1,
+            starts_on = coalesce(starts_on, v_today),
+            expires_on = coalesce(expires_on, v_today + valid_days - 1)
+        where id = (v_line->>'package_id')::uuid
+        -- Shared visits (§23) never earn a stamp — only the owner's own.
+        returning id, earns_stamp and member_id = p_member_id into v_pkg_id, v_pkg_stamp;
+      end if;
+      insert into public.visits (
+        member_id, member_no, entry_type, price, payment_method, earns_stamp, wristband, checked_in_by, sale_id, package_id
+      ) values (
+        p_member_id, v_member_no, v_entry,
+        (v_line->>'unit_price')::int,
+        case when v_entry = 'paid' then p_payment_method end,
+        case v_entry when 'paid' then true when 'package' then coalesce(v_pkg_stamp, false) else false end,
+        nullif(btrim(coalesce(p_wristband, '')), ''), auth.uid(), v_sale.id,
+        case when v_entry = 'package' then v_pkg_id end
+      )
+      returning id into v_visit;
+      update public.sale_lines set visit_id = v_visit where id = v_line_id;
+      insert into public.staff_actions (actor_id, member_id, visit_id, action, detail)
+      values (auth.uid(), p_member_id, v_visit, 'check_in',
+        jsonb_build_object('entry_type', v_entry, 'package_id', v_pkg_id,
+          'price', (v_line->>'unit_price')::int, 'payment_method', p_payment_method, 'receipt_no', v_sale.receipt_no));
+    elsif v_line->>'kind' = 'package' then
+      -- Sold a package (§21): one per unit, with the product's rules copied
+      -- so later edits to the product don't change what was bought.
+      select * into v_prod from public.products where id = (v_line->>'product_id')::uuid;
+      for i in 1..(v_line->>'qty')::int loop
+        insert into public.member_packages (
+          member_id, product_id, sale_id, sale_line_id, name, visits_total, valid_days,
+          weekday_only, earns_stamp, shareable, share_whole, starts_on, expires_on, activate_by
+        ) values (
+          p_member_id, v_prod.id, v_sale.id, v_line_id, v_prod.name_th, v_prod.pkg_visits, v_prod.pkg_days,
+          v_prod.pkg_weekday_only, v_prod.pkg_earns_stamp,
+          v_prod.pkg_shareable and (v_prod.pkg_visits is not null or v_prod.pkg_share_whole),
+          v_prod.pkg_shareable and v_prod.pkg_share_whole,
+          case when v_prod.pkg_start = 'purchase' then v_today end,
+          case when v_prod.pkg_start = 'purchase' then v_today + v_prod.pkg_days - 1 end,
+          case when v_prod.pkg_start = 'first_use' then v_today + v_prod.pkg_activate_days - 1 end
+        );
+      end loop;
+    else
+      select track_stock into v_track from public.products where id = (v_line->>'product_id')::uuid;
+      if v_track then
+        begin
+          if v_line->>'variant_id' is not null then
+            update public.product_variants set stock = stock - (v_line->>'qty')::int where id = (v_line->>'variant_id')::uuid;
+          else
+            update public.products set stock = stock - (v_line->>'qty')::int where id = (v_line->>'product_id')::uuid;
+          end if;
+        exception when check_violation then
+          raise exception 'out_of_stock';
+        end;
+      end if;
+    end if;
+  end loop;
+
+  -- Lent with what was sold (§39): to come back at check-out.
+  insert into public.visit_loans (sale_id, visit_id, member_id, item_id, name, qty)
+  select v_sale.id, v_visit, p_member_id, (x->>'item_id')::uuid, x->>'name', (x->>'qty')::int
+  from jsonb_array_elements(coalesce(v_q->'loans', '[]'::jsonb)) x;
+
+  insert into public.staff_actions (actor_id, member_id, visit_id, action, detail)
+  values (auth.uid(), p_member_id, v_visit, 'sale', jsonb_build_object(
+    'sale_id', v_sale.id, 'receipt_no', v_sale.receipt_no, 'total', v_total,
+    'discount', v_sale.discount, 'payment_method', p_payment_method, 'promo', v_sale.promo_name));
+
+  return jsonb_build_object('sale_id', v_sale.id, 'receipt_no', v_sale.receipt_no, 'total', v_total, 'visit_id', v_visit);
+end;
+$$;

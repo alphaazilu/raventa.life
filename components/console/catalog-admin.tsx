@@ -240,6 +240,8 @@ function Products({ catalog, rules, saleTypes }: { catalog: Catalog; rules: Comm
               saleTypes={saleTypes}
               rules={rules}
               entries={catalog.products.filter((p) => p.kind === 'day_pass')}
+              items={catalog.products.filter((p) => saleTypeOf(p.kind) === 'item' && !p.variants.some((v) => v.active))}
+              includesReady={Boolean(catalog.includesReady)}
               onCreated={() => setFresh((n) => n + 1)}
             />
             {product && product.kind !== 'day_pass' && product.kind !== 'package' && <Variants key={`v-${product.id}`} product={product} />}
@@ -474,6 +476,8 @@ function ProductForm({
   saleTypes,
   rules,
   entries = [],
+  items = [],
+  includesReady = false,
   onCreated,
 }: {
   product: Product | null
@@ -481,6 +485,8 @@ function ProductForm({
   saleTypes: SaleTypeNames
   rules: CommissionRule[] | null // null = commission (§33) not set up
   entries?: Product[] // entry products a package can hold (v0.37.1)
+  items?: Product[] // what can come with a product (v0.37.2)
+  includesReady?: boolean
   onCreated: () => void
 }) {
   const { tr, lang } = useLanguage()
@@ -509,6 +515,9 @@ function ProductForm({
   const pk = product?.pkg
   const [pkgUnlimited, setPkgUnlimited] = useState(pk ? pk.visits === null : false)
   const [pkgVisits, setPkgVisits] = useState(String(pk?.visits ?? 10))
+  // What comes with it (§39): given or lent.
+  const [incl, setIncl] = useState<{ itemId: string; qty: number; lend: boolean }[]>(product?.includes ?? [])
+  const pickable = items.filter((x) => x.id !== product?.id)
   // What the package holds (§38): for now one entry product.
   const [pkgItem, setPkgItem] = useState(product?.pkgItems?.[0]?.itemId ?? entries[0]?.id ?? '')
   const monthly = pk ? pk.days % 30 === 0 : true
@@ -552,6 +561,7 @@ function ProductForm({
                   }
                 : null,
               pkgItems: isPkg && pkgItem ? [{ itemId: pkgItem, qty: pkgUnlimited ? null : Number(pkgVisits) }] : undefined,
+              includes: includesReady && !isPkg ? incl.filter((x) => x.itemId) : undefined,
             }),
           product ? undefined : onCreated,
         )
@@ -738,6 +748,69 @@ function ProductForm({
           <input className={cn(input, 'w-16 py-1')} inputMode="numeric" value={sort} onChange={(e) => setSort(e.target.value.replace(/[^\d-]/g, ''))} />
         </label>
       </div>
+      {includesReady && !isPkg && (
+        <>
+          <p className={cn(label, 'pt-2 text-primary')}>{tr(c.secIncl)}</p>
+          <p className="text-[11px] text-muted-foreground">{tr(c.inclHint)}</p>
+          {incl.map((x, i) => (
+            <div key={i} className="flex flex-wrap items-center gap-2 rounded-xl border border-border p-2 text-sm">
+              <select
+                className={cn(input, 'w-auto min-w-0 flex-1 py-1.5')}
+                value={x.itemId}
+                onChange={(e) => setIncl((l) => l.map((y, j) => (j === i ? { ...y, itemId: e.target.value } : y)))}
+                aria-label={tr(c.inclPick)}
+              >
+                <option value="">{tr(c.inclPick)}</option>
+                {pickable.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {lang === 'en' && p.nameEn ? p.nameEn : p.nameTh}
+                  </option>
+                ))}
+              </select>
+              <span className="text-muted-foreground">×</span>
+              <input
+                className={cn(input, 'w-14 py-1.5')}
+                inputMode="numeric"
+                value={String(x.qty)}
+                onChange={(e) => setIncl((l) => l.map((y, j) => (j === i ? { ...y, qty: Math.max(1, Math.min(20, Number(e.target.value.replace(/\D/g, '')) || 1)) } : y)))}
+                aria-label="qty"
+              />
+              <select
+                className={cn(input, 'w-auto py-1.5')}
+                value={x.lend ? 'lend' : 'give'}
+                onChange={(e) => setIncl((l) => l.map((y, j) => (j === i ? { ...y, lend: e.target.value === 'lend' } : y)))}
+                aria-label={tr(c.inclLend)}
+              >
+                <option value="give">{tr(c.inclGive)}</option>
+                <option value="lend">{tr(c.inclLend)}</option>
+              </select>
+              <button
+                type="button"
+                onClick={() => setIncl((l) => l.filter((_, j) => j !== i))}
+                aria-label={tr(c.inclRemove)}
+                title={tr(c.inclRemove)}
+                className="flex h-8 w-8 items-center justify-center rounded-full text-muted-foreground hover:bg-secondary hover:text-destructive"
+              >
+                <Trash2 className="h-4 w-4" aria-hidden="true" />
+              </button>
+            </div>
+          ))}
+          {pickable.length === 0 ? (
+            <p className="text-xs text-muted-foreground">{tr(c.inclNone)}</p>
+          ) : (
+            incl.length < 10 && (
+              <button
+                type="button"
+                onClick={() => setIncl((l) => [...l, { itemId: '', qty: 1, lend: false }])}
+                className="rounded-full border border-dashed border-border px-3 py-1 text-xs font-semibold text-accent hover:bg-secondary"
+              >
+                {tr(c.inclAdd)}
+              </button>
+            )
+          )}
+        </>
+      )}
+
       <p className={cn(label, 'pt-2 text-primary')}>{tr(c.secCm)}</p>
       {rules === null ? (
         <p className="text-xs text-muted-foreground">{tr(c.cmNotSetUp)}</p>

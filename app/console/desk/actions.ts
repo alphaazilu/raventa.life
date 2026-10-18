@@ -62,7 +62,8 @@ export type DeskBooking = { id: string; name: { th: string; en: string }; start:
 
 export type MemberHit = { id: string; name: string; memberNo: string | null; phone: string | null; avatarUrl: string | null }
 
-export type FloorVisit = TodayVisit & { memberId: string | null; memberNo: string | null; name: string }
+// loans: lent and not handed back yet (§39, v0.37.2).
+export type FloorVisit = TodayVisit & { memberId: string | null; memberNo: string | null; name: string; loans?: { name: string; nameEn: string; qty: number }[] }
 
 export type Takings = { cash: number; transfer: number; card: number; total: number }
 
@@ -249,7 +250,10 @@ export async function checkOut(visitId: string): Promise<DeskResult<null>> {
   const ctx = await requireDesk()
   if ('error' in ctx) return { ok: false, error: ctx.error }
   const { error } = await ctx.supabase.rpc('staff_check_out', { p_visit_id: visitId })
-  return error ? { ok: false, error: errorCode(error) } : { ok: true, data: null }
+  if (error) return { ok: false, error: errorCode(error) }
+  // Lent items come back at check-out (§39). Before §39 the table is missing — fine.
+  await ctx.supabase.rpc('staff_return_loans', { p_visit_id: visitId })
+  return { ok: true, data: null }
 }
 
 export async function cancelVisit(visitId: string, reason: string): Promise<DeskResult<null>> {
@@ -276,11 +280,21 @@ export async function getFloor(): Promise<DeskResult<Floor>> {
 
   const ids = [...new Set(data.map((v) => v.member_id).filter(Boolean))] as string[]
   const names: Record<string, string> = {}
-  const [people, salesRes] = await Promise.all([
+  const visitIds = data.map((v) => v.id as string)
+  const [people, salesRes, loansRes] = await Promise.all([
     ids.length > 0 ? supabase.from('profiles').select('id, first_name, last_name, email').in('id', ids) : Promise.resolve({ data: [] }),
     supabase.from('sales').select('total, payment_method').eq('sale_date', today).is('voided_at', null),
+    visitIds.length > 0
+      ? supabase.from('visit_loans').select('visit_id, qty, products(name_th, name_en), name').in('visit_id', visitIds).is('returned_at', null)
+      : Promise.resolve({ data: [], error: null }),
   ])
   for (const p of people.data ?? []) names[p.id] = fullName(p)
+  const loans: Record<string, { name: string; nameEn: string; qty: number }[]> = {}
+  for (const l of (loansRes.error ? [] : (loansRes.data ?? [])) as unknown as Record<string, unknown>[]) {
+    const p = l.products as { name_th?: string; name_en?: string } | null
+    const name = (l.name as string) || p?.name_th || '—'
+    ;(loans[l.visit_id as string] ??= []).push({ name, nameEn: p?.name_en || name, qty: Number(l.qty) })
+  }
 
   const takings: Takings = { cash: 0, transfer: 0, card: 0, total: 0 }
   const add = (method: unknown, amount: number) => {
@@ -302,6 +316,7 @@ export async function getFloor(): Promise<DeskResult<Floor>> {
         memberId: (v.member_id as string | null) ?? null,
         memberNo: (v.member_no as string | null) ?? null,
         name: (v.member_id ? names[v.member_id as string] : undefined) || '—',
+        loans: loans[v.id as string],
       })),
     },
   }
@@ -336,7 +351,9 @@ export type BillInput = {
 }
 
 export type Quote = {
-  lines: { kind: string; name: string; nameEn: string; qty: number; unitPrice: number; lineTotal: number; reward: boolean }[]
+  lines: { kind: string; name: string; nameEn: string; qty: number; unitPrice: number; lineTotal: number; reward: boolean; included?: boolean }[]
+  // Lent with the bill (§39): handed back at check-out.
+  loans?: { name: string; nameEn: string; qty: number }[]
   subtotal: number
   discount: number
   total: number
@@ -430,6 +447,12 @@ export async function quoteBill(input: BillInput): Promise<DeskResult<Quote>> {
         unitPrice: Number(l.unit_price),
         lineTotal: Number(l.line_total),
         reward: Boolean(l.reward),
+        included: Boolean(l.included),
+      })),
+      loans: ((q.loans as Record<string, unknown>[]) ?? []).map((l) => ({
+        name: l.name as string,
+        nameEn: (l.name_en as string) || (l.name as string),
+        qty: Number(l.qty),
       })),
       subtotal: Number(q.subtotal),
       discount: Number(q.discount),

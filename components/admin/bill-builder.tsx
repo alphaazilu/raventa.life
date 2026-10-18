@@ -161,7 +161,11 @@ export function BillBuilder({
         ? deskCopy.weekend
         : deskCopy.weekday
   const passLine = quote?.lines.find((l) => l.kind === 'day_pass')
-  const extraLines = quote?.lines.filter((l) => l.kind !== 'day_pass') ?? []
+  // Included lines (§39) ride along at 0 — not one of the staff's own lines.
+  const extraLines = quote?.lines.filter((l) => l.kind !== 'day_pass' && !l.included) ?? []
+  const givenLines = quote?.lines.filter((l) => l.included) ?? []
+  const loanLines = quote?.loans ?? []
+  const nameOf = (l: { name: string; nameEn: string }) => (lang === 'en' ? l.nameEn : l.name.replace(/ · รวมมาด้วย$/, ''))
 
   const payLabel = quoteError
     ? tr(deskCopy.fixBill)
@@ -319,6 +323,22 @@ export function BillBuilder({
             )
           })}
         </ul>
+      )}
+
+      {(givenLines.length > 0 || loanLines.length > 0) && (
+        <div className="mt-2 space-y-1 rounded-2xl bg-secondary/60 px-3 py-2 text-xs">
+          {givenLines.length > 0 && (
+            <p>
+              <span className="font-semibold text-foreground">{tr(deskCopy.inclGiven)}:</span>{' '}
+              {givenLines.map((l) => `${nameOf(l).replace(/ · included$/, '')} ×${l.qty}`).join(' · ')}
+            </p>
+          )}
+          {loanLines.length > 0 && (
+            <p className="text-amber-700 dark:text-amber-400">
+              <span className="font-semibold">{tr(deskCopy.inclLent)}:</span> {loanLines.map((l) => `${nameOf(l)} ×${l.qty}`).join(' · ')}
+            </p>
+          )}
+        </div>
       )}
 
       {catalog && (

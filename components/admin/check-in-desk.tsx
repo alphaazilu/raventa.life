@@ -826,7 +826,7 @@ function FloorRow({
   onCheckOut: (v: FloorVisit) => void
   onReEnter: (v: FloorVisit) => void
 }) {
-  const { tr } = useLanguage()
+  const { tr, lang } = useLanguage()
   return (
     <li className={cn('flex items-center gap-3 py-2.5 text-sm', v.checkedOutAt && 'text-muted-foreground')}>
       <span className="w-12 shrink-0 font-mono text-xs">{bangkokTime(v.checkedInAt)}</span>
@@ -838,6 +838,11 @@ function FloorRow({
       >
         {v.name}
         <span className="ml-2 font-mono text-xs text-muted-foreground">{formatMemberNo(v.memberNo)}</span>
+        {v.loans && v.loans.length > 0 && !v.checkedOutAt && (
+          <span className="block truncate text-xs font-normal text-amber-700 dark:text-amber-400">
+            {tr(deskCopy.onLoan)}: {v.loans.map((l) => `${lang === 'en' ? l.nameEn : l.name} ×${l.qty}`).join(' · ')}
+          </span>
+        )}
       </button>
       {v.wristband && <span className="hidden shrink-0 text-xs sm:inline">#{v.wristband}</span>}
       <span className="hidden shrink-0 text-xs sm:inline">
@@ -861,9 +866,14 @@ function FloorRow({
           type="button"
           disabled={busy}
           onClick={() => onCheckOut(v)}
-          className="w-24 shrink-0 rounded-full border border-border py-1.5 text-xs font-semibold text-foreground hover:border-primary/40 disabled:opacity-40"
+          className={cn(
+            'shrink-0 rounded-full border py-1.5 text-xs font-semibold disabled:opacity-40',
+            v.loans?.length
+              ? 'border-amber-500/60 px-3 text-amber-800 hover:bg-amber-500/10 dark:text-amber-300'
+              : 'w-24 border-border text-foreground hover:border-primary/40',
+          )}
         >
-          {tr(deskCopy.checkOut)}
+          {tr(v.loans?.length ? deskCopy.returnAndOut : deskCopy.checkOut)}
         </button>
       )}
     </li>
