@@ -355,7 +355,9 @@ export type DeskItem = {
 }
 
 // groups: the category chips over the items (v0.37) — only ones with items.
-export type DeskCatalog = { items: DeskItem[]; dayType: DayType; groups?: { id: string; name: { th: string; en: string } }[] } | null
+// entries: the entry products on sale today (§41) — the first is the default.
+export type DeskEntry = { id: string; name: { th: string; en: string }; price: number }
+export type DeskCatalog = { items: DeskItem[]; dayType: DayType; groups?: { id: string; name: { th: string; en: string } }[]; entries?: DeskEntry[] } | null
 
 export type BillLine = { productId: string; variantId: string | null; qty: number }
 export type DayPassMode = 'none' | 'paid' | 'reward' | 'package'
@@ -365,6 +367,7 @@ export type BillInput = {
   dayPass: DayPassMode
   items: BillLine[]
   code: string
+  entryId?: string | null // which entry (§41); none = the first
 }
 
 export type Quote = {
@@ -407,7 +410,11 @@ export async function getDeskCatalog(): Promise<DeskResult<DeskCatalog>> {
           { id: 'none', name: { th: 'อื่นๆ', en: 'Other' } },
         ].filter((g) => has.has(g.id))
       : []
-    return { ok: true, data: { items, dayType, groups } }
+    const entries = cat.products
+      .filter((p) => p.active && p.kind === 'day_pass')
+      .sort((a, b) => a.sort - b.sort)
+      .map((p) => ({ id: p.id, name: { th: p.nameTh, en: p.nameEn || p.nameTh }, price: priceOn(p, dayType) }))
+    return { ok: true, data: { items, dayType, groups, entries } }
   } catch {
     return { ok: false, error: 'failed' }
   }
@@ -421,6 +428,8 @@ function rpcArgs(input: BillInput) {
       .filter((l) => l.qty > 0)
       .map((l) => ({ product_id: l.productId, variant_id: l.variantId, qty: Math.min(99, Math.round(l.qty)) })),
     p_promo_code: input.code.trim().toUpperCase().slice(0, 20) || null,
+    // Only sent when picked — before §41 the functions don't take it.
+    ...(input.entryId ? { p_entry: input.entryId } : {}),
   }
 }
 

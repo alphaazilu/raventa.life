@@ -53,6 +53,7 @@ export function BillBuilder({
     dayPass: DayPassMode
     items: BillLine[]
     code: string
+    entryId?: string | null
     paymentMethod: PaymentMethod | null
     wristband: string
     lineStaff: Record<string, string>
@@ -70,6 +71,10 @@ export function BillBuilder({
   const { tr, lang } = useLanguage()
   const startMode: DayPassMode = withDayPass ? (packageReady ? 'package' : 'paid') : 'none'
   const [dayPass, setDayPass] = useState<DayPassMode>(startMode)
+  // Which entry (§41) when there's more than one — the first is the default.
+  const entries = catalog?.entries ?? []
+  const [entryPick, setEntryPick] = useState<string | null>(null)
+  const entryId = entries.length > 1 && dayPass !== 'package' && dayPass !== 'none' ? (entryPick ?? entries[0].id) : null
   const [lines, setLines] = useState<BillLine[]>(initialLines)
   const [showItems, setShowItems] = useState(true)
   const [codeInput, setCodeInput] = useState('')
@@ -93,7 +98,7 @@ export function BillBuilder({
   const name = (n: { th: string; en: string }) => (lang === 'en' ? n.en : n.th)
 
   // Re-price whenever the bill changes (latest answer wins).
-  const key = JSON.stringify([memberId, dayPass, lines, code])
+  const key = JSON.stringify([memberId, dayPass, lines, code, entryId])
   useEffect(() => {
     if (dayPass === 'none' && lines.length === 0) {
       setQuote(null)
@@ -103,7 +108,7 @@ export function BillBuilder({
     const mine = ++seq.current
     setQuoting(true)
     const t = setTimeout(async () => {
-      const res = await quoteFn({ memberId, dayPass, items: lines, code })
+      const res = await quoteFn({ memberId, dayPass, items: lines, code, entryId })
       if (mine !== seq.current) return
       setQuoting(false)
       if (res.ok) {
@@ -132,6 +137,7 @@ export function BillBuilder({
   // "Clear bill": back to how it opened.
   const clear = () => {
     setDayPass(startMode)
+    setEntryPick(null)
     setLines([])
     setCode('')
     setCodeInput('')
@@ -245,7 +251,7 @@ export function BillBuilder({
         <div className="rounded-2xl bg-secondary px-4 py-3">
           <div className="flex items-baseline justify-between gap-3">
             <span className="text-sm text-secondary-foreground">
-              {tr(deskCopy.dayPassToday)} ({tr(dayLabel)})
+              {passLine && entries.length > 1 ? (lang === 'en' ? passLine.nameEn : passLine.name) : tr(deskCopy.dayPassToday)} ({tr(dayLabel)})
             </span>
             {dayPass === 'none' ? (
               <span className="text-sm font-semibold text-muted-foreground">{tr(deskCopy.notCheckingIn)}</span>
@@ -263,7 +269,27 @@ export function BillBuilder({
               </span>
             )}
           </div>
-          {cm && dayPass === 'paid' && hasRule(cm, 'day_pass', cm.dayPassId) && <div className="mt-2">{earnerPick('day_pass')}</div>}
+          {entryId && (
+            <div className="mt-2 flex flex-wrap gap-1.5" role="radiogroup" aria-label={tr(deskCopy.entryKind)}>
+              {entries.map((e) => (
+                <button
+                  key={e.id}
+                  type="button"
+                  role="radio"
+                  aria-checked={entryId === e.id}
+                  onClick={() => setEntryPick(e.id)}
+                  className={cn(
+                    'rounded-full border px-3 py-1 text-xs font-semibold',
+                    entryId === e.id ? 'border-primary bg-primary text-primary-foreground' : 'border-border bg-background text-foreground',
+                  )}
+                >
+                  {name(e.name)}
+                  {dayPass === 'paid' && <span className="ml-1 opacity-80">{e.price.toLocaleString()}</span>}
+                </button>
+              ))}
+            </div>
+          )}
+          {cm && dayPass === 'paid' && hasRule(cm, 'day_pass', entryId ?? cm.dayPassId) && <div className="mt-2">{earnerPick('day_pass')}</div>}
           <div className="mt-2 flex flex-wrap gap-2" role="radiogroup" aria-label={tr(deskCopy.dayPassToday)}>
             {passModes.map((m) => (
               <button
@@ -537,7 +563,7 @@ export function BillBuilder({
           <button
             type="button"
             disabled={!canPay}
-            onClick={() => onPay({ dayPass, items: lines, code, paymentMethod: needMethod ? method : null, wristband, lineStaff })}
+            onClick={() => onPay({ dayPass, items: lines, code, entryId, paymentMethod: needMethod ? method : null, wristband, lineStaff })}
             className="h-14 w-full rounded-full bg-primary text-base font-bold text-primary-foreground transition-opacity disabled:opacity-40"
           >
             {payLabel}

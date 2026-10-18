@@ -62,7 +62,8 @@ export async function loadDeskCommission(me: string): Promise<DeskCommission> {
   try {
     const [earners, rules] = await Promise.all([enabledEarners(), listRules()])
     if (!earners || !rules) return null
-    const { data: dp } = await createAdminClient().from('products').select('id').eq('kind', 'day_pass').maybeSingle()
+    // The default entry (the first, §41) — the counter passes the one picked.
+    const { data: dp } = await createAdminClient().from('products').select('id').eq('kind', 'day_pass').order('sort').order('created_at').limit(1).maybeSingle()
     // Products whose category has a rate (§37) count as having one — unless
     // the product itself is set to 'none'.
     const cats = rules.filter((r) => r.categoryId).map((r) => r.categoryId as string)

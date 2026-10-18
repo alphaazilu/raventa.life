@@ -13,7 +13,7 @@ import { saleTypesFrom, SALE_TYPES, type PackageRules, type ProductKind, type Sa
 export type CatalogResult = { ok: true } | { ok: false; error: string }
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/
-const SELLABLE: ProductKind[] = ['addon', 'merch', 'souvenir', 'package']
+const SELLABLE: ProductKind[] = ['addon', 'merch', 'souvenir', 'package', 'day_pass']
 
 function dbError(error: { code?: string; message?: string } | null, unique?: string): string {
   if (!error) return 'failed'
@@ -98,14 +98,21 @@ export async function saveProduct(input: {
     const kindOf = new Map((rows ?? []).map((r) => [r.id as string, r]))
     const entries = list.filter((x) => kindOf.get(x.itemId)?.kind === 'day_pass')
     const others = list.filter((x) => kindOf.get(x.itemId)?.kind !== 'day_pass')
-    if (entries.length !== 1) return { ok: false, error: 'bad_package_items' }
+    // One entry, or none (§41) — then at least one other item.
+    if (entries.length > 1 || (entries.length === 0 && others.length === 0)) return { ok: false, error: 'bad_package_items' }
+    if (entries.length === 0) {
+      const { error: e41 } = await createAdminClient().from('member_packages').select('no_entry').limit(1)
+      if (e41) return { ok: false, error: 'not_set_up_41' }
+      // No entry: no visit count, nothing to share, no stamps.
+      pkgCols = { ...pkgCols, pkg_visits: null, pkg_shareable: false, pkg_share_whole: false, pkg_earns_stamp: false }
+    }
     for (const x of others) {
       const r = kindOf.get(x.itemId) as { kind?: string; product_variants?: { is_active: boolean }[] } | undefined
       if (!r || r.kind === 'package' || x.itemId === input.id) return { ok: false, error: 'bad_include' }
       if ((r.product_variants ?? []).some((v) => v.is_active)) return { ok: false, error: 'include_variants' }
       if (x.qty !== null && (!Number.isInteger(x.qty) || x.qty < 1 || x.qty > 1000)) return { ok: false, error: 'bad_qty' }
     }
-    input.pkgItems = [{ itemId: entries[0].itemId, qty: input.pkg?.visits ?? null }, ...others]
+    input.pkgItems = [...(entries[0] ? [{ itemId: entries[0].itemId, qty: input.pkg?.visits ?? null }] : []), ...others]
   }
   if (!nameTh) return { ok: false, error: 'need_name' }
   const wd = price(input.priceWeekday)
@@ -152,10 +159,15 @@ export async function saveProduct(input: {
       if (e) return { ok: false, error: e }
     }
   } else {
-    const kind: ProductKind = general ? 'merch' : input.kind === 'package' ? 'package' : ('' as ProductKind)
+    const kind: ProductKind = general ? 'merch' : input.kind === 'package' ? 'package' : input.kind === 'day_pass' ? 'day_pass' : ('' as ProductKind)
     if (!SELLABLE.includes(kind)) return { ok: false, error: 'bad_kind' }
-    const { data, error } = await admin.from('products').insert({ track_stock: input.trackStock, ...row, kind }).select('id').single()
-    if (error) return { ok: false, error: dbError(error) }
+    // Another entry (§41): never stock; before §41 there can be only one.
+    const { data, error } = await admin
+      .from('products')
+      .insert({ track_stock: kind === 'day_pass' ? false : input.trackStock, ...row, kind })
+      .select('id')
+      .single()
+    if (error) return { ok: false, error: dbError(error, kind === 'day_pass' ? 'not_set_up_41' : undefined) }
     if (cm && data) await saveProductRate(admin, data.id as string, cm, ctx.userId)
     if (data && kind === 'package' && input.pkgItems) await savePackageItems(admin, data.id as string, input.pkgItems)
     if (data && input.includes) {

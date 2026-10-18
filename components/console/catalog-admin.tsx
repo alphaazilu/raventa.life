@@ -160,6 +160,7 @@ function Products({ catalog, rules, saleTypes }: { catalog: Catalog; rules: Comm
   const fmt = (p: Product) =>
     p.pkg ? p.priceWeekday.toLocaleString() : [p.priceWeekday, p.priceWeekend ?? '—', p.priceHoliday ?? '—'].map((v) => (typeof v === 'number' ? v.toLocaleString() : v)).join(' / ')
   const groups = productGroups(catalog, tr, lang, saleTypes)
+  const entryIdSet = new Set(catalog.products.filter((p) => p.kind === 'day_pass').map((p) => p.id))
 
   return (
     <div className="mt-5 grid gap-5 lg:grid-cols-[minmax(0,1fr)_440px]">
@@ -197,7 +198,7 @@ function Products({ catalog, rules, saleTypes }: { catalog: Catalog; rules: Comm
                       <span className="block truncate font-semibold">{lang === 'en' && p.nameEn ? p.nameEn : p.nameTh}</span>
                       <span className="block text-xs text-muted-foreground">
                         {tr(saleTypes[saleTypeOf(p.kind)])}
-                        {p.pkg && ` · ${pkgSummary(p.pkg, tr)}`}
+                        {p.pkg && ` · ${pkgSummary(p.pkg, tr, Boolean(p.pkgItems?.length) && !p.pkgItems?.some((x) => entryIdSet.has(x.itemId)))}`}
                         {p.variants.length > 0 && ` · ${p.variants.filter((v) => v.active).length} ${tr(c.variants).split(' ')[0]}`}
                       </span>
                     </span>
@@ -243,6 +244,7 @@ function Products({ catalog, rules, saleTypes }: { catalog: Catalog; rules: Comm
               items={catalog.products.filter((p) => saleTypeOf(p.kind) === 'item' && !p.variants.some((v) => v.active))}
               includesReady={Boolean(catalog.includesReady)}
               packageExtrasReady={Boolean(catalog.packageExtrasReady)}
+              entriesReady={Boolean(catalog.entriesReady)}
               onCreated={() => setFresh((n) => n + 1)}
             />
             {product && product.kind !== 'day_pass' && product.kind !== 'package' && <Variants key={`v-${product.id}`} product={product} />}
@@ -480,6 +482,7 @@ function ProductForm({
   items = [],
   includesReady = false,
   packageExtrasReady = false,
+  entriesReady = false,
   onCreated,
 }: {
   product: Product | null
@@ -490,12 +493,13 @@ function ProductForm({
   items?: Product[] // what can come with a product (v0.37.2)
   includesReady?: boolean
   packageExtrasReady?: boolean
+  entriesReady?: boolean // §41: several entries, packages without entry
   onCreated: () => void
 }) {
   const { tr, lang } = useLanguage()
   const { pending, error, saved, run } = useSave()
-  const isPass = product?.kind === 'day_pass'
   const [type, setType] = useState<SaleType>(product ? saleTypeOf(product.kind) : saleTypes.item.on ? 'item' : 'package')
+  const isPass = type === 'entry'
   const kind = type
   const [categoryId, setCategoryId] = useState(product?.categoryId ?? '')
   // Commission (v0.37): as the category, its own rate, or none.
@@ -523,7 +527,11 @@ function ProductForm({
   const pickable = items.filter((x) => x.id !== product?.id)
   // What the package holds (§38): for now one entry product.
   const entryIds = new Set(entries.map((x) => x.id))
-  const [pkgItem, setPkgItem] = useState(product?.pkgItems?.find((x) => entryIds.has(x.itemId))?.itemId ?? entries[0]?.id ?? '')
+  // '' = no entry (§41): a package of other things only.
+  const [pkgItem, setPkgItem] = useState(
+    product?.pkgItems?.length ? (product.pkgItems.find((x) => entryIds.has(x.itemId))?.itemId ?? '') : (entries[0]?.id ?? ''),
+  )
+  const noEntry = isPkg && pkgItem === ''
   // Other things in the package (§40): a count or unlimited.
   const [pkgExtra, setPkgExtra] = useState<{ itemId: string; qty: string; unlimited: boolean }[]>(
     (product?.pkgItems ?? []).filter((x) => !entryIds.has(x.itemId)).map((x) => ({ itemId: x.itemId, qty: String(x.qty ?? 1), unlimited: x.qty === null })),
@@ -565,13 +573,13 @@ function ProductForm({
                     activateDays: Number(pkgActivate),
                     weekdayOnly: pkgWeekday,
                     earnsStamp: pkgStamp,
-                    share: pkgUnlimited && pkgShare === 'split' ? 'off' : pkgShare,
+                    share: noEntry || (pkgUnlimited && pkgShare === 'split') ? 'off' : pkgShare,
                   }
                 : null,
               pkgItems:
-                isPkg && pkgItem
+                isPkg
                   ? [
-                      { itemId: pkgItem, qty: pkgUnlimited ? null : Number(pkgVisits) },
+                      ...(pkgItem ? [{ itemId: pkgItem, qty: pkgUnlimited ? null : Number(pkgVisits) }] : []),
                       ...(packageExtrasReady
                         ? pkgExtra.filter((x) => x.itemId).map((x) => ({ itemId: x.itemId, qty: x.unlimited ? null : Number(x.qty) || 0 }))
                         : []),
@@ -613,7 +621,7 @@ function ProductForm({
       <p className={cn(label, 'pt-2 text-primary')}>{tr(c.secType)}</p>
       <div className="grid gap-2 sm:grid-cols-3">
         {SALE_TYPES.filter((k) => saleTypes[k].on || k === type).map((k) => {
-          const locked = product ? k !== type : k === 'entry'
+          const locked = product ? k !== type : k === 'entry' && !entriesReady
           return (
             <button
               key={k}
@@ -633,7 +641,7 @@ function ProductForm({
           )
         })}
       </div>
-      <p className="text-[11px] text-muted-foreground">{product ? tr(c.typeLocked) : tr(c.entryOne)}</p>
+      <p className="text-[11px] text-muted-foreground">{product ? tr(c.typeLocked) : entriesReady ? tr(c.entryMany) : tr(c.entryOne)}</p>
 
       <p className={cn(label, 'pt-2 text-primary')}>{tr(c.secPrice)}</p>
       {isPkg ? (
@@ -647,7 +655,7 @@ function ProductForm({
             <legend className="px-1 text-xs font-bold text-primary">{tr(c.pkgHeading)}</legend>
             <div>
               <span className={label}>{tr(c.pkgHolds)}</span>
-              {entries.length === 0 ? (
+              {entries.length === 0 && !entriesReady ? (
                 <p className="mt-1 text-xs font-semibold text-destructive">{tr(c.pkgNoEntry)}</p>
               ) : (
                 <div className="mt-1 flex flex-wrap items-center gap-2 rounded-xl border border-border bg-background p-2 text-sm">
@@ -657,7 +665,10 @@ function ProductForm({
                         {lang === 'en' && x.nameEn ? x.nameEn : x.nameTh}
                       </option>
                     ))}
+                    {entriesReady && <option value="">{tr(c.pkgNoEntryOpt)}</option>}
                   </select>
+                  {!noEntry && (
+                  <>
                   <span className="text-muted-foreground">×</span>
                   <input
                     className={cn(input, 'w-20 py-1.5', pkgUnlimited && 'opacity-40')}
@@ -673,8 +684,11 @@ function ProductForm({
                     <input type="checkbox" checked={pkgUnlimited} onChange={(e) => setPkgUnlimited(e.target.checked)} className="h-4 w-4 accent-[var(--primary)]" />
                     {tr(c.pkgUnlimitedShort)}
                   </label>
+                  </>
+                  )}
                 </div>
               )}
+              {noEntry && <p className="mt-1 text-[11px] text-muted-foreground">{tr(c.pkgNoEntryHint)}</p>}
               {packageExtrasReady ? (
                 <>
                   {pkgExtra.map((x, i) => (
@@ -767,6 +781,8 @@ function ProductForm({
                 <button type="button" onClick={() => setPkgWeekday(true)} className={chipCls(pkgWeekday)}>{tr(c.pkgWeekdayOnly)}</button>
               </div>
             </div>
+            {!noEntry && (
+            <>
             <label className="flex items-center gap-2 text-sm">
               <input type="checkbox" checked={pkgStamp} onChange={(e) => setPkgStamp(e.target.checked)} className="h-4 w-4 accent-[var(--primary)]" />
               {tr(c.pkgStamp)}
@@ -783,6 +799,8 @@ function ProductForm({
               {pkgShare === 'split' && !pkgUnlimited && <p className="mt-1 text-xs text-muted-foreground">{tr(c.pkgShareSplitHint)}</p>}
               {pkgShare === 'whole' && <p className="mt-1 text-xs text-muted-foreground">{tr(c.pkgShareWholeHint)}</p>}
             </div>
+            </>
+            )}
           </fieldset>
         </>
       ) : (
@@ -1263,7 +1281,7 @@ function PromotionForm({ promo, catalog, onCreated }: { promo: Promotion | null;
   )
 }
 
-function pkgSummary(p: PackageRules, tr: (v: { th: string; en: string }) => string): string {
-  const visits = p.visits === null ? tr(c.pkgSummaryUnlimited) : tr(c.pkgSummaryCount).replace('{n}', String(p.visits))
+function pkgSummary(p: PackageRules, tr: (v: { th: string; en: string }) => string, noEntry = false): string {
+  const visits = noEntry ? tr(c.pkgNoEntryShort) : p.visits === null ? tr(c.pkgSummaryUnlimited) : tr(c.pkgSummaryCount).replace('{n}', String(p.visits))
   return `${visits} · ${tr(c.pkgSummaryDays).replace('{n}', String(p.days))}`
 }

@@ -45,6 +45,7 @@ export const deskCopy = {
   wristbandPlaceholder: { th: 'เลขสายรัด (ถ้ามี)', en: 'Wristband no. (optional)' },
 
   dayPassToday: { th: 'Day Pass วันนี้', en: 'Day Pass today' },
+  entryKind: { th: 'บัตรเข้าแบบไหน', en: 'Which entry' },
   weekday: { th: 'วันธรรมดา', en: 'weekday' },
   weekend: { th: 'เสาร์-อาทิตย์', en: 'weekend' },
   baht: { th: 'บาท', en: 'THB' },

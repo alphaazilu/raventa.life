@@ -24,6 +24,7 @@ export type MemberPackage = {
   sharedWith: SharedPiece[] // for the owner: who they handed visits to
   // Other things in the package (§40): each with its own balance.
   items?: PackageItem[]
+  noEntry?: boolean // §41: no check-ins, only the items
 }
 
 export type PackageItem = { id: string; name: string; nameEn: string; total: number | null; used: number }
@@ -64,7 +65,7 @@ export function packageAlive(k: MemberPackage, today: string): boolean {
   // All handed out still shows while a friend has visits the owner could take back.
   // Visits all used still shows while other items are left (§40).
   const itemsLeft = (k.items ?? []).some((x) => itemLeft(x) !== 0)
-  if (packageLeft(k) === 0 && !itemsLeft && !k.sharedWith.some((f) => pieceOpen(f, today))) return false
+  if ((k.noEntry || packageLeft(k) === 0) && !itemsLeft && !k.sharedWith.some((f) => pieceOpen(f, today))) return false
   if (k.expiresOn && k.expiresOn < today) return false
   if (!k.startsOn && k.activateBy && k.activateBy < today) return false
   return true
@@ -118,6 +119,11 @@ export async function loadMemberPackages(
       .select('id, member_package_id, name, name_en, qty_total, qty_used, sort')
       .in('member_package_id', list.map((k) => k.id))
       .order('sort')
+    const ne = await supabase.from('member_packages').select('id, no_entry').in('id', list.map((k) => k.id)).eq('no_entry', true)
+    if (!ne.error) for (const r of ne.data ?? []) {
+      const k = list.find((x) => x.id === r.id)
+      if (k) k.noEntry = true
+    }
     if (!itErr) {
       for (const k of list) k.items = []
       const byId = new Map(list.map((k) => [k.id, k]))

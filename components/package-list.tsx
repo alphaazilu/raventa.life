@@ -60,8 +60,12 @@ export function PackageList({
                   it as one gift visit, not as a package of 10. */}
               <span className="block font-semibold text-card-foreground">{isGift(k) ? tr(deskCopy.pkgGiftTitle) : k.name}</span>
               <span className="block text-xs text-muted-foreground">
-                {left === null ? tr(deskCopy.pkgUnlimited) : fill(tr(deskCopy.pkgLeft), { n: left })}
-                {' · '}
+                {!k.noEntry && (
+                  <>
+                    {left === null ? tr(deskCopy.pkgUnlimited) : fill(tr(deskCopy.pkgLeft), { n: left })}
+                    {' · '}
+                  </>
+                )}
                 {k.startsOn ? fill(tr(deskCopy.pkgUntil), { d: date(k.expiresOn) }) : fill(tr(deskCopy.pkgNotStarted), { d: date(k.activateBy) })}
                 {k.weekdayOnly && ` · ${tr(deskCopy.pkgWeekdayOnly)}`}
               </span>

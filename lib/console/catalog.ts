@@ -106,6 +106,7 @@ export type Catalog = {
   categories: ProductCategory[] | null
   includesReady?: boolean // §39 run: products can bring items along
   packageExtrasReady?: boolean // §40 run: packages can hold other items
+  entriesReady?: boolean // §41 run: several entries, packages without entry
 }
 
 export const PRODUCT_KINDS: ProductKind[] = ['day_pass', 'package', 'addon', 'merch', 'souvenir']
@@ -126,7 +127,7 @@ function toVariant(v: Row): Variant {
 
 // null = §18 hasn't been run yet.
 export async function loadCatalog(client: Client): Promise<Catalog | null> {
-  const [p, v, pr, h, pc, pi, inc, mpi] = await Promise.all([
+  const [p, v, pr, h, pc, pi, inc, mpi, ne] = await Promise.all([
     client.from('products').select('*').order('sort').order('created_at'),
     client.from('product_variants').select('*').order('sort').order('created_at'),
     client.from('promotions').select('*').order('created_at', { ascending: false }),
@@ -135,6 +136,7 @@ export async function loadCatalog(client: Client): Promise<Catalog | null> {
     client.from('package_items').select('package_id, item_id, qty, sort').order('sort').order('created_at'),
     client.from('product_includes').select('product_id, item_id, qty, lend, sort').order('sort').order('created_at'),
     client.from('member_package_items').select('id').limit(1),
+    client.from('member_packages').select('no_entry').limit(1),
   ])
   const err = [p.error, v.error, pr.error, h.error].find(Boolean) as { code?: string } | undefined
   if (err) {
@@ -194,6 +196,7 @@ export async function loadCatalog(client: Client): Promise<Catalog | null> {
   return {
     includesReady: !inc.error,
     packageExtrasReady: !mpi.error,
+    entriesReady: !ne.error,
     categories,
     products,
     promotions: ((pr.data ?? []) as Row[]).map((r) => ({
