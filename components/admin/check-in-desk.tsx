@@ -19,6 +19,7 @@ import { cn } from '@/lib/utils'
 import { CASH_PATH, DESK_PATH } from '@/lib/auth/roles'
 import { cashCopy } from '@/lib/cash'
 import { isGift, type MemberPackage, type PackageItem } from '@/lib/packages'
+import type { FloorVisit as FloorVisitT } from '@/app/console/desk/actions'
 import { cmCopy, cmErrors, type DeskCommission } from '@/lib/commission'
 import { bkCopy, bkkHm } from '@/lib/booking'
 import {
@@ -26,6 +27,7 @@ import {
   checkoutBill,
   reEnter,
   checkOut,
+  checkOutWithLoans,
   redeemPackageItem,
   undoPackageItem,
   getDeskCatalog,
@@ -82,6 +84,8 @@ export function CheckInDesk({
   const [notice, setNotice] = useState<string | null>(null)
   // The last thing handed out from a package (§40) — can be taken back.
   const [lastUse, setLastUse] = useState<{ useId: string; memberId: string } | null>(null)
+  // Checking lent items back at check-out (§44).
+  const [loanCheckout, setLoanCheckout] = useState<FloorVisitT | null>(null)
   const [query, setQuery] = useState('')
   const [busy, startBusy] = useTransition()
   const [catalog, setCatalog] = useState<DeskCatalog>(initialCatalog)
@@ -317,14 +321,16 @@ export function CheckInDesk({
             )
           }
           onCheckOut={(v) =>
-            run(
-              () => checkOut(v.id),
-              () => {
-                setNotice(`${tr(deskCopy.doneCheckOut)} · ${v.name}`)
-                void refreshFloor()
-                if (member && member.id === v.memberId) reloadMember(member.id)
-              },
-            )
+            v.loans && v.loans.length > 0
+              ? setLoanCheckout(v)
+              : run(
+                  () => checkOut(v.id),
+                  () => {
+                    setNotice(`${tr(deskCopy.doneCheckOut)} · ${v.name}`)
+                    void refreshFloor()
+                    if (member && member.id === v.memberId) reloadMember(member.id)
+                  },
+                )
           }
         />
       ) : (
@@ -477,11 +483,10 @@ export function CheckInDesk({
                 packageIsGift={Boolean(member?.packages.some((k) => k.id === member.packageToday && isGift(k)))}
                 catalog={catalog}
                 busy={busy}
-                commission={
-                  commission
-                    ? { data: commission }
-                    : null
-                }
+                /* Commission is admin business — never shown or picked at the
+                   counter (§33). It's still worked out automatically server-side
+                   (the member's referrer on their first bill, or the set rules). */
+                commission={null}
               onPay={(bill) => pay(member && !member.isSelf ? member.id : null, bill)}
               hint={
                 !catalog || (catalog.items.length === 0 && !memberBill) ? (
@@ -495,6 +500,128 @@ export function CheckInDesk({
           </section>
         </div>
       )}
+
+      {loanCheckout && (
+        <LoanCheckout
+          visit={loanCheckout}
+          busy={busy}
+          onClose={() => setLoanCheckout(null)}
+          onConfirm={(returnedIds, chargeIds, method) => {
+            const v = loanCheckout
+            run(
+              () => checkOutWithLoans(v.id, returnedIds, chargeIds, method),
+              (res) => {
+                setLoanCheckout(null)
+                const extra = res.chargedTotal > 0 ? ` · ${tr(deskCopy.charged)} ${res.chargedTotal.toLocaleString()}` : ''
+                const left = res.outstanding > 0 ? ` · ${tr(deskCopy.stillOut)} ${res.outstanding}` : ''
+                setNotice(`${tr(deskCopy.doneCheckOut)} · ${v.name}${extra}${left}`)
+                void refreshFloor()
+                if (member && member.id === v.memberId) reloadMember(member.id)
+              },
+            )
+          }}
+        />
+      )}
+    </div>
+  )
+}
+
+// Check-out when items were lent (§44): tick what came back; the rest are
+// kept outstanding, or billed as lost (then a payment method is needed).
+function LoanCheckout({
+  visit,
+  busy,
+  onClose,
+  onConfirm,
+}: {
+  visit: FloorVisitT
+  busy: boolean
+  onClose: () => void
+  onConfirm: (returnedIds: string[], chargeIds: string[], method: PaymentMethod | null) => void
+}) {
+  const { tr, lang } = useLanguage()
+  const loans = visit.loans ?? []
+  // Each item: 'back' (returned) | 'out' (keep outstanding) | 'charge' (bill it).
+  const [choice, setChoice] = useState<Record<string, 'back' | 'out' | 'charge'>>(Object.fromEntries(loans.map((l) => [l.id, 'back'])))
+  const [method, setMethod] = useState<PaymentMethod | null>(null)
+  const chargeIds = loans.filter((l) => choice[l.id] === 'charge').map((l) => l.id)
+  const returnedIds = loans.filter((l) => choice[l.id] === 'back').map((l) => l.id)
+  const needMethod = chargeIds.length > 0
+  const canConfirm = !busy && (!needMethod || method !== null)
+  const opt: { k: 'back' | 'out' | 'charge'; label: { th: string; en: string } }[] = [
+    { k: 'back', label: deskCopy.loanBack },
+    { k: 'out', label: deskCopy.loanOut },
+    { k: 'charge', label: deskCopy.loanCharge },
+  ]
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" role="dialog" aria-modal="true">
+      <div className="max-h-[85dvh] w-full max-w-md overflow-y-auto rounded-3xl bg-card p-5 shadow-xl">
+        <h2 className="font-display text-lg font-extrabold text-foreground">{tr(deskCopy.returnTitle)}</h2>
+        <p className="mt-0.5 text-sm text-muted-foreground">
+          {visit.name}
+          {visit.locker ? ` · ${tr(deskCopy.locker)} ${visit.locker}` : ''}
+        </p>
+        <ul className="mt-3 space-y-2">
+          {loans.map((l) => (
+            <li key={l.id} className="rounded-2xl border border-border p-3">
+              <p className="text-sm font-semibold">
+                {(lang === 'en' ? l.nameEn : l.name)} ×{l.qty}
+              </p>
+              <div className="mt-2 flex gap-1.5">
+                {opt.map((o) => (
+                  <button
+                    key={o.k}
+                    type="button"
+                    onClick={() => setChoice((c) => ({ ...c, [l.id]: o.k }))}
+                    className={cn(
+                      'flex-1 rounded-full border px-2 py-1.5 text-xs font-semibold',
+                      choice[l.id] === o.k
+                        ? o.k === 'charge'
+                          ? 'border-destructive bg-destructive/10 text-destructive'
+                          : o.k === 'out'
+                            ? 'border-amber-500 bg-amber-500/10 text-amber-700 dark:text-amber-300'
+                            : 'border-accent bg-accent/10 text-accent'
+                        : 'border-border text-muted-foreground',
+                    )}
+                  >
+                    {tr(o.label)}
+                  </button>
+                ))}
+              </div>
+            </li>
+          ))}
+        </ul>
+        {needMethod && (
+          <div className="mt-3">
+            <p className="text-xs font-semibold text-muted-foreground">{tr(deskCopy.chargeMethod)}</p>
+            <div className="mt-1 flex gap-1.5">
+              {(['cash', 'transfer', 'card'] as const).map((m) => (
+                <button
+                  key={m}
+                  type="button"
+                  onClick={() => setMethod(m)}
+                  className={cn('flex-1 rounded-full border px-2 py-2 text-xs font-semibold', method === m ? 'border-primary bg-primary text-primary-foreground' : 'border-border')}
+                >
+                  {tr(deskCopy[m])}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+        <div className="mt-4 flex gap-2">
+          <button
+            type="button"
+            disabled={!canConfirm}
+            onClick={() => onConfirm(returnedIds, chargeIds, method)}
+            className="h-11 flex-1 rounded-full bg-primary text-sm font-semibold text-primary-foreground disabled:opacity-40"
+          >
+            {tr(deskCopy.returnAndOut)}
+          </button>
+          <button type="button" onClick={onClose} className="h-11 flex-1 rounded-full border border-border text-sm font-semibold">
+            {tr(deskCopy.cancelBack)}
+          </button>
+        </div>
+      </div>
     </div>
   )
 }

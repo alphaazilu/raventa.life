@@ -31,6 +31,7 @@ export type TodayVisit = {
   price: number
   paymentMethod: PaymentMethod | null
   wristband: string | null
+  locker: string | null
   checkedInAt: string
   checkedOutAt: string | null
   // Set when the check-in came from a bill (v0.20): undo = void the bill.
@@ -63,7 +64,7 @@ export type DeskBooking = { id: string; name: { th: string; en: string }; start:
 export type MemberHit = { id: string; name: string; memberNo: string | null; phone: string | null; avatarUrl: string | null }
 
 // loans: lent and not handed back yet (§39, v0.37.2).
-export type FloorVisit = TodayVisit & { memberId: string | null; memberNo: string | null; name: string; loans?: { name: string; nameEn: string; qty: number }[] }
+export type FloorVisit = TodayVisit & { memberId: string | null; memberNo: string | null; name: string; loans?: { id: string; name: string; nameEn: string; qty: number }[] }
 
 export type Takings = { cash: number; transfer: number; card: number; total: number }
 
@@ -106,19 +107,23 @@ function toVisit(v: Record<string, unknown>): TodayVisit {
     price: v.price as number,
     paymentMethod: (v.payment_method as PaymentMethod | null) ?? null,
     wristband: (v.wristband as string | null) ?? null,
+    locker: (v.locker as string | null) ?? null,
     checkedInAt: v.checked_in_at as string,
     checkedOutAt: (v.checked_out_at as string | null) ?? null,
     saleId: (v.sale_id as string | null) ?? null,
   }
 }
 
-const VISIT_COLUMNS_V11 = 'id, member_id, member_no, entry_type, price, payment_method, wristband, checked_in_at, checked_out_at'
-const VISIT_COLUMNS = `${VISIT_COLUMNS_V11}, sale_id`
+const VISIT_COLUMNS_BASE = 'id, member_id, member_no, entry_type, price, payment_method, wristband, checked_in_at, checked_out_at'
+const VISIT_COLUMNS = `${VISIT_COLUMNS_BASE}, sale_id, locker`
 
-// visits.sale_id arrives with §18; until that SQL is run, read without it.
+// visits.sale_id arrives with §18 and locker with §44; before each is run,
+// drop the missing column and read the rest.
 async function selectVisits<T>(run: (columns: string) => PromiseLike<{ data: T; error: { code?: string } | null }>) {
-  const res = await run(VISIT_COLUMNS)
-  return res.error?.code === '42703' ? run(VISIT_COLUMNS_V11) : res
+  let res = await run(VISIT_COLUMNS)
+  if (res.error?.code === '42703') res = await run(`${VISIT_COLUMNS_BASE}, sale_id`)
+  if (res.error?.code === '42703') res = await run(VISIT_COLUMNS_BASE)
+  return res
 }
 
 async function loadMember(supabase: Supabase, userId: string, memberId: string): Promise<DeskResult<DeskMember>> {
@@ -256,6 +261,29 @@ export async function checkOut(visitId: string): Promise<DeskResult<null>> {
   return { ok: true, data: null }
 }
 
+// Check out, settling lent items (§44): tick which came back, charge the
+// lost ones (a small bill at today's price), leave the rest outstanding.
+export type CheckoutLoansResult = { chargedTotal: number; receiptNo: number | null; outstanding: number }
+export async function checkOutWithLoans(
+  visitId: string,
+  returnedIds: string[],
+  chargeIds: string[],
+  paymentMethod: PaymentMethod | null,
+): Promise<DeskResult<CheckoutLoansResult>> {
+  const ctx = await requireDesk()
+  if ('error' in ctx) return { ok: false, error: ctx.error }
+  const { data, error } = await ctx.supabase.rpc('staff_checkout_with_loans', {
+    p_visit: visitId,
+    p_returned: returnedIds,
+    p_charge: chargeIds,
+    p_payment_method: chargeIds.length ? paymentMethod : null,
+  })
+  if (error) return { ok: false, error: errorCode(error) }
+  const d = (data ?? {}) as { charged_total?: number; receipt_no?: number | null; outstanding?: number }
+  return { ok: true, data: { chargedTotal: Number(d.charged_total ?? 0), receiptNo: d.receipt_no ?? null, outstanding: Number(d.outstanding ?? 0) } }
+}
+
+
 // Hand out one thing from a member's package (§40). Returns the use (to undo) and what's left.
 export async function redeemPackageItem(rowId: string): Promise<DeskResult<{ useId: string; left: number | null }>> {
   const ctx = await requireDesk()
@@ -302,15 +330,15 @@ export async function getFloor(): Promise<DeskResult<Floor>> {
     ids.length > 0 ? supabase.from('profiles').select('id, first_name, last_name, email').in('id', ids) : Promise.resolve({ data: [] }),
     supabase.from('sales').select('total, payment_method').eq('sale_date', today).is('voided_at', null),
     visitIds.length > 0
-      ? supabase.from('visit_loans').select('visit_id, qty, products(name_th, name_en), name').in('visit_id', visitIds).is('returned_at', null)
+      ? supabase.from('visit_loans').select('id, visit_id, qty, products(name_th, name_en), name').in('visit_id', visitIds).is('returned_at', null)
       : Promise.resolve({ data: [], error: null }),
   ])
   for (const p of people.data ?? []) names[p.id] = fullName(p)
-  const loans: Record<string, { name: string; nameEn: string; qty: number }[]> = {}
+  const loans: Record<string, { id: string; name: string; nameEn: string; qty: number }[]> = {}
   for (const l of (loansRes.error ? [] : (loansRes.data ?? [])) as unknown as Record<string, unknown>[]) {
     const p = l.products as { name_th?: string; name_en?: string } | null
     const name = (l.name as string) || p?.name_th || '—'
-    ;(loans[l.visit_id as string] ??= []).push({ name, nameEn: p?.name_en || name, qty: Number(l.qty) })
+    ;(loans[l.visit_id as string] ??= []).push({ id: l.id as string, name, nameEn: p?.name_en || name, qty: Number(l.qty) })
   }
 
   const takings: Takings = { cash: 0, transfer: 0, card: 0, total: 0 }
@@ -496,15 +524,17 @@ export type CheckoutDone = { receiptNo: number | null; total: number; member: De
 export type BillCommission = { lineStaff: Record<string, string> }
 
 export async function checkoutBill(
-  input: BillInput & { paymentMethod: PaymentMethod | null; wristband: string; commission?: BillCommission; bookingIds?: string[] },
+  input: BillInput & { paymentMethod: PaymentMethod | null; wristband: string; locker?: string; commission?: BillCommission; bookingIds?: string[] },
 ): Promise<DeskResult<CheckoutDone>> {
   const ctx = await requireDesk()
   if ('error' in ctx) return { ok: false, error: ctx.error }
   const wristband = input.wristband.trim().slice(0, 20) || null
+  const locker = (input.locker ?? '').trim().slice(0, 20) || null
   const { data, error } = await ctx.supabase.rpc('pos_checkout', {
     ...rpcArgs(input),
     p_payment_method: input.paymentMethod,
     p_wristband: input.dayPass === 'none' ? null : wristband,
+    p_locker: input.dayPass === 'none' ? null : locker,
   })
   let receiptNo: number | null = null
   let total = 0

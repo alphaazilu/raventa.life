@@ -56,6 +56,7 @@ export function BillBuilder({
     entryId?: string | null
     paymentMethod: PaymentMethod | null
     wristband: string
+    locker: string
     lineStaff: Record<string, string>
   }) => void
   // A note shown at the top of the bill (e.g. "no products yet").
@@ -76,11 +77,13 @@ export function BillBuilder({
   const [entryPick, setEntryPick] = useState<string | null>(null)
   const entryId = entries.length > 1 && dayPass !== 'package' && dayPass !== 'none' ? (entryPick ?? entries[0].id) : null
   const [lines, setLines] = useState<BillLine[]>(initialLines)
-  const [showItems, setShowItems] = useState(true)
+  // The catalog starts collapsed — staff opens it only when adding extras.
+  const [showItems, setShowItems] = useState(false)
   const [codeInput, setCodeInput] = useState('')
   const [code, setCode] = useState('')
   const [method, setMethod] = useState<PaymentMethod | null>(null)
   const [wristband, setWristband] = useState('')
+  const [locker, setLocker] = useState('')
   const [picking, setPicking] = useState<DeskItem | null>(null)
   const [quote, setQuote] = useState<Quote | null>(null)
   const [quoteError, setQuoteError] = useState<string | null>(null)
@@ -143,10 +146,11 @@ export function BillBuilder({
     setCodeInput('')
     setMethod(null)
     setWristband('')
+    setLocker('')
     setPicking(null)
     setLineStaff({})
   }
-  const dirty = lines.length > 0 || code !== '' || codeInput !== '' || method !== null || wristband !== '' || dayPass !== startMode
+  const dirty = lines.length > 0 || code !== '' || codeInput !== '' || method !== null || wristband !== '' || locker !== '' || dayPass !== startMode
   const hasBill = dayPass !== 'none' || lines.length > 0
   const count = lines.reduce((n, l) => n + l.qty, 0) + (dayPass !== 'none' ? 1 : 0)
 
@@ -397,8 +401,7 @@ export function BillBuilder({
                   ))}
                 </div>
               )}
-              // Many products scroll inside this box, so the total and the
-              // pay button stay on screen.
+              {/* Many products scroll inside this box, so the total and the pay button stay on screen. */}
               <div className="mt-2 grid max-h-[38dvh] grid-cols-2 gap-2 overflow-y-auto pr-1 sm:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
                 {items.map((item) => {
                   const stock = item.variants.length > 0 ? item.variants.reduce((n, v) => n + v.stock, 0) : item.stock
@@ -542,15 +545,24 @@ export function BillBuilder({
       )}
 
       {dayPass !== 'none' && (
-        <input
-          value={wristband}
-          onChange={(e) => setWristband(e.target.value)}
-          placeholder={tr(deskCopy.wristbandPlaceholder)}
-          aria-label={tr(deskCopy.wristband)}
-          inputMode="numeric"
-          maxLength={20}
-          className="mt-3 h-11 w-full rounded-full border border-border bg-background px-4 text-sm outline-none focus:border-primary"
-        />
+        <div className="mt-3 grid grid-cols-2 gap-2">
+          <input
+            value={wristband}
+            onChange={(e) => setWristband(e.target.value)}
+            placeholder={tr(deskCopy.wristbandPlaceholder)}
+            aria-label={tr(deskCopy.wristband)}
+            maxLength={20}
+            className="h-11 w-full rounded-full border border-border bg-background px-4 text-sm outline-none focus:border-primary"
+          />
+          <input
+            value={locker}
+            onChange={(e) => setLocker(e.target.value)}
+            placeholder={tr(deskCopy.lockerPlaceholder)}
+            aria-label={tr(deskCopy.locker)}
+            maxLength={20}
+            className="h-11 w-full rounded-full border border-border bg-background px-4 text-sm outline-none focus:border-primary"
+          />
+        </div>
       )}
 
       </div>
@@ -563,7 +575,7 @@ export function BillBuilder({
           <button
             type="button"
             disabled={!canPay}
-            onClick={() => onPay({ dayPass, items: lines, code, entryId, paymentMethod: needMethod ? method : null, wristband, lineStaff })}
+            onClick={() => onPay({ dayPass, items: lines, code, entryId, paymentMethod: needMethod ? method : null, wristband, locker, lineStaff })}
             className="h-14 w-full rounded-full bg-primary text-base font-bold text-primary-foreground transition-opacity disabled:opacity-40"
           >
             {payLabel}

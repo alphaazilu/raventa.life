@@ -3666,7 +3666,8 @@ create or replace function public.pos_checkout(
   p_payment_method text default null,
   p_promo_code text default null,
   p_wristband text default null,
-  p_entry uuid default null
+  p_entry uuid default null,
+  p_locker text default null
 )
 returns jsonb
 language plpgsql
@@ -3730,13 +3731,13 @@ begin
         returning id, earns_stamp and member_id = p_member_id into v_pkg_id, v_pkg_stamp;
       end if;
       insert into public.visits (
-        member_id, member_no, entry_type, price, payment_method, earns_stamp, wristband, checked_in_by, sale_id, package_id
+        member_id, member_no, entry_type, price, payment_method, earns_stamp, wristband, locker, checked_in_by, sale_id, package_id
       ) values (
         p_member_id, v_member_no, v_entry,
         (v_line->>'unit_price')::int,
         case when v_entry = 'paid' then p_payment_method end,
         case v_entry when 'paid' then true when 'package' then coalesce(v_pkg_stamp, false) else false end,
-        nullif(btrim(coalesce(p_wristband, '')), ''), auth.uid(), v_sale.id,
+        nullif(btrim(coalesce(p_wristband, '')), ''), nullif(btrim(coalesce(p_locker, '')), ''), auth.uid(), v_sale.id,
         case when v_entry = 'package' then v_pkg_id end
       )
       returning id into v_visit;
@@ -3794,8 +3795,8 @@ end;
 $$;
 revoke execute on function public.pos_quote(uuid, text, jsonb, text, uuid) from public, anon;
 grant execute on function public.pos_quote(uuid, text, jsonb, text, uuid) to authenticated;
-revoke execute on function public.pos_checkout(uuid, text, jsonb, text, text, text, uuid) from public, anon;
-grant execute on function public.pos_checkout(uuid, text, jsonb, text, text, text, uuid) to authenticated;
+revoke execute on function public.pos_checkout(uuid, text, jsonb, text, text, text, uuid, text) from public, anon;
+grant execute on function public.pos_checkout(uuid, text, jsonb, text, text, text, uuid, text) to authenticated;
 
 
 -- 42. Promotions target categories and several products (v0.37.5). Besides
@@ -3876,3 +3877,102 @@ $$;
 -- still read the name stored on each sale line. Nothing here is destructive
 -- to past sales.
 alter table public.products add column if not exists hidden boolean not null default false;
+
+
+-- 44. Locker number + checking lent items back at check-out (v0.37.8+). The
+-- counter writes a locker number at check-in (like the wristband). At
+-- check-out the staff tick which lent items came back; the rest stay
+-- outstanding, or are charged on a small sale (the item's price today).
+-- pos_checkout above now also takes p_locker; the 7-arg version is dropped.
+alter table public.visits add column if not exists locker text;
+alter table public.visit_loans add column if not exists charged_sale_id uuid references public.sales(id) on delete set null;
+drop function if exists public.pos_checkout(uuid, text, jsonb, text, text, text, uuid);
+
+-- Check out a visit, settling its lent items (§39/§44).
+--   p_returned : loan ids handed back        → returned_at = now
+--   p_charge   : loan ids to bill as lost    → a sale at today's price, then returned
+--   anything else stays outstanding (returned_at null, not charged).
+-- Returns { charged_total, receipt_no, outstanding }.
+create or replace function public.staff_checkout_with_loans(
+  p_visit uuid,
+  p_returned uuid[] default '{}',
+  p_charge uuid[] default '{}',
+  p_payment_method text default null
+)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $fn$
+declare
+  v public.visits;
+  v_prod public.products;
+  r record;
+  x jsonb;
+  v_sale public.sales;
+  v_lines jsonb := '[]'::jsonb;
+  v_total integer := 0;
+  v_price integer;
+  v_outstanding integer;
+begin
+  if not public.is_staff() then
+    raise exception 'not_staff';
+  end if;
+  select * into v from public.visits where id = p_visit for update;
+  if not found or v.cancelled_at is not null then
+    raise exception 'visit_not_found';
+  end if;
+  if v.member_id = auth.uid() then
+    raise exception 'self_service';
+  end if;
+  if v.checked_out_at is not null then
+    raise exception 'already_checked_out';
+  end if;
+
+  -- Items to charge as lost: one sale at today's price.
+  if array_length(p_charge, 1) is not null then
+    if p_payment_method is null or p_payment_method not in ('cash', 'transfer', 'card') then
+      raise exception 'payment_method_required';
+    end if;
+    for r in
+      select l.id as loan_id, l.item_id, l.name, l.qty from public.visit_loans l
+      where l.id = any(p_charge) and l.visit_id = p_visit and l.returned_at is null and l.charged_sale_id is null
+    loop
+      v_prod := null;
+      if r.item_id is not null then
+        select * into v_prod from public.products where id = r.item_id;
+      end if;
+      v_price := coalesce(public.product_price(v_prod, public.bkk_today()), 0);
+      v_total := v_total + v_price * r.qty;
+      v_lines := v_lines || jsonb_build_object('item_id', r.item_id, 'name', r.name || ' · ของหาย', 'qty', r.qty, 'unit', v_price, 'loan', r.loan_id);
+    end loop;
+    if jsonb_array_length(v_lines) > 0 then
+      insert into public.sales (member_id, member_no, subtotal, discount, total, payment_method, staff_id)
+      values (v.member_id, v.member_no, v_total, 0, v_total, p_payment_method, auth.uid())
+      returning * into v_sale;
+      for x in select value from jsonb_array_elements(v_lines) loop
+        insert into public.sale_lines (sale_id, product_id, variant_id, kind, name, qty, unit_price, line_total)
+        values (v_sale.id, nullif(x->>'item_id','')::uuid, null, 'merch', x->>'name', (x->>'qty')::int, (x->>'unit')::int, (x->>'unit')::int * (x->>'qty')::int);
+        update public.visit_loans set returned_at = now(), returned_by = auth.uid(), charged_sale_id = v_sale.id
+        where id = (x->>'loan')::uuid;
+      end loop;
+    end if;
+  end if;
+
+  -- Items handed back.
+  if array_length(p_returned, 1) is not null then
+    update public.visit_loans set returned_at = now(), returned_by = auth.uid()
+    where id = any(p_returned) and visit_id = p_visit and returned_at is null;
+  end if;
+
+  update public.visits set checked_out_at = now(), checked_out_by = auth.uid() where id = p_visit;
+  insert into public.staff_actions (actor_id, member_id, visit_id, action, detail)
+  values (auth.uid(), v.member_id, p_visit, 'check_out',
+    jsonb_build_object('charged', v_total, 'receipt_no', v_sale.receipt_no));
+
+  select count(*) into v_outstanding from public.visit_loans where visit_id = p_visit and returned_at is null;
+  return jsonb_build_object('charged_total', v_total, 'receipt_no', v_sale.receipt_no, 'outstanding', v_outstanding);
+end;
+$fn$;
+revoke execute on function public.staff_checkout_with_loans(uuid, uuid[], uuid[], text) from public, anon;
+grant execute on function public.staff_checkout_with_loans(uuid, uuid[], uuid[], text) to authenticated;
