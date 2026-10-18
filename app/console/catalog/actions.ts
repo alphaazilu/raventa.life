@@ -336,8 +336,10 @@ export async function savePromotion(input: {
   name: string
   kind: 'pct' | 'thb'
   value: number
-  scope: 'all' | 'day_pass' | 'product'
-  productId: string | null
+  scope: 'all' | 'day_pass' | 'custom'
+  // §42: for scope 'custom' — any mix of products and categories.
+  productIds?: string[]
+  categoryIds?: string[]
   code: string
   startsOn: string
   endsOn: string
@@ -350,8 +352,10 @@ export async function savePromotion(input: {
   if (input.kind !== 'pct' && input.kind !== 'thb') return { ok: false, error: 'bad_value' }
   const value = Math.round(Number(input.value))
   if (!(value > 0) || (input.kind === 'pct' && value > 100) || value > 1_000_000) return { ok: false, error: 'bad_value' }
-  if (!['all', 'day_pass', 'product'].includes(input.scope)) return { ok: false, error: 'bad_value' }
-  if (input.scope === 'product' && !input.productId) return { ok: false, error: 'need_product' }
+  if (!['all', 'day_pass', 'custom'].includes(input.scope)) return { ok: false, error: 'bad_value' }
+  const productIds = [...new Set((input.productIds ?? []).filter(Boolean))].slice(0, 100)
+  const categoryIds = [...new Set((input.categoryIds ?? []).filter(Boolean))].slice(0, 50)
+  if (input.scope === 'custom' && productIds.length + categoryIds.length === 0) return { ok: false, error: 'need_target' }
   const code = input.code.trim().toUpperCase()
   if (code && !/^[A-Z0-9]{3,20}$/.test(code)) return { ok: false, error: 'bad_code' }
   const startsOn = input.startsOn || null
@@ -364,17 +368,37 @@ export async function savePromotion(input: {
     kind: input.kind,
     value,
     scope: input.scope,
-    product_id: input.scope === 'product' ? input.productId : null,
+    product_id: null,
     code: code || null,
     starts_on: startsOn,
     ends_on: endsOn,
     is_active: input.active,
   }
   const admin = createAdminClient()
-  const { error } = input.id
-    ? await admin.from('promotions').update(row).eq('id', input.id)
-    : await admin.from('promotions').insert(row)
-  if (error) return { ok: false, error: dbError(error, 'code_taken') }
+  let promoId = input.id
+  if (promoId) {
+    const { error } = await admin.from('promotions').update(row).eq('id', promoId)
+    if (error) return { ok: false, error: dbError(error, 'code_taken') }
+  } else {
+    const { data, error } = await admin.from('promotions').insert(row).select('id').single()
+    if (error) return { ok: false, error: dbError(error, 'code_taken') }
+    promoId = data.id as string
+  }
+  // Replace this promo's targets (§42). A missing table = §42 not run.
+  if (input.scope === 'custom') {
+    const { error: delErr } = await admin.from('promotion_targets').delete().eq('promotion_id', promoId)
+    if (delErr) return { ok: false, error: isMissingTable(delErr) ? 'not_set_up_42' : 'failed' }
+    const rows = [
+      ...productIds.map((pid) => ({ promotion_id: promoId, product_id: pid, category_id: null })),
+      ...categoryIds.map((cid) => ({ promotion_id: promoId, product_id: null, category_id: cid })),
+    ]
+    if (rows.length) {
+      const { error: insErr } = await admin.from('promotion_targets').insert(rows)
+      if (insErr) return { ok: false, error: 'failed' }
+    }
+  } else {
+    await admin.from('promotion_targets').delete().eq('promotion_id', promoId)
+  }
   return done()
 }
 

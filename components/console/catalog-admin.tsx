@@ -1119,7 +1119,14 @@ function Promotions({ catalog, today }: { catalog: Catalog; today: string }) {
     const p = catalog.products.find((x) => x.id === id)
     return p ? (lang === 'en' && p.nameEn ? p.nameEn : p.nameTh) : '—'
   }
-  const scopeText = (p: Promotion) => (p.scope === 'product' ? productName(p.productId) : tr(c[`scope_${p.scope}`]))
+  const catName = (id: string) => {
+    const x = catalog.categories?.find((c) => c.id === id)
+    return x ? (lang === 'en' && x.nameEn ? x.nameEn : x.nameTh) : '—'
+  }
+  const scopeText = (p: Promotion) =>
+    p.scope === 'custom'
+      ? [...p.categoryIds.map(catName), ...p.productIds.map((id) => productName(id))].slice(0, 4).join(', ') || tr(c.promoTargetsNone)
+      : tr(c[`scope_${p.scope}`])
   return (
     <div className="mt-5 grid gap-5 lg:grid-cols-[minmax(0,1fr)_420px]">
       <section className="min-w-0 overflow-hidden rounded-2xl border border-border">
@@ -1178,7 +1185,9 @@ function PromotionForm({ promo, catalog, onCreated }: { promo: Promotion | null;
   const [kind, setKind] = useState<'pct' | 'thb'>(promo?.kind ?? 'pct')
   const [value, setValue] = useState(promo ? String(promo.value) : '')
   const [scope, setScope] = useState<Promotion['scope']>(promo?.scope ?? 'all')
-  const [productId, setProductId] = useState<string>(promo?.productId ?? '')
+  const [pickProducts, setPickProducts] = useState<string[]>(promo?.productIds ?? [])
+  const [pickCats, setPickCats] = useState<string[]>(promo?.categoryIds ?? [])
+  const toggle = (list: string[], set: (v: string[]) => void, id: string) => set(list.includes(id) ? list.filter((x) => x !== id) : [...list, id])
   const [code, setCode] = useState(promo?.code ?? '')
   const [startsOn, setStartsOn] = useState(promo?.startsOn ?? '')
   const [endsOn, setEndsOn] = useState(promo?.endsOn ?? '')
@@ -1198,7 +1207,8 @@ function PromotionForm({ promo, catalog, onCreated }: { promo: Promotion | null;
               kind,
               value: Number(value),
               scope,
-              productId: scope === 'product' ? productId || null : null,
+              productIds: scope === 'custom' ? pickProducts : [],
+              categoryIds: scope === 'custom' ? pickCats : [],
               code,
               startsOn,
               endsOn,
@@ -1233,23 +1243,50 @@ function PromotionForm({ promo, catalog, onCreated }: { promo: Promotion | null;
       <div>
         <span className={label}>{tr(c.scope)}</span>
         <div className="mt-1 flex flex-wrap gap-1.5">
-          {(['all', 'day_pass', 'product'] as const).map((s) => (
-            <button key={s} type="button" onClick={() => setScope(s)} className={chip(scope === s)}>
-              {tr(c[`scope_${s}`])}
+          {(['all', 'day_pass', 'custom'] as const).map((sc) => (
+            <button key={sc} type="button" onClick={() => setScope(sc)} className={chip(scope === sc)}>
+              {tr(c[`scope_${sc}`])}
             </button>
           ))}
         </div>
-        {scope === 'product' && (
-          <select className={cn(input, 'mt-2')} value={productId} onChange={(e) => setProductId(e.target.value)} required>
-            <option value="">—</option>
-            {catalog.products
-              .filter((p) => p.kind !== 'day_pass')
-              .map((p) => (
-                <option key={p.id} value={p.id}>
-                  {lang === 'en' && p.nameEn ? p.nameEn : p.nameTh}
-                </option>
-              ))}
-          </select>
+        {scope === 'custom' && (
+          <div className="mt-2 space-y-3 rounded-xl border border-border p-3">
+            <p className="text-[11px] text-muted-foreground">{tr(c.promoPickHint)}</p>
+            {catalog.categories && catalog.categories.length > 0 && (
+              <div>
+                <span className="text-xs font-semibold text-muted-foreground">{tr(c.promoPickCats)}</span>
+                <div className="mt-1 flex flex-wrap gap-1.5">
+                  {catalog.categories.map((cat) => (
+                    <button
+                      key={cat.id}
+                      type="button"
+                      onClick={() => toggle(pickCats, setPickCats, cat.id)}
+                      className={chip(pickCats.includes(cat.id))}
+                    >
+                      {lang === 'en' && cat.nameEn ? cat.nameEn : cat.nameTh}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+            <div>
+              <span className="text-xs font-semibold text-muted-foreground">{tr(c.promoPickProducts)}</span>
+              <div className="mt-1 flex flex-wrap gap-1.5">
+                {catalog.products
+                  .filter((p) => p.kind !== 'package')
+                  .map((p) => (
+                    <button
+                      key={p.id}
+                      type="button"
+                      onClick={() => toggle(pickProducts, setPickProducts, p.id)}
+                      className={chip(pickProducts.includes(p.id))}
+                    >
+                      {lang === 'en' && p.nameEn ? p.nameEn : p.nameTh}
+                    </button>
+                  ))}
+              </div>
+            </div>
+          </div>
         )}
       </div>
       <label className="block">

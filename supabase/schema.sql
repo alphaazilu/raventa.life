@@ -3796,3 +3796,74 @@ revoke execute on function public.pos_quote(uuid, text, jsonb, text, uuid) from 
 grant execute on function public.pos_quote(uuid, text, jsonb, text, uuid) to authenticated;
 revoke execute on function public.pos_checkout(uuid, text, jsonb, text, text, text, uuid) from public, anon;
 grant execute on function public.pos_checkout(uuid, text, jsonb, text, text, text, uuid) to authenticated;
+
+
+-- 42. Promotions target categories and several products (v0.37.5). Besides
+-- "whole bill" and "all entries", a promotion can now apply to any mix of
+-- categories and specific products (an entry kind among them, so "เด็ก only"
+-- works). The picks live in promotion_targets; scope 'custom' uses them.
+-- A line is eligible if its product is picked, or its category is picked.
+-- Old single-product promos (scope 'product') are moved in and become 'custom'.
+do $pm$
+declare c text;
+begin
+  select conname into c from pg_constraint
+  where conrelid = 'public.promotions'::regclass and conname <> 'promotions_scope_allowed'
+    and pg_get_constraintdef(oid) ilike '%scope%';
+  if c is not null then execute format('alter table public.promotions drop constraint %I', c); end if;
+end
+$pm$;
+alter table public.promotions drop constraint if exists promotions_product_scope;
+alter table public.promotions drop constraint if exists promotions_scope_allowed;
+alter table public.promotions add constraint promotions_scope_allowed
+  check (scope in ('all', 'day_pass', 'product', 'custom'));
+
+create table if not exists public.promotion_targets (
+  id uuid primary key default gen_random_uuid(),
+  promotion_id uuid not null references public.promotions(id) on delete cascade,
+  product_id uuid references public.products(id) on delete cascade,
+  category_id uuid references public.product_categories(id) on delete cascade,
+  created_at timestamptz not null default now(),
+  constraint promotion_targets_one check (num_nonnulls(product_id, category_id) = 1),
+  constraint promotion_targets_product_once unique (promotion_id, product_id),
+  constraint promotion_targets_category_once unique (promotion_id, category_id)
+);
+create index if not exists promotion_targets_promo_idx on public.promotion_targets (promotion_id);
+alter table public.promotion_targets enable row level security;
+revoke insert, update, delete on public.promotion_targets from anon, authenticated;
+drop policy if exists "Staff read" on public.promotion_targets;
+create policy "Staff read" on public.promotion_targets for select to authenticated using (public.is_staff());
+
+-- Move each old single-product promo into a target and flip it to 'custom'.
+insert into public.promotion_targets (promotion_id, product_id)
+select id, product_id from public.promotions
+where scope = 'product' and product_id is not null
+  and not exists (select 1 from public.promotion_targets t where t.promotion_id = promotions.id and t.product_id = promotions.product_id);
+update public.promotions set scope = 'custom' where scope = 'product';
+
+-- Discount one promotion gives a set of priced lines (now category-aware,
+-- so it reads products/targets — stable, not immutable).
+create or replace function public.promo_discount(pr public.promotions, p_lines jsonb)
+returns integer
+language sql
+stable
+as $$
+  with eligible as (
+    select coalesce(sum((l->>'line_total')::int), 0) as amount
+    from jsonb_array_elements(p_lines) l
+    where pr.scope = 'all'
+       or (pr.scope = 'day_pass' and l->>'kind' = 'day_pass')
+       or (pr.scope = 'product' and (l->>'product_id')::uuid = pr.product_id)
+       or (pr.scope = 'custom' and exists (
+            select 1 from public.promotion_targets t
+            left join public.products p on p.id = (l->>'product_id')::uuid
+            where t.promotion_id = pr.id
+              and (t.product_id = (l->>'product_id')::uuid or t.category_id = p.category_id)
+          ))
+  )
+  select case pr.kind
+    when 'pct' then (amount * pr.value) / 100
+    else least(pr.value, amount)
+  end::int
+  from eligible;
+$$;

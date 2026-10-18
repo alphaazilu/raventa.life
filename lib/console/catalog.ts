@@ -88,8 +88,10 @@ export type Promotion = {
   name: string
   kind: 'pct' | 'thb'
   value: number
-  scope: 'all' | 'day_pass' | 'product'
-  productId: string | null
+  scope: 'all' | 'day_pass' | 'custom'
+  // §42: products and categories this promo applies to (scope 'custom').
+  productIds: string[]
+  categoryIds: string[]
   code: string | null
   startsOn: string | null
   endsOn: string | null
@@ -127,10 +129,11 @@ function toVariant(v: Row): Variant {
 
 // null = §18 hasn't been run yet.
 export async function loadCatalog(client: Client): Promise<Catalog | null> {
-  const [p, v, pr, h, pc, pi, inc, mpi, ne] = await Promise.all([
+  const [p, v, pr, pt, h, pc, pi, inc, mpi, ne] = await Promise.all([
     client.from('products').select('*').order('sort').order('created_at'),
     client.from('product_variants').select('*').order('sort').order('created_at'),
     client.from('promotions').select('*').order('created_at', { ascending: false }),
+    client.from('promotion_targets').select('promotion_id, product_id, category_id'),
     client.from('holidays').select('*').order('day'),
     client.from('product_categories').select('id, name_th, name_en, sort').order('sort').order('created_at'),
     client.from('package_items').select('package_id, item_id, qty, sort').order('sort').order('created_at'),
@@ -193,6 +196,14 @@ export async function loadCatalog(client: Client): Promise<Catalog | null> {
   const categories = pc.error
     ? null
     : ((pc.data ?? []) as Row[]).map((r) => ({ id: r.id as string, nameTh: r.name_th as string, nameEn: (r.name_en as string) ?? '', sort: Number(r.sort ?? 0) }))
+  const targetsByPromo = new Map<string, { products: string[]; categories: string[] }>()
+  for (const t of (pt.data ?? []) as Row[]) {
+    const id = t.promotion_id as string
+    const e = targetsByPromo.get(id) ?? { products: [], categories: [] }
+    if (t.product_id) e.products.push(t.product_id as string)
+    if (t.category_id) e.categories.push(t.category_id as string)
+    targetsByPromo.set(id, e)
+  }
   return {
     includesReady: !inc.error,
     packageExtrasReady: !mpi.error,
@@ -204,8 +215,9 @@ export async function loadCatalog(client: Client): Promise<Catalog | null> {
       name: r.name as string,
       kind: r.kind as 'pct' | 'thb',
       value: Number(r.value),
-      scope: r.scope as Promotion['scope'],
-      productId: (r.product_id as string | null) ?? null,
+      scope: (r.scope === 'product' ? 'custom' : r.scope) as Promotion['scope'],
+      productIds: (targetsByPromo.get(r.id as string)?.products ?? []),
+      categoryIds: (targetsByPromo.get(r.id as string)?.categories ?? []),
       code: (r.code as string | null) ?? null,
       startsOn: (r.starts_on as string | null) ?? null,
       endsOn: (r.ends_on as string | null) ?? null,
