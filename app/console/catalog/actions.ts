@@ -402,6 +402,54 @@ export async function savePromotion(input: {
   return done()
 }
 
+// Delete a product (§43). Never sold and not inside any package → removed
+// for good. Otherwise hidden: off the list and the counter, but old bills
+// and reports keep working. Returns { hidden: true } when it was hidden.
+export async function deleteProduct(id: string): Promise<CatalogResult> {
+  const ctx = await requireAdmin()
+  if ('error' in ctx) return { ok: false, error: ctx.error }
+  const admin = createAdminClient()
+  // Any history that must be preserved?
+  const [sold, inPkgSold, inPkgDef, inInc] = await Promise.all([
+    admin.from('sale_lines').select('id').eq('product_id', id).limit(1),
+    admin.from('member_package_items').select('id').eq('item_id', id).limit(1),
+    admin.from('package_items').select('id').eq('item_id', id).limit(1),
+    admin.from('product_includes').select('id').eq('item_id', id).limit(1),
+  ])
+  const referenced =
+    (sold.data?.length ?? 0) > 0 ||
+    (!inPkgSold.error && (inPkgSold.data?.length ?? 0) > 0) ||
+    (!inPkgDef.error && (inPkgDef.data?.length ?? 0) > 0) ||
+    (!inInc.error && (inInc.data?.length ?? 0) > 0)
+  if (referenced) {
+    const { error } = await admin.from('products').update({ is_active: false, hidden: true, updated_at: new Date().toISOString() }).eq('id', id)
+    if (error) return { ok: false, error: isMissingTable(error) ? 'not_set_up_43' : dbError(error) }
+    return done()
+  }
+  // Safe to remove: clear its owned bits first, then the row.
+  await admin.from('product_variants').delete().eq('product_id', id)
+  await admin.from('commission_rules').delete().eq('product_id', id)
+  await admin.from('promotion_targets').delete().eq('product_id', id)
+  await admin.from('package_items').delete().eq('package_id', id)
+  await admin.from('product_includes').delete().eq('product_id', id)
+  const { error } = await admin.from('products').delete().eq('id', id)
+  if (error) {
+    // A reference slipped in between the check and here: hide instead.
+    const { error: hErr } = await admin.from('products').update({ is_active: false, hidden: true }).eq('id', id)
+    if (hErr) return { ok: false, error: isMissingTable(hErr) ? 'not_set_up_43' : dbError(error) }
+  }
+  return done()
+}
+
+// Bring a hidden product back (§43).
+export async function restoreProduct(id: string): Promise<CatalogResult> {
+  const ctx = await requireAdmin()
+  if ('error' in ctx) return { ok: false, error: ctx.error }
+  const { error } = await createAdminClient().from('products').update({ hidden: false, updated_at: new Date().toISOString() }).eq('id', id)
+  if (error) return { ok: false, error: isMissingTable(error) ? 'not_set_up_43' : dbError(error) }
+  return done()
+}
+
 // ---- Product categories (§37, v0.37) ----
 
 export async function saveProductCategory(input: { id?: string; nameTh: string; nameEn: string }): Promise<CatalogResult> {

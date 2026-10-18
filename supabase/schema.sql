@@ -3867,3 +3867,12 @@ as $$
   end::int
   from eligible;
 $$;
+
+
+-- 43. Hide / delete a product (v0.37.6). A product that was never sold (no
+-- bill line, not inside a package, not an entry a package covers) can be
+-- deleted outright. One that has history is hidden instead (hidden = true):
+-- gone from the product list and the counter, but its old bills and reports
+-- still read the name stored on each sale line. Nothing here is destructive
+-- to past sales.
+alter table public.products add column if not exists hidden boolean not null default false;

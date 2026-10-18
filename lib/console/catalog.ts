@@ -60,6 +60,7 @@ export type Product = {
   trackStock: boolean
   stock: number
   active: boolean
+  hidden: boolean // §43: soft-deleted (kept for reports)
   sort: number
   categoryId: string | null // §37
   variants: Variant[]
@@ -166,6 +167,7 @@ export async function loadCatalog(client: Client): Promise<Catalog | null> {
         trackStock: Boolean(r.track_stock),
         stock: Number(r.stock ?? 0),
         active: Boolean(r.is_active),
+      hidden: Boolean(r.hidden),
         sort: Number(r.sort ?? 0),
         categoryId: (r.category_id as string | null | undefined) ?? null,
         // §38 not run → none listed (the form shows the visit count as before).

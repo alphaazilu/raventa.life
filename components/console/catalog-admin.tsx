@@ -24,6 +24,8 @@ import {
 } from '@/lib/console/catalog'
 import {
   deleteProductCategory,
+  deleteProduct,
+  restoreProduct,
   orderProductCategories,
   removeHoliday,
   saveCategoryRate,
@@ -159,7 +161,11 @@ function Products({ catalog, rules, saleTypes }: { catalog: Catalog; rules: Comm
   const product = catalog.products.find((p) => p.id === selected) ?? null
   const fmt = (p: Product) =>
     p.pkg ? p.priceWeekday.toLocaleString() : [p.priceWeekday, p.priceWeekend ?? '—', p.priceHoliday ?? '—'].map((v) => (typeof v === 'number' ? v.toLocaleString() : v)).join(' / ')
-  const groups = productGroups(catalog, tr, lang, saleTypes)
+  const [showHidden, setShowHidden] = useState(false)
+  // Hidden products (§43) stay out of the list unless the admin asks to see them.
+  const visible = { ...catalog, products: catalog.products.filter((p) => showHidden || !p.hidden) }
+  const groups = productGroups(visible, tr, lang, saleTypes)
+  const hiddenCount = catalog.products.filter((p) => p.hidden).length
   const entryIdSet = new Set(catalog.products.filter((p) => p.kind === 'day_pass').map((p) => p.id))
 
   return (
@@ -176,6 +182,11 @@ function Products({ catalog, rules, saleTypes }: { catalog: Catalog; rules: Comm
               <FolderTree className="h-4 w-4" aria-hidden="true" />
               {tr(c.manageCats)}
             </button>
+            {hiddenCount > 0 && (
+              <button type="button" onClick={() => setShowHidden((v) => !v)} className={cn('text-sm font-semibold', showHidden ? 'text-foreground' : 'text-muted-foreground')}>
+                {showHidden ? tr(c.hideHidden) : `${tr(c.showHidden)} (${hiddenCount})`}
+              </button>
+            )}
             <button type="button" onClick={() => setSelected('new')} className="text-sm font-semibold text-primary">
               {tr(c.addProduct)}
             </button>
@@ -211,10 +222,10 @@ function Products({ catalog, rules, saleTypes }: { catalog: Catalog; rules: Comm
                     <span
                       className={cn(
                         'rounded-full px-2.5 py-0.5 text-xs font-semibold',
-                        p.active ? 'bg-accent/15 text-accent' : 'bg-muted text-muted-foreground',
+                        p.hidden ? 'bg-destructive/10 text-destructive' : p.active ? 'bg-accent/15 text-accent' : 'bg-muted text-muted-foreground',
                       )}
                     >
-                      {tr(p.active ? c.onSale : c.off)}
+                      {tr(p.hidden ? c.hiddenTag : p.active ? c.onSale : c.off)}
                     </span>
                   </button>
                 </li>
@@ -942,6 +953,27 @@ function ProductForm({
         <Status error={error} saved={saved} />
       </div>
       {product && !isPass && !isPkg && product.variants.length === 0 && product.trackStock && <StockSetter productId={product.id} variantId={null} current={product.stock} />}
+      {product && (
+        <div className="mt-4 border-t border-border pt-3">
+          {product.hidden ? (
+            <button type="button" disabled={pending} onClick={() => run(() => restoreProduct(product.id), onCreated)} className="text-sm font-semibold text-accent hover:underline">
+              {tr(c.restoreBtn)}
+            </button>
+          ) : (
+            <button
+              type="button"
+              disabled={pending}
+              onClick={() => {
+                const nm = lang === 'en' && product.nameEn ? product.nameEn : product.nameTh
+                if (window.confirm(tr(c.deleteAsk).replace('{name}', nm))) run(() => deleteProduct(product.id), onCreated)
+              }}
+              className="text-sm font-semibold text-destructive hover:underline"
+            >
+              {tr(c.deleteProductBtn)}
+            </button>
+          )}
+        </div>
+      )}
     </form>
   )
 }
