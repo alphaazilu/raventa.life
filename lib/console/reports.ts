@@ -158,7 +158,19 @@ export async function loadSalesReport(from: string, to: string): Promise<SalesRe
     for (const p of data ?? []) staffNames.set(p.id, [p.first_name, p.last_name].filter(Boolean).join(' ') || '—')
   }
 
+  // §37: ordinary items grouped by the admin's categories (skipped before §37).
+  let groupOf: Map<string, { key: string; label: { th: string; en: string }; rank: number }> | undefined
+  const lineProducts = [...new Set(sales.flatMap((s) => s.lines.filter((l) => l.kind !== 'day_pass' && l.kind !== 'package').map((l) => l.product_id)))]
+  const { data: pcats, error: pcErr } = await db.from('product_categories').select('id, name_th, name_en, sort').order('sort')
+  if (!pcErr && lineProducts.length) {
+    const { data: prows } = await db.from('products').select('*').in('id', lineProducts)
+    const catBy = new Map((pcats ?? []).map((c, i) => [c.id as string, { key: `cat:${c.id}`, label: { th: c.name_th as string, en: (c.name_en as string) || (c.name_th as string) }, rank: i }]))
+    const none = { key: 'cat:none', label: { th: 'ไม่มีหมวด', en: 'No category' }, rank: 900 }
+    groupOf = new Map((prows ?? []).map((p) => [p.id as string, catBy.get(p.category_id as string) ?? none]))
+  }
+
   return buildReport({
+    groupOf,
     from,
     to,
     sales,

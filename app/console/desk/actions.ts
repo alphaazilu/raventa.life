@@ -319,9 +319,11 @@ export type DeskItem = {
   variants: { id: string; label: string; stock: number }[]
   // Packages: what one buys (§21).
   pkg: { visits: number | null; days: number } | null
+  group?: string // a category id | 'none' (v0.37)
 }
 
-export type DeskCatalog = { items: DeskItem[]; dayType: DayType } | null
+// groups: the category chips over the items (v0.37) — only ones with items.
+export type DeskCatalog = { items: DeskItem[]; dayType: DayType; groups?: { id: string; name: { th: string; en: string } }[] } | null
 
 export type BillLine = { productId: string; variantId: string | null; qty: number }
 export type DayPassMode = 'none' | 'paid' | 'reward' | 'package'
@@ -362,8 +364,16 @@ export async function getDeskCatalog(): Promise<DeskResult<DeskCatalog>> {
         stock: p.stock,
         variants: p.variants.filter((v) => v.active).map((v) => ({ id: v.id, label: v.label, stock: v.stock })),
         pkg: p.pkg ? { visits: p.pkg.visits, days: p.pkg.days } : null,
+        group: p.categoryId && cat.categories?.some((x) => x.id === p.categoryId) ? p.categoryId : 'none',
       }))
-    return { ok: true, data: { items, dayType } }
+    const has = new Set(items.map((i) => i.group))
+    const groups = cat.categories
+      ? [
+          ...cat.categories.map((x) => ({ id: x.id, name: { th: x.nameTh, en: x.nameEn || x.nameTh } })),
+          { id: 'none', name: { th: 'อื่นๆ', en: 'Other' } },
+        ].filter((g) => has.has(g.id))
+      : []
+    return { ok: true, data: { items, dayType, groups } }
   } catch {
     return { ok: false, error: 'failed' }
   }

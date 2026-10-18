@@ -6,6 +6,39 @@ import { isMissingTable } from '@/lib/console/db-errors'
 // (RLS lets staff read these tables).
 
 export type ProductKind = 'day_pass' | 'addon' | 'merch' | 'souvenir' | 'package'
+// Sale type (v0.37) = what happens when it's sold: an item / service (the
+// bill is all), an entry (checks the guest in — the Day Pass) or a package
+// (visits kept on the member's account). Stored as products.kind: the old
+// add-on / merchandise / souvenir kinds are all "item" now — categories
+// group them.
+export type SaleType = 'item' | 'entry' | 'package'
+export const SALE_TYPES: SaleType[] = ['item', 'entry', 'package']
+export const saleTypeOf = (k: ProductKind): SaleType => (k === 'day_pass' ? 'entry' : k === 'package' ? 'package' : 'item')
+
+// The admin's names for the sale types, and which are offered (app_settings.sale_types).
+export type SaleTypeNames = Record<SaleType, { th: string; en: string; on: boolean }>
+export const DEFAULT_SALE_TYPES: SaleTypeNames = {
+  item: { th: 'ของ / บริการ', en: 'Item / service', on: true },
+  entry: { th: 'บัตรเข้าใช้', en: 'Entry', on: true },
+  package: { th: 'แพ็กเกจหลายครั้ง', en: 'Multi-visit package', on: true },
+}
+export function saleTypesFrom(raw: unknown): SaleTypeNames {
+  const r = (raw && typeof raw === 'object' ? raw : {}) as Record<string, { th?: unknown; en?: unknown; on?: unknown }>
+  const out = { ...DEFAULT_SALE_TYPES }
+  for (const k of SALE_TYPES) {
+    const v = r[k]
+    if (!v) continue
+    out[k] = {
+      th: typeof v.th === 'string' && v.th.trim() ? v.th.trim().slice(0, 40) : DEFAULT_SALE_TYPES[k].th,
+      en: typeof v.en === 'string' && v.en.trim() ? v.en.trim().slice(0, 40) : DEFAULT_SALE_TYPES[k].en,
+      on: v.on !== false,
+    }
+  }
+  return out
+}
+
+// Admin-named product groups (§37, v0.37).
+export type ProductCategory = { id: string; nameTh: string; nameEn: string; sort: number }
 export type DayType = 'weekday' | 'weekend' | 'holiday'
 
 export type Variant = {
@@ -28,6 +61,7 @@ export type Product = {
   stock: number
   active: boolean
   sort: number
+  categoryId: string | null // §37
   variants: Variant[]
   // Package rules (§21); null for other kinds.
   pkg: PackageRules | null
@@ -60,7 +94,8 @@ export type Promotion = {
 
 export type Holiday = { day: string; name: string }
 
-export type Catalog = { products: Product[]; promotions: Promotion[]; holidays: Holiday[] }
+// categories: null = §37 not run yet.
+export type Catalog = { products: Product[]; promotions: Promotion[]; holidays: Holiday[]; categories: ProductCategory[] | null }
 
 export const PRODUCT_KINDS: ProductKind[] = ['day_pass', 'package', 'addon', 'merch', 'souvenir']
 
@@ -80,11 +115,12 @@ function toVariant(v: Row): Variant {
 
 // null = §18 hasn't been run yet.
 export async function loadCatalog(client: Client): Promise<Catalog | null> {
-  const [p, v, pr, h] = await Promise.all([
+  const [p, v, pr, h, pc] = await Promise.all([
     client.from('products').select('*').order('sort').order('created_at'),
     client.from('product_variants').select('*').order('sort').order('created_at'),
     client.from('promotions').select('*').order('created_at', { ascending: false }),
     client.from('holidays').select('*').order('day'),
+    client.from('product_categories').select('id, name_th, name_en, sort').order('sort').order('created_at'),
   ])
   const err = [p.error, v.error, pr.error, h.error].find(Boolean) as { code?: string } | undefined
   if (err) {
@@ -112,6 +148,7 @@ export async function loadCatalog(client: Client): Promise<Catalog | null> {
         stock: Number(r.stock ?? 0),
         active: Boolean(r.is_active),
         sort: Number(r.sort ?? 0),
+        categoryId: (r.category_id as string | null | undefined) ?? null,
         variants: byProduct.get(r.id as string) ?? [],
         pkg:
           r.kind === 'package'
@@ -128,7 +165,12 @@ export async function loadCatalog(client: Client): Promise<Catalog | null> {
       }),
     )
     .sort((a, b) => kindOrder(a.kind) - kindOrder(b.kind) || a.sort - b.sort)
+  // §37 not run → no categories (everything else still works).
+  const categories = pc.error
+    ? null
+    : ((pc.data ?? []) as Row[]).map((r) => ({ id: r.id as string, nameTh: r.name_th as string, nameEn: (r.name_en as string) ?? '', sort: Number(r.sort ?? 0) }))
   return {
+    categories,
     products,
     promotions: ((pr.data ?? []) as Row[]).map((r) => ({
       id: r.id as string,

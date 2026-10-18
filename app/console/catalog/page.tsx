@@ -3,7 +3,7 @@ import { redirect } from 'next/navigation'
 import { CatalogAdmin, type CatalogView } from '@/components/console/catalog-admin'
 import { getConsoleSession } from '@/lib/console/session'
 import { createAdminClient } from '@/lib/supabase/admin'
-import { loadCatalog } from '@/lib/console/catalog'
+import { loadCatalog, saleTypesFrom } from '@/lib/console/catalog'
 import { bangkokToday } from '@/lib/check-in/day'
 import { CATALOG_PATH, DESK_PATH, isAdmin } from '@/lib/auth/roles'
 import { listEarners, listRules } from '@/lib/console/commission'
@@ -50,9 +50,24 @@ export default async function CatalogPage({ searchParams }: { searchParams: Prom
           })
       : null
 
+  // Products view (v0.37): commission rates for the form and categories, and
+  // the sale type names. Rates null = §33 not run.
+  const [rules, saleTypes] =
+    view === 'products'
+      ? await Promise.all([
+          listRules().catch(() => null),
+          createAdminClient()
+            .from('app_settings')
+            .select('*')
+            .eq('id', 1)
+            .maybeSingle()
+            .then((r) => saleTypesFrom(r.data?.sale_types)),
+        ])
+      : [null, saleTypesFrom(null)]
+
   return (
     <main>
-      <CatalogAdmin catalog={catalog} view={view} today={bangkokToday()} commission={commission} />
+      <CatalogAdmin catalog={catalog} view={view} today={bangkokToday()} commission={commission} rules={rules} saleTypes={saleTypes} />
     </main>
   )
 }

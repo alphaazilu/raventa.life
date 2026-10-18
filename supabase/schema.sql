@@ -2685,3 +2685,60 @@ alter table public.app_settings add column if not exists default_referrer_id uui
 
 alter table public.sale_commissions drop constraint if exists sale_commissions_source_check;
 alter table public.sale_commissions add constraint sale_commissions_source_check check (source in ('cashier', 'referrer', 'line', 'signup'));
+
+
+-- 37. Product categories and sale types (v0.37). Categories are admin-named
+-- groups — all of them can be renamed, reordered or removed; they only group
+-- products (product list, counter, reports) and can carry a commission rate
+-- for everything in them. What happens when a product is sold is its *sale
+-- type*, set on the product: an item / service (the bill is all), an entry
+-- (checks the guest in — the Day Pass), or a package (visits kept on the
+-- member's account). In the database the sale type is still products.kind
+-- (day_pass / package / the others = item). The admin can rename the three
+-- sale types and hide ones a business doesn't use (app_settings.sale_types).
+-- The old kinds become starting categories and products move in (once).
+create table if not exists public.product_categories (
+  id uuid primary key default gen_random_uuid(),
+  legacy_kind text unique check (legacy_kind in ('day_pass', 'package', 'addon', 'merch', 'souvenir')),  -- made from an old kind
+  name_th text not null check (char_length(btrim(name_th)) between 1 and 40),
+  name_en text not null default '' check (char_length(name_en) <= 40),
+  sort integer not null default 0,
+  created_at timestamptz not null default now()
+);
+alter table public.product_categories enable row level security;
+revoke insert, update, delete on public.product_categories from anon, authenticated;
+drop policy if exists "Staff read" on public.product_categories;
+create policy "Staff read" on public.product_categories for select to authenticated using (public.is_staff());
+
+do $$
+begin
+  if not exists (select 1 from information_schema.columns where table_schema = 'public' and table_name = 'products' and column_name = 'category_id') then
+    insert into public.product_categories (legacy_kind, name_th, name_en, sort) values
+      ('day_pass', 'Day Pass', 'Day Pass', 1),
+      ('package', 'แพ็กเกจ', 'Packages', 2),
+      ('addon', 'ส่วนเสริม', 'Add-ons', 3),
+      ('merch', 'สินค้า', 'Merchandise', 4),
+      ('souvenir', 'ของที่ระลึก', 'Souvenirs', 5)
+    on conflict (legacy_kind) do nothing;
+    alter table public.products add column category_id uuid references public.product_categories(id) on delete set null;
+    update public.products p set category_id = c.id from public.product_categories c where c.legacy_kind = p.kind;
+  end if;
+  -- Commission (§33) per category; old per-kind rates move to the matching category.
+  if not exists (select 1 from information_schema.columns where table_schema = 'public' and table_name = 'commission_rules' and column_name = 'category_id') then
+    alter table public.commission_rules add column category_id uuid references public.product_categories(id) on delete cascade;
+    alter table public.commission_rules drop constraint if exists commission_rules_one_target;
+    update public.commission_rules r set category_id = c.id, kind = null from public.product_categories c where c.legacy_kind = r.kind;
+  end if;
+end $$;
+alter table public.commission_rules drop constraint if exists commission_rules_one_target;
+alter table public.commission_rules add constraint commission_rules_one_target check (num_nonnulls(product_id, kind, category_id) = 1);
+create unique index if not exists commission_rules_category on public.commission_rules (category_id) where category_id is not null;
+-- 'none' on a product = no commission for it, whatever its category's rate.
+alter table public.commission_rules drop constraint if exists commission_rules_mode_check;
+alter table public.commission_rules add constraint commission_rules_mode_check check (mode in ('pct', 'thb', 'none'));
+alter table public.commission_rules drop constraint if exists commission_rules_check;  -- the unnamed one from §33
+alter table public.commission_rules drop constraint if exists commission_rules_value_check;
+alter table public.commission_rules add constraint commission_rules_value_check check ((mode = 'none' and value = 0) or (mode <> 'none' and value > 0 and (mode <> 'pct' or value <= 100)));
+
+-- Sale type names and which are offered: {"item":{"th":"…","en":"…","on":true}, "entry":…, "package":…}
+alter table public.app_settings add column if not exists sale_types jsonb not null default '{}'::jsonb;

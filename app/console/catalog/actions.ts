@@ -4,7 +4,7 @@ import { isMissingTable, requireAdmin } from '@/lib/console/guard'
 import { revalidatePath } from 'next/cache'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { CATALOG_PATH, DESK_PATH } from '@/lib/auth/roles'
-import type { PackageRules, ProductKind } from '@/lib/console/catalog'
+import { saleTypesFrom, SALE_TYPES, type PackageRules, type ProductKind, type SaleTypeNames } from '@/lib/console/catalog'
 
 // Admin: products, variants, stock, public holidays, promotions (§18).
 // Written with the service role after an admin check, like the shifts
@@ -36,7 +36,10 @@ const price = (v: number | null | undefined): number | null | 'bad' => {
 
 export async function saveProduct(input: {
   id?: string
-  kind: ProductKind
+  // 'item' (v0.37) = an ordinary item / service; its category groups it.
+  kind: ProductKind | 'general' | 'item'
+  // §37: undefined = leave as is (or §37 not run); null = no category.
+  categoryId?: string | null
   nameTh: string
   nameEn: string
   priceWeekday: number
@@ -46,10 +49,18 @@ export async function saveProduct(input: {
   active: boolean
   sort: number
   pkg?: PackageRules | null
+  // v0.37: this product's own commission — 'cat' = follow its category, 'none' = never.
+  commission?: { mode: 'cat' | 'none' | 'pct' | 'thb'; value?: number }
 }): Promise<CatalogResult> {
   const ctx = await requireAdmin()
   if ('error' in ctx) return { ok: false, error: ctx.error }
   const nameTh = input.nameTh.trim().slice(0, 60)
+  const general = input.kind === 'general' || input.kind === 'item' || input.kind === 'addon' || input.kind === 'merch' || input.kind === 'souvenir'
+  const cm = input.commission
+  if (cm && (cm.mode === 'pct' || cm.mode === 'thb')) {
+    const v = Number(cm.value)
+    if (!(v > 0) || (cm.mode === 'pct' && v > 100) || v > 1_000_000) return { ok: false, error: 'bad_rate' }
+  }
   // Package rules (§21): checked here and again by the database.
   let pkgCols = {}
   if (input.kind === 'package') {
@@ -88,6 +99,7 @@ export async function saveProduct(input: {
     is_active: input.active,
     sort: Math.round(Number(input.sort) || 0),
     updated_at: new Date().toISOString(),
+    ...(input.categoryId !== undefined ? { category_id: input.categoryId || null } : {}),
     ...pkgCols,
   }
   if (input.id) {
@@ -102,15 +114,66 @@ export async function saveProduct(input: {
           ? null
           : input.kind === 'package'
             ? {}
-            : SELLABLE.includes(input.kind)
-              ? { kind: input.kind, track_stock: input.trackStock }
+            : general
+              ? // An ordinary item keeps its stored kind (add-on / merch / souvenir).
+                { track_stock: input.trackStock }
               : null
     if (extra === null) return { ok: false, error: 'bad_kind' }
     const { error } = await admin.from('products').update({ ...row, ...extra }).eq('id', input.id)
     if (error) return { ok: false, error: dbError(error) }
+    if (cm) await saveProductRate(admin, input.id, cm, ctx.userId)
   } else {
-    if (!SELLABLE.includes(input.kind)) return { ok: false, error: 'bad_kind' }
-    const { error } = await admin.from('products').insert({ track_stock: input.trackStock, ...row, kind: input.kind })
+    const kind: ProductKind = general ? 'merch' : input.kind === 'package' ? 'package' : ('' as ProductKind)
+    if (!SELLABLE.includes(kind)) return { ok: false, error: 'bad_kind' }
+    const { data, error } = await admin.from('products').insert({ track_stock: input.trackStock, ...row, kind }).select('id').single()
+    if (error) return { ok: false, error: dbError(error) }
+    if (cm && data) await saveProductRate(admin, data.id as string, cm, ctx.userId)
+  }
+  return done()
+}
+
+// A product's own commission rate (§33/§37): replaced, or removed for 'cat'.
+// Never fails the save — the product is what matters.
+async function saveProductRate(
+  admin: ReturnType<typeof createAdminClient>,
+  productId: string,
+  cm: { mode: 'cat' | 'none' | 'pct' | 'thb'; value?: number },
+  by: string,
+) {
+  try {
+    await admin.from('commission_rules').delete().eq('product_id', productId)
+    if (cm.mode === 'cat') return
+    const value = cm.mode === 'none' ? 0 : Math.round(Number(cm.value) * 100) / 100
+    await admin.from('commission_rules').insert({ product_id: productId, mode: cm.mode, value, updated_by: by, updated_at: new Date().toISOString() })
+  } catch (err) {
+    console.error('product rate failed', (err as Error).message)
+  }
+}
+
+// Sale type names and which are offered (§37, v0.37).
+export async function saveSaleTypes(input: SaleTypeNames): Promise<CatalogResult> {
+  const ctx = await requireAdmin()
+  if ('error' in ctx) return { ok: false, error: ctx.error }
+  const clean = saleTypesFrom(input)
+  if (!SALE_TYPES.some((k) => clean[k].on)) return { ok: false, error: 'need_one_type' }
+  const { error } = await createAdminClient()
+    .from('app_settings')
+    .upsert({ id: 1, sale_types: clean, updated_by: ctx.userId, updated_at: new Date().toISOString() })
+  if (error) return { ok: false, error: /sale_types/.test(error.message ?? '') ? 'not_set_up_37' : dbError(error) }
+  return done()
+}
+
+// A category's commission rate (§37). mode null = none for the category.
+export async function saveCategoryRate(categoryId: string, mode: 'pct' | 'thb' | null, value: number): Promise<CatalogResult> {
+  const ctx = await requireAdmin()
+  if ('error' in ctx) return { ok: false, error: ctx.error }
+  const admin = createAdminClient()
+  const v = Math.round(Number(value) * 100) / 100
+  if (mode && (!(v > 0) || (mode === 'pct' && v > 100) || v > 1_000_000)) return { ok: false, error: 'bad_rate' }
+  const { error: e1 } = await admin.from('commission_rules').delete().eq('category_id', categoryId)
+  if (e1) return { ok: false, error: dbError(e1) }
+  if (mode) {
+    const { error } = await admin.from('commission_rules').insert({ category_id: categoryId, mode, value: v, updated_by: ctx.userId, updated_at: new Date().toISOString() })
     if (error) return { ok: false, error: dbError(error) }
   }
   return done()
@@ -230,4 +293,44 @@ export async function savePromotion(input: {
     : await admin.from('promotions').insert(row)
   if (error) return { ok: false, error: dbError(error, 'code_taken') }
   return done()
+}
+
+// ---- Product categories (§37, v0.37) ----
+
+export async function saveProductCategory(input: { id?: string; nameTh: string; nameEn: string }): Promise<CatalogResult> {
+  const ctx = await requireAdmin()
+  if ('error' in ctx) return { ok: false, error: ctx.error }
+  const nameTh = input.nameTh.trim().slice(0, 40)
+  if (!nameTh) return { ok: false, error: 'need_name' }
+  const row = { name_th: nameTh, name_en: input.nameEn.trim().slice(0, 40) }
+  const db = createAdminClient()
+  if (input.id) {
+    const { error } = await db.from('product_categories').update(row).eq('id', input.id)
+    if (error) return { ok: false, error: dbError(error) }
+  } else {
+    const { data: last } = await db.from('product_categories').select('sort').order('sort', { ascending: false }).limit(1)
+    const { error } = await db.from('product_categories').insert({ ...row, sort: Number(last?.[0]?.sort ?? 0) + 1 })
+    if (error) return { ok: false, error: dbError(error) }
+  }
+  return done()
+}
+
+// New order: every category id, top first.
+export async function orderProductCategories(ids: string[]): Promise<CatalogResult> {
+  const ctx = await requireAdmin()
+  if ('error' in ctx) return { ok: false, error: ctx.error }
+  const db = createAdminClient()
+  for (const [i, id] of ids.slice(0, 200).entries()) {
+    const { error } = await db.from('product_categories').update({ sort: i + 1 }).eq('id', id)
+    if (error) return { ok: false, error: dbError(error) }
+  }
+  return done()
+}
+
+// Its products are left without a category (nothing else changes).
+export async function deleteProductCategory(id: string): Promise<CatalogResult> {
+  const ctx = await requireAdmin()
+  if ('error' in ctx) return { ok: false, error: ctx.error }
+  const { error } = await createAdminClient().from('product_categories').delete().eq('id', id)
+  return error ? { ok: false, error: dbError(error) } : done()
 }

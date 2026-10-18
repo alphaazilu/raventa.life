@@ -56,7 +56,7 @@ function build(type: string, r: SalesReport): (string | number | null)[][] {
     return [
       ['ประเภท', 'สินค้า', 'จำนวน', 'ยอดก่อนส่วนลด', 'ส่วนลด (เฉลี่ย)', 'ยอดสุทธิ', ...(vat ? ['ก่อน VAT', 'VAT'] : [])],
       ...r.categories.flatMap((c) =>
-        c.products.map((p) => [KIND[c.kind] ?? c.kind, p.name, p.qty, p.gross, p.discount, p.net, ...(vat ? [exVat(p.net), p.net - exVat(p.net)] : [])]),
+        c.products.map((p) => [KIND[c.kind] ?? c.label?.th ?? c.kind, p.name, p.qty, p.gross, p.discount, p.net, ...(vat ? [exVat(p.net), p.net - exVat(p.net)] : [])]),
       ),
     ]
   }
@@ -77,7 +77,7 @@ function build(type: string, r: SalesReport): (string | number | null)[][] {
     ...r.payments.map((p) => [p.method === 'zero' ? '0 บาท (แพ็กเกจ/ฟรี)' : METHOD[p.method], p.bills, p.amount]),
     [],
     ['ประเภท', 'จำนวน', 'ยอดก่อนส่วนลด', 'ส่วนลด', 'ยอดสุทธิ'],
-    ...r.categories.map((c) => [KIND[c.kind] ?? c.kind, c.qty, c.gross, c.discount, c.net]),
+    ...r.categories.map((c) => [KIND[c.kind] ?? c.label?.th ?? c.kind, c.qty, c.gross, c.discount, c.net]),
     [],
     ['แพ็กเกจ (รายได้รับล่วงหน้า)'],
     ['ยกมาต้นงวด', k.opening],

@@ -1,10 +1,12 @@
 // Staff commission (§33, v0.34) — shared by the server and the screens.
 
-export type CommissionMode = 'pct' | 'thb'
+// 'none' (v0.37): on one product = no commission for it, whatever its category's rate.
+export type CommissionMode = 'pct' | 'thb' | 'none'
 export const COMMISSION_KINDS = ['day_pass', 'package', 'addon', 'merch', 'souvenir'] as const
 export type CommissionKind = (typeof COMMISSION_KINDS)[number]
 
-export type CommissionRule = { id: string; productId: string | null; kind: CommissionKind | null; mode: CommissionMode; value: number }
+// One of productId / categoryId (§37) / kind is set.
+export type CommissionRule = { id: string; productId: string | null; categoryId: string | null; kind: CommissionKind | null; mode: CommissionMode; value: number }
 
 // Who can earn, for the desk: names only.
 export type CommissionPerson = { id: string; name: string }
@@ -81,7 +83,19 @@ export const cmCopy = {
   whoHint: L('เปิดรายคน · คนที่ปิดอยู่จะไม่ได้ค่าคอม (ทั้งค่าแนะนำสมาชิกและรายการที่เลือก)', 'Turn on per person · people who are off earn nothing (referrals or picked lines)'),
   noStaff: L('ยังไม่มีพนักงาน — เพิ่มที่หน้าทีมงาน', 'No team members yet — add them on the Team page'),
   rates: L('อัตราค่าคอม', 'Rates'),
-  ratesHint: L('ตั้งรายสินค้า หรือค่าเริ่มต้นของแต่ละประเภท · รายสินค้ามาก่อน · คิดจากยอดหลังส่วนลด', 'Per product, or a default per kind · a product’s own rate wins · worked out after discounts'),
+  ratesHint: L('เพิ่มเฉพาะที่ต้องการให้มีค่าคอม · ไม่อยู่ในรายการ = ไม่มีค่าคอม · ถ้ามีทั้งอัตราสินค้าและหมวด ใช้อัตราสินค้า · คิดจากยอดหลังส่วนลด', 'Add only what earns · not listed = no commission · a product’s own rate beats its category’s · worked out after discounts'),
+  ratesMoved: L('อัตราค่าคอมตั้งที่หน้าสินค้า: ทั้งหมวด (ปุ่ม “จัดหมวดหมู่”) หรือทีละสินค้า (ในฟอร์มสินค้า ข้อ “ค่าคอม”)', 'Rates are set on the Products page: per category (“Categories”) or per product (the product form’s “Commission”)'),
+  ratesGo: L('ไปหน้าสินค้า', 'Go to Products'),
+  ratesSet: L('ตั้งไว้ {n} อัตรา', '{n} rates set'),
+  noRates: L('ยังไม่มีอัตรา — ยังไม่มีใครได้ค่าคอม เพิ่มด้านล่าง', 'No rates yet — nobody earns until you add one below'),
+  addRate: L('เพิ่มอัตรา', 'Add a rate'),
+  addRateWhat: L('เลือกสินค้าหรือหมวด…', 'Pick a product or category…'),
+  add: L('เพิ่ม', 'Add'),
+  grpKind: L('ชนิด', 'Kind'),
+  grpCategory: L('ทั้งหมวด', 'Whole category'),
+  grpProduct: L('สินค้าตัวเดียว', 'One product'),
+  tgtKind: L('ทุกรายการชนิดนี้', 'Every item of this kind'),
+  tgtCategory: L('ทุกสินค้าในหมวดนี้', 'Every item in this category'),
   kindDefaults: L('ค่าเริ่มต้นตามประเภท', 'Defaults by kind'),
   perProduct: L('รายสินค้า / บริการ', 'Per product or service'),
   none: L('ไม่มี', 'None'),

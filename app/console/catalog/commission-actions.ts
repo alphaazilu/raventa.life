@@ -49,9 +49,11 @@ export async function setDefaultReferrer(staffId: string | null): Promise<Commis
   return done()
 }
 
-// One rate for a product, or the default for a kind. mode null = remove it.
+// One rate (v0.37: a list the admin adds to): for one product, a category
+// (§37), or the Day Pass / package kind. mode null = remove it.
 export async function saveCommissionRule(input: {
   productId?: string | null
+  categoryId?: string | null
   kind?: string | null
   mode: CommissionMode | null
   value: number
@@ -59,24 +61,34 @@ export async function saveCommissionRule(input: {
   const ctx = await requireAdmin()
   if ('error' in ctx) return { ok: false, error: ctx.error }
   const productId = input.productId || null
+  const categoryId = input.categoryId || null
   const kind = input.kind || null
-  if (Boolean(productId) === Boolean(kind)) return { ok: false, error: 'failed' }
+  if ([productId, categoryId, kind].filter(Boolean).length !== 1) return { ok: false, error: 'failed' }
   if (kind && !(COMMISSION_KINDS as readonly string[]).includes(kind)) return { ok: false, error: 'failed' }
   const db = createAdminClient()
-  const del = productId ? db.from('commission_rules').delete().eq('product_id', productId) : db.from('commission_rules').delete().eq('kind', kind as string)
+  const col = productId ? 'product_id' : categoryId ? 'category_id' : 'kind'
+  const val = (productId ?? categoryId ?? kind) as string
   if (input.mode === null) {
-    const { error } = await del
+    const { error } = await db.from('commission_rules').delete().eq(col, val)
     return error ? fail(error) : done()
   }
-  const value = Math.round(Number(input.value) * 100) / 100
-  if (!(input.mode === 'pct' || input.mode === 'thb') || !(value > 0) || (input.mode === 'pct' && value > 100) || value > 1_000_000) {
+  const value = input.mode === 'none' ? 0 : Math.round(Number(input.value) * 100) / 100
+  if (input.mode === 'none') {
+    if (!productId) return { ok: false, error: 'failed' }
+  } else if (!(input.mode === 'pct' || input.mode === 'thb') || !(value > 0) || (input.mode === 'pct' && value > 100) || value > 1_000_000) {
     return { ok: false, error: 'bad_rate' }
   }
-  const row = { product_id: productId, kind, mode: input.mode, value, updated_by: ctx.userId, updated_at: new Date().toISOString() }
-  // Replace whatever was there (unique per product / per kind).
-  const { data: old, error: e1 } = productId
-    ? await db.from('commission_rules').select('id').eq('product_id', productId).maybeSingle()
-    : await db.from('commission_rules').select('id').eq('kind', kind as string).maybeSingle()
+  const row = {
+    product_id: productId,
+    kind,
+    ...(categoryId ? { category_id: categoryId } : {}),
+    mode: input.mode,
+    value,
+    updated_by: ctx.userId,
+    updated_at: new Date().toISOString(),
+  }
+  // Replace whatever was there (one per product / category / kind).
+  const { data: old, error: e1 } = await db.from('commission_rules').select('id').eq(col, val).maybeSingle()
   if (e1) return fail(e1)
   const { error } = old ? await db.from('commission_rules').update(row).eq('id', old.id) : await db.from('commission_rules').insert(row)
   return error ? fail(error) : done()

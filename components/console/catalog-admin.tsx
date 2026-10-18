@@ -3,24 +3,40 @@
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useEffect, useState, useTransition } from 'react'
-import { BadgePercent, CalendarDays, Package, Percent, Trash2 } from 'lucide-react'
+import { ArrowDown, ArrowUp, BadgePercent, CalendarDays, FolderTree, Package, Percent, Trash2 } from 'lucide-react'
 import { useLanguage } from '@/components/language-provider'
 import { Spinner } from '@/components/ui/spinner'
 import { catalogCopy as c, catalogErrors } from '@/lib/console/copy'
 import { CATALOG_PATH } from '@/lib/auth/roles'
 import {
-  PRODUCT_KINDS,
+  DEFAULT_SALE_TYPES,
+  SALE_TYPES,
+  saleTypeOf,
   promoActiveOn,
   stockOf,
   type Catalog,
   type PackageRules,
   type Product,
-  type ProductKind,
+  type ProductCategory,
   type Promotion,
+  type SaleType,
+  type SaleTypeNames,
 } from '@/lib/console/catalog'
-import { removeHoliday, saveHoliday, savePromotion, saveProduct, saveVariant, setStock } from '@/app/console/catalog/actions'
+import {
+  deleteProductCategory,
+  orderProductCategories,
+  removeHoliday,
+  saveCategoryRate,
+  saveHoliday,
+  savePromotion,
+  saveProduct,
+  saveProductCategory,
+  saveSaleTypes,
+  saveVariant,
+  setStock,
+} from '@/app/console/catalog/actions'
 import { cn } from '@/lib/utils'
-import { cmCopy } from '@/lib/commission'
+import { cmCopy, type CommissionRule } from '@/lib/commission'
 import { CommissionAdmin, type CommissionSetup } from '@/components/console/commission-admin'
 
 export type CatalogView = 'products' | 'holidays' | 'promotions' | 'commission'
@@ -69,11 +85,16 @@ export function CatalogAdmin({
   view,
   today,
   commission = null,
+  rules = null,
+  saleTypes = DEFAULT_SALE_TYPES,
 }: {
   catalog: Catalog | null
   view: CatalogView
   today: string
   commission?: CommissionSetup | null
+  // Products view (v0.37): commission rates (null = §33 not run) and sale type names.
+  rules?: CommissionRule[] | null
+  saleTypes?: SaleTypeNames
 }) {
   const { tr } = useLanguage()
   const tabs: { key: CatalogView; label: { th: string; en: string }; icon: typeof Package }[] = [
@@ -109,7 +130,7 @@ export function CatalogAdmin({
       ) : view === 'promotions' ? (
         <Promotions catalog={catalog} today={today} />
       ) : (
-        <Products catalog={catalog} />
+        <Products catalog={catalog} rules={rules} saleTypes={saleTypes} />
       )}
     </div>
   )
@@ -117,71 +138,362 @@ export function CatalogAdmin({
 
 // ---------------- Products ----------------
 
-function Products({ catalog }: { catalog: Catalog }) {
+// The products grouped by category (v0.37), then "No category". Before §37: by sale type.
+export function productGroups(catalog: Catalog, tr: (l: { th: string; en: string }) => string, lang: string, saleTypes: SaleTypeNames = DEFAULT_SALE_TYPES) {
+  const cats = catalog.categories
+  const groups: { key: string; label: string; items: Product[] }[] = []
+  if (!cats) {
+    for (const k of SALE_TYPES) groups.push({ key: k, label: tr(saleTypes[k]), items: catalog.products.filter((p) => saleTypeOf(p.kind) === k) })
+  } else {
+    const known = new Set(cats.map((x) => x.id))
+    for (const cat of cats) groups.push({ key: cat.id, label: lang === 'en' && cat.nameEn ? cat.nameEn : cat.nameTh, items: catalog.products.filter((p) => p.categoryId === cat.id) })
+    groups.push({ key: 'none', label: tr(c.noCategory), items: catalog.products.filter((p) => !p.categoryId || !known.has(p.categoryId)) })
+  }
+  return groups.filter((g) => g.items.length > 0)
+}
+
+function Products({ catalog, rules, saleTypes }: { catalog: Catalog; rules: CommissionRule[] | null; saleTypes: SaleTypeNames }) {
   const { tr, lang } = useLanguage()
-  const [selected, setSelected] = useState<string | 'new'>(catalog.products[0]?.id ?? 'new')
+  const [selected, setSelected] = useState<string | 'new' | 'cats'>(catalog.products[0]?.id ?? 'new')
   const [fresh, setFresh] = useState(0)
   const product = catalog.products.find((p) => p.id === selected) ?? null
   const fmt = (p: Product) =>
     p.pkg ? p.priceWeekday.toLocaleString() : [p.priceWeekday, p.priceWeekend ?? '—', p.priceHoliday ?? '—'].map((v) => (typeof v === 'number' ? v.toLocaleString() : v)).join(' / ')
+  const groups = productGroups(catalog, tr, lang, saleTypes)
 
   return (
-    <div className="mt-5 grid gap-5 lg:grid-cols-[minmax(0,1fr)_420px]">
+    <div className="mt-5 grid gap-5 lg:grid-cols-[minmax(0,1fr)_440px]">
       <section className="min-w-0 overflow-hidden rounded-2xl border border-border">
-        <div className="flex items-center justify-between bg-secondary px-4 py-2.5">
+        <div className="flex flex-wrap items-center justify-between gap-3 bg-secondary px-4 py-2.5">
           <span className="text-xs font-semibold text-muted-foreground">{tr(c.colName)}</span>
-          <button type="button" onClick={() => setSelected('new')} className="text-sm font-semibold text-primary">
-            {tr(c.addProduct)}
-          </button>
+          <span className="flex items-center gap-4">
+            <button
+              type="button"
+              onClick={() => setSelected('cats')}
+              className={cn('inline-flex items-center gap-1 text-sm font-semibold', selected === 'cats' ? 'text-foreground' : 'text-primary')}
+            >
+              <FolderTree className="h-4 w-4" aria-hidden="true" />
+              {tr(c.manageCats)}
+            </button>
+            <button type="button" onClick={() => setSelected('new')} className="text-sm font-semibold text-primary">
+              {tr(c.addProduct)}
+            </button>
+          </span>
         </div>
-        <ul className="divide-y divide-border">
-          {catalog.products.map((p) => (
-            <li key={p.id}>
-              <button
-                type="button"
-                onClick={() => setSelected(p.id)}
-                className={cn('grid w-full grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)_auto] items-center gap-3 px-4 py-3 text-left text-sm', selected === p.id ? 'bg-secondary/70' : 'hover:bg-secondary/40')}
-              >
-                <span className="min-w-0">
-                  <span className="block truncate font-semibold">{lang === 'en' && p.nameEn ? p.nameEn : p.nameTh}</span>
-                  <span className="block text-xs text-muted-foreground">
-                    {tr(c[`kind_${p.kind}`])}
-                    {p.pkg && ` · ${pkgSummary(p.pkg, tr)}`}
-                    {p.variants.length > 0 && ` · ${p.variants.filter((v) => v.active).length} ${tr(c.variants).split(' ')[0]}`}
-                  </span>
-                </span>
-                <span className="text-xs">
-                  <span className="block font-semibold">{fmt(p)}</span>
-                  <span className={cn('block', p.trackStock && stockOf(p) < 5 ? 'text-destructive' : 'text-muted-foreground')}>
-                    {p.trackStock ? `${tr(c.stock)} ${stockOf(p)}` : tr(c.noStock)}
-                  </span>
-                </span>
-                <span
-                  className={cn(
-                    'rounded-full px-2.5 py-0.5 text-xs font-semibold',
-                    p.active ? 'bg-accent/15 text-accent' : 'bg-muted text-muted-foreground',
-                  )}
-                >
-                  {tr(p.active ? c.onSale : c.off)}
-                </span>
-              </button>
-            </li>
-          ))}
-        </ul>
+        {groups.map((g) => (
+          <div key={g.key}>
+            <p className="border-t border-border bg-secondary/40 px-4 py-1.5 text-xs font-bold uppercase tracking-wide text-muted-foreground first:border-t-0">
+              {g.label} <span className="font-normal">· {g.items.length}</span>
+            </p>
+            <ul className="divide-y divide-border">
+              {g.items.map((p) => (
+                <li key={p.id}>
+                  <button
+                    type="button"
+                    onClick={() => setSelected(p.id)}
+                    className={cn('grid w-full grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)_auto] items-center gap-3 px-4 py-3 text-left text-sm', selected === p.id ? 'bg-secondary/70' : 'hover:bg-secondary/40')}
+                  >
+                    <span className="min-w-0">
+                      <span className="block truncate font-semibold">{lang === 'en' && p.nameEn ? p.nameEn : p.nameTh}</span>
+                      <span className="block text-xs text-muted-foreground">
+                        {tr(saleTypes[saleTypeOf(p.kind)])}
+                        {p.pkg && ` · ${pkgSummary(p.pkg, tr)}`}
+                        {p.variants.length > 0 && ` · ${p.variants.filter((v) => v.active).length} ${tr(c.variants).split(' ')[0]}`}
+                      </span>
+                    </span>
+                    <span className="text-xs">
+                      <span className="block font-semibold">{fmt(p)}</span>
+                      <span className={cn('block', p.trackStock && stockOf(p) < 5 ? 'text-destructive' : 'text-muted-foreground')}>
+                        {p.trackStock ? `${tr(c.stock)} ${stockOf(p)}` : tr(c.noStock)}
+                      </span>
+                    </span>
+                    <span
+                      className={cn(
+                        'rounded-full px-2.5 py-0.5 text-xs font-semibold',
+                        p.active ? 'bg-accent/15 text-accent' : 'bg-muted text-muted-foreground',
+                      )}
+                    >
+                      {tr(p.active ? c.onSale : c.off)}
+                    </span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </div>
+        ))}
       </section>
       <section className="rounded-2xl border border-border bg-card p-5">
-        <ProductForm key={product?.id ?? `new-${fresh}`} product={product} onCreated={() => setFresh((n) => n + 1)} />
-        {product && product.kind !== 'day_pass' && product.kind !== 'package' && <Variants key={`v-${product.id}`} product={product} />}
+        {selected === 'cats' ? (
+          <CategoryManager
+            categories={catalog.categories}
+            products={catalog.products}
+            rules={rules}
+            saleTypes={saleTypes}
+            onBack={() => setSelected(catalog.products[0]?.id ?? 'new')}
+          />
+        ) : (
+          <>
+            <ProductForm
+              key={product?.id ?? `new-${fresh}`}
+              product={product}
+              categories={catalog.categories}
+              saleTypes={saleTypes}
+              rules={rules}
+              onCreated={() => setFresh((n) => n + 1)}
+            />
+            {product && product.kind !== 'day_pass' && product.kind !== 'package' && <Variants key={`v-${product.id}`} product={product} />}
+          </>
+        )}
       </section>
     </div>
   )
 }
 
-function ProductForm({ product, onCreated }: { product: Product | null; onCreated: () => void }) {
+type CatApi = {
+  saveProductCategory: typeof saveProductCategory
+  orderProductCategories: typeof orderProductCategories
+  deleteProductCategory: typeof deleteProductCategory
+  saveCategoryRate: typeof saveCategoryRate
+  saveSaleTypes: typeof saveSaleTypes
+}
+
+// Products › Categories (§37, v0.37): name, add, order, remove every
+// category, each with its commission rate; and the sale type names.
+function CategoryManager({
+  categories,
+  products,
+  rules,
+  saleTypes,
+  onBack,
+  api = { saveProductCategory, orderProductCategories, deleteProductCategory, saveCategoryRate, saveSaleTypes },
+}: {
+  categories: ProductCategory[] | null
+  products: Product[]
+  rules: CommissionRule[] | null
+  saleTypes: SaleTypeNames
+  onBack: () => void
+  api?: CatApi
+}) {
   const { tr } = useLanguage()
   const { pending, error, saved, run } = useSave()
+  const [nameTh, setNameTh] = useState('')
+  const [nameEn, setNameEn] = useState('')
+  if (!categories) return <p className="rounded-xl bg-amber-500/15 p-4 text-sm font-semibold text-amber-800 dark:text-amber-300">{tr(c.catsNotSetUp)}</p>
+  const count = (id: string) => products.filter((p) => p.categoryId === id).length
+  const move = (i: number, d: -1 | 1) => {
+    const ids = categories.map((x) => x.id)
+    const j = i + d
+    if (j < 0 || j >= ids.length) return
+    ;[ids[i], ids[j]] = [ids[j], ids[i]]
+    run(() => api.orderProductCategories(ids))
+  }
+  return (
+    <div className="space-y-4">
+      <button type="button" onClick={onBack} className="text-xs font-semibold text-primary">
+        {tr(c.backToProducts)}
+      </button>
+      <div>
+        <h2 className="font-display text-lg font-bold">{tr(c.catsTitle)}</h2>
+        <p className="mt-0.5 text-xs text-muted-foreground">{tr(c.catsHint)}</p>
+      </div>
+      <ul className="divide-y divide-border rounded-xl border border-border">
+        {categories.map((cat, i) => (
+          <CategoryRow
+            key={cat.id}
+            cat={cat}
+            count={count(cat.id)}
+            rule={rules?.find((r) => r.categoryId === cat.id) ?? null}
+            showRate={rules !== null}
+            first={i === 0}
+            last={i === categories.length - 1}
+            onMove={(d) => move(i, d)}
+            pending={pending}
+            run={run}
+            api={api}
+          />
+        ))}
+      </ul>
+      <form
+        onSubmit={(e) => {
+          e.preventDefault()
+          run(() => api.saveProductCategory({ nameTh, nameEn }), () => {
+            setNameTh('')
+            setNameEn('')
+          })
+        }}
+        className="space-y-2 rounded-xl border border-dashed border-border p-3"
+      >
+        <div className="grid grid-cols-2 gap-2">
+          <input className={input} value={nameTh} onChange={(e) => setNameTh(e.target.value)} maxLength={40} placeholder={tr(c.catPlaceholder)} aria-label={tr(c.nameTh)} required />
+          <input className={input} value={nameEn} onChange={(e) => setNameEn(e.target.value)} maxLength={40} placeholder="English" aria-label={tr(c.nameEn)} />
+        </div>
+        <button type="submit" disabled={pending} className={cn(btn, 'w-full bg-primary text-primary-foreground')}>
+          {pending && <Spinner className="h-4 w-4" />}
+          {tr(c.addCat)}
+        </button>
+      </form>
+      <Status error={error} saved={saved} />
+      <SaleTypesCard saleTypes={saleTypes} save={api.saveSaleTypes} />
+    </div>
+  )
+}
+
+function CategoryRow({
+  cat,
+  count,
+  rule,
+  showRate,
+  first,
+  last,
+  onMove,
+  pending,
+  run,
+  api,
+}: {
+  cat: ProductCategory
+  count: number
+  rule: CommissionRule | null
+  showRate: boolean
+  first: boolean
+  last: boolean
+  onMove: (d: -1 | 1) => void
+  pending: boolean
+  run: ReturnType<typeof useSave>['run']
+  api: CatApi
+}) {
+  const { tr } = useLanguage()
+  const [nameTh, setNameTh] = useState(cat.nameTh)
+  const [nameEn, setNameEn] = useState(cat.nameEn)
+  const startMode = rule && rule.mode !== 'none' ? rule.mode : ''
+  const [mode, setMode] = useState<'' | 'pct' | 'thb'>(startMode)
+  const [value, setValue] = useState(rule && rule.mode !== 'none' ? String(rule.value) : '')
+  const dirty = nameTh !== cat.nameTh || nameEn !== cat.nameEn
+  const rateDirty = mode !== startMode || (mode !== '' && Number(value) !== Number(rule?.value ?? NaN))
+  const iconBtn = 'flex h-8 w-8 items-center justify-center rounded-full text-muted-foreground hover:bg-secondary disabled:opacity-30'
+  return (
+    <li className="space-y-2 p-3">
+      <div className="flex items-center gap-1">
+        <span className="mr-auto text-xs text-muted-foreground">{tr(c.catCount).replace('{n}', String(count))}</span>
+        <button type="button" className={iconBtn} disabled={first || pending} onClick={() => onMove(-1)} aria-label={tr(c.catUp)} title={tr(c.catUp)}>
+          <ArrowUp className="h-4 w-4" aria-hidden="true" />
+        </button>
+        <button type="button" className={iconBtn} disabled={last || pending} onClick={() => onMove(1)} aria-label={tr(c.catDown)} title={tr(c.catDown)}>
+          <ArrowDown className="h-4 w-4" aria-hidden="true" />
+        </button>
+        <button
+          type="button"
+          className={cn(iconBtn, 'hover:text-destructive')}
+          disabled={pending}
+          onClick={() => {
+            if (window.confirm(tr(c.catDeleteAsk).replace('{name}', cat.nameTh))) run(() => api.deleteProductCategory(cat.id))
+          }}
+          aria-label={tr(c.catDelete)}
+          title={tr(c.catDelete)}
+        >
+          <Trash2 className="h-4 w-4" aria-hidden="true" />
+        </button>
+      </div>
+      <div className="grid grid-cols-2 gap-2">
+        <input className={input} value={nameTh} onChange={(e) => setNameTh(e.target.value)} maxLength={40} aria-label={tr(c.nameTh)} />
+        <input className={input} value={nameEn} onChange={(e) => setNameEn(e.target.value)} maxLength={40} placeholder="English" aria-label={tr(c.nameEn)} />
+      </div>
+      {dirty && (
+        <button type="button" disabled={pending || !nameTh.trim()} onClick={() => run(() => api.saveProductCategory({ id: cat.id, nameTh, nameEn }))} className={cn(btn, 'bg-primary py-1.5 text-primary-foreground')}>
+          {tr(c.save)}
+        </button>
+      )}
+      {showRate && (
+        <div className="flex flex-wrap items-center gap-2 text-sm">
+          <span className="text-xs text-muted-foreground">{tr(c.catRate)}</span>
+          <select className={cn(input, 'w-auto py-1')} value={mode} onChange={(e) => setMode(e.target.value as '' | 'pct' | 'thb')} aria-label={`${tr(c.catRate)} · ${cat.nameTh}`}>
+            <option value="">{tr(c.cmNone)}</option>
+            <option value="pct">{tr(c.cmPct)}</option>
+            <option value="thb">{tr(c.cmThb)}</option>
+          </select>
+          {mode !== '' && (
+            <input className={cn(input, 'w-20 py-1')} inputMode="decimal" value={value} onChange={(e) => setValue(e.target.value.replace(/[^\d.]/g, ''))} aria-label={`${tr(c.catRate)} · ${cat.nameTh}`} />
+          )}
+          {rateDirty && (
+            <button
+              type="button"
+              disabled={pending || (mode !== '' && !(Number(value) > 0))}
+              onClick={() => run(() => api.saveCategoryRate(cat.id, mode || null, Number(value)))}
+              className={cn(btn, 'bg-primary px-3.5 py-1.5 text-primary-foreground')}
+            >
+              {tr(c.save)}
+            </button>
+          )}
+        </div>
+      )}
+    </li>
+  )
+}
+
+// Sale type names, and which a business offers (§37, v0.37).
+function SaleTypesCard({ saleTypes, save }: { saleTypes: SaleTypeNames; save: typeof saveSaleTypes }) {
+  const { tr } = useLanguage()
+  const { pending, error, saved, run } = useSave()
+  const [v, setV] = useState<SaleTypeNames>(saleTypes)
+  const set = (k: SaleType, patch: Partial<SaleTypeNames[SaleType]>) => setV((o) => ({ ...o, [k]: { ...o[k], ...patch } }))
+  return (
+    <div className="space-y-3 border-t border-border pt-4">
+      <div>
+        <h3 className="font-display text-base font-bold">{tr(c.saleTypesTitle)}</h3>
+        <p className="mt-0.5 text-xs text-muted-foreground">{tr(c.saleTypesHint)}</p>
+      </div>
+      {SALE_TYPES.map((k) => (
+        <div key={k} className="space-y-1.5 rounded-xl border border-border p-3">
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-xs text-muted-foreground">{tr(c[`typeHint_${k}`])}</span>
+            <label className="flex items-center gap-1.5 text-xs font-semibold">
+              <input type="checkbox" checked={v[k].on} onChange={(e) => set(k, { on: e.target.checked })} className="h-4 w-4 accent-[var(--accent)]" />
+              {tr(c.typeOn)}
+            </label>
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <input className={input} value={v[k].th} onChange={(e) => set(k, { th: e.target.value })} maxLength={40} aria-label={tr(c.nameTh)} />
+            <input className={input} value={v[k].en} onChange={(e) => set(k, { en: e.target.value })} maxLength={40} aria-label={tr(c.nameEn)} />
+          </div>
+        </div>
+      ))}
+      <div className="flex items-center gap-3">
+        <button type="button" disabled={pending} onClick={() => run(() => save(v))} className={cn(btn, 'bg-primary text-primary-foreground')}>
+          {pending && <Spinner className="h-4 w-4" />}
+          {tr(c.save)}
+        </button>
+        <Status error={error} saved={saved} />
+      </div>
+    </div>
+  )
+}
+
+function ProductForm({
+  product,
+  categories,
+  saleTypes,
+  rules,
+  onCreated,
+}: {
+  product: Product | null
+  categories: ProductCategory[] | null
+  saleTypes: SaleTypeNames
+  rules: CommissionRule[] | null // null = commission (§33) not set up
+  onCreated: () => void
+}) {
+  const { tr, lang } = useLanguage()
+  const { pending, error, saved, run } = useSave()
   const isPass = product?.kind === 'day_pass'
-  const [kind, setKind] = useState<ProductKind>(product?.kind ?? 'addon')
+  const [type, setType] = useState<SaleType>(product ? saleTypeOf(product.kind) : saleTypes.item.on ? 'item' : 'package')
+  const kind = type
+  const [categoryId, setCategoryId] = useState(product?.categoryId ?? '')
+  // Commission (v0.37): as the category, its own rate, or none.
+  const own = product ? rules?.find((r) => r.productId === product.id) : undefined
+  const [cmMode, setCmMode] = useState<'cat' | 'own' | 'none'>(own ? (own.mode === 'none' ? 'none' : 'own') : 'cat')
+  const [cmKind, setCmKind] = useState<'pct' | 'thb'>(own && own.mode !== 'none' ? own.mode : 'pct')
+  const [cmValue, setCmValue] = useState(own && own.mode !== 'none' ? String(own.value) : '')
+  const catRule = categoryId ? rules?.find((r) => r.categoryId === categoryId) : rules?.find((r) => r.kind && r.kind === product?.kind)
+  const catName = categories?.find((x) => x.id === categoryId)
+  const rateText = (r: CommissionRule | undefined) => (r && r.mode !== 'none' ? (r.mode === 'pct' ? `${r.value}%` : `${r.value} ${tr(c.cmThb)}`) : tr(c.cmNone))
   const [nameTh, setNameTh] = useState(product?.nameTh ?? '')
   const [nameEn, setNameEn] = useState(product?.nameEn ?? '')
   const [wd, setWd] = useState(product ? String(product.priceWeekday) : '')
@@ -212,7 +524,9 @@ function ProductForm({ product, onCreated }: { product: Product | null; onCreate
           () =>
             saveProduct({
               id: product?.id,
-              kind,
+              kind: type === 'entry' ? (product?.kind ?? 'day_pass') : type,
+              categoryId: categories ? categoryId || null : undefined,
+              commission: rules ? { mode: cmMode === 'own' ? cmKind : cmMode, value: Number(cmValue) } : undefined,
               nameTh,
               nameEn,
               priceWeekday: Number(wd),
@@ -239,25 +553,7 @@ function ProductForm({ product, onCreated }: { product: Product | null; onCreate
       className="space-y-3"
     >
       <h2 className="font-display text-lg font-bold">{product ? product.nameTh : tr(c.newProduct)}</h2>
-      {isPass ? (
-        <p className="rounded-xl bg-secondary px-3 py-2 text-xs text-secondary-foreground">{tr(c.dayPassNote)}</p>
-      ) : (
-        <div>
-          <span className={label}>{tr(c.colKind)}</span>
-          <div className="mt-1 flex flex-wrap gap-1.5">
-            {PRODUCT_KINDS.filter((k) => k !== 'day_pass' && (!product || (k === 'package') === (product.kind === 'package'))).map((k) => (
-              <button
-                key={k}
-                type="button"
-                onClick={() => setKind(k)}
-                className={cn('rounded-full px-3 py-1.5 text-xs font-semibold', kind === k ? 'bg-foreground text-background' : 'border border-border')}
-              >
-                {tr(c[`kind_${k}`])}
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
+      <p className={cn(label, 'text-primary')}>{tr(c.secInfo)}</p>
       <div className="grid grid-cols-2 gap-3">
         <label>
           <span className={label}>{tr(c.nameTh)}</span>
@@ -268,6 +564,46 @@ function ProductForm({ product, onCreated }: { product: Product | null; onCreate
           <input className={cn(input, 'mt-1')} value={nameEn} onChange={(e) => setNameEn(e.target.value)} maxLength={60} />
         </label>
       </div>
+      {categories && (
+        <label className="block">
+          <span className={label}>{tr(c.colCategory)}</span>
+          <select className={cn(input, 'mt-1')} value={categoryId} onChange={(e) => setCategoryId(e.target.value)}>
+            <option value="">{tr(c.noCategory)}</option>
+            {categories.map((x) => (
+              <option key={x.id} value={x.id}>
+                {lang === 'en' && x.nameEn ? x.nameEn : x.nameTh}
+              </option>
+            ))}
+          </select>
+        </label>
+      )}
+
+      <p className={cn(label, 'pt-2 text-primary')}>{tr(c.secType)}</p>
+      <div className="grid gap-2 sm:grid-cols-3">
+        {SALE_TYPES.filter((k) => saleTypes[k].on || k === type).map((k) => {
+          const locked = product ? k !== type : k === 'entry'
+          return (
+            <button
+              key={k}
+              type="button"
+              disabled={locked}
+              onClick={() => setType(k)}
+              aria-pressed={type === k}
+              className={cn(
+                'rounded-xl border p-2.5 text-left disabled:cursor-not-allowed',
+                type === k ? 'border-2 border-accent bg-accent/10' : 'border-border',
+                locked && type !== k && 'opacity-40',
+              )}
+            >
+              <span className="block text-sm font-semibold">{tr(saleTypes[k])}</span>
+              <span className="block text-[11px] text-muted-foreground">{tr(c[`typeHint_${k}`])}</span>
+            </button>
+          )
+        })}
+      </div>
+      <p className="text-[11px] text-muted-foreground">{product ? tr(c.typeLocked) : tr(c.entryOne)}</p>
+
+      <p className={cn(label, 'pt-2 text-primary')}>{tr(c.secPrice)}</p>
       {isPkg ? (
         <>
           <label className="block max-w-[12rem]">
@@ -357,6 +693,7 @@ function ProductForm({ product, onCreated }: { product: Product | null; onCreate
       <p className="text-xs text-muted-foreground">{tr(c.priceBlankHint)}</p>
         </>
       )}
+      {!isPass && !isPkg && <p className={cn(label, 'pt-2 text-primary')}>{tr(c.secStock)}</p>}
       <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-sm">
         {!isPass && !isPkg && (
           <label className="flex items-center gap-2">
@@ -373,7 +710,39 @@ function ProductForm({ product, onCreated }: { product: Product | null; onCreate
           <input className={cn(input, 'w-16 py-1')} inputMode="numeric" value={sort} onChange={(e) => setSort(e.target.value.replace(/[^\d-]/g, ''))} />
         </label>
       </div>
-      <div className="flex items-center gap-3">
+      <p className={cn(label, 'pt-2 text-primary')}>{tr(c.secCm)}</p>
+      {rules === null ? (
+        <p className="text-xs text-muted-foreground">{tr(c.cmNotSetUp)}</p>
+      ) : (
+        <div className="space-y-2 text-sm">
+          <label className="flex items-center gap-2">
+            <input type="radio" name="cm" checked={cmMode === 'cat'} onChange={() => setCmMode('cat')} className="h-4 w-4 accent-[var(--accent)]" />
+            {tr(c.cmByCat)}
+            <span className="text-muted-foreground">
+              ({catName ? (lang === 'en' && catName.nameEn ? catName.nameEn : catName.nameTh) : tr(c.cmNoCat)} · {rateText(catRule)})
+            </span>
+          </label>
+          <label className="flex flex-wrap items-center gap-2">
+            <input type="radio" name="cm" checked={cmMode === 'own'} onChange={() => setCmMode('own')} className="h-4 w-4 accent-[var(--accent)]" />
+            {tr(c.cmOwn)}
+            {cmMode === 'own' && (
+              <>
+                <select className={cn(input, 'w-auto py-1')} value={cmKind} onChange={(e) => setCmKind(e.target.value as 'pct' | 'thb')} aria-label={tr(c.cmOwn)}>
+                  <option value="pct">{tr(c.cmPct)}</option>
+                  <option value="thb">{tr(c.cmThb)}</option>
+                </select>
+                <input className={cn(input, 'w-20 py-1')} inputMode="decimal" value={cmValue} onChange={(e) => setCmValue(e.target.value.replace(/[^\d.]/g, ''))} aria-label={tr(c.cmOwn)} required />
+              </>
+            )}
+          </label>
+          <label className="flex items-center gap-2">
+            <input type="radio" name="cm" checked={cmMode === 'none'} onChange={() => setCmMode('none')} className="h-4 w-4 accent-[var(--accent)]" />
+            {tr(c.cmNone)}
+          </label>
+        </div>
+      )}
+
+      <div className="flex items-center gap-3 pt-2">
         <button type="submit" disabled={pending} className={cn(btn, 'bg-primary text-primary-foreground')}>
           {pending && <Spinner className="h-4 w-4" />}
           {tr(c.save)}

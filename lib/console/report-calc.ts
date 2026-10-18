@@ -53,13 +53,16 @@ export type ReportInput = {
   packageVisitDates: { packageId: string; date: string }[] // every package visit up to `to` (pieces included)
   staffNames: Map<string, string>
   vat: boolean
+  // Ordinary items by the admin's category (§37, v0.37): product id → group.
+  // Missing = grouped by the old kind.
+  groupOf?: Map<string, { key: string; label: { th: string; en: string }; rank: number }>
 }
 
 export type Money = { gross: number; discount: number; net: number }
 export type VatSplit = { exVat: number; vat: number } | null
 
 export type ProductRow = Money & { productId: string; name: string; qty: number }
-export type CategoryRow = Money & { kind: string; qty: number; products: ProductRow[]; vat: VatSplit }
+export type CategoryRow = Money & { kind: string; qty: number; products: ProductRow[]; vat: VatSplit; label?: { th: string; en: string }; rank?: number }
 export type BillRow = {
   id: string
   receiptNo: number
@@ -171,14 +174,16 @@ export function buildReport(input: ReportInput): SalesReport {
   for (const s of live) {
     const shares = allocateDiscount(s.lines, s.discount)
     s.lines.forEach((l, i) => {
-      const c = cats.get(l.kind) ?? { kind: l.kind, qty: 0, gross: 0, discount: 0, net: 0, products: [], vat: null }
+      const g = l.kind === 'day_pass' || l.kind === 'package' ? undefined : input.groupOf?.get(l.product_id)
+      const gk = g?.key ?? l.kind
+      const c = cats.get(gk) ?? { kind: gk, qty: 0, gross: 0, discount: 0, net: 0, products: [], vat: null, ...(g ? { label: g.label, rank: g.rank } : {}) }
       c.qty += l.qty
       c.gross += l.line_total
       c.discount += shares[i]
       c.net += l.line_total - shares[i]
-      cats.set(l.kind, c)
-      const key = `${l.kind}|${l.product_id}|${l.name}`
-      const p = prods.get(key) ?? { kind: l.kind, productId: l.product_id, name: l.name, qty: 0, gross: 0, discount: 0, net: 0 }
+      cats.set(gk, c)
+      const key = `${gk}|${l.product_id}|${l.name}`
+      const p = prods.get(key) ?? { kind: gk, productId: l.product_id, name: l.name, qty: 0, gross: 0, discount: 0, net: 0 }
       p.qty += l.qty
       p.gross += l.line_total
       p.discount += shares[i]
@@ -191,10 +196,10 @@ export function buildReport(input: ReportInput): SalesReport {
     cats.get(kind)?.products.push(row)
   }
   const KIND_ORDER = ['day_pass', 'package', 'addon', 'merch', 'souvenir']
-  const rank = (k: string) => (KIND_ORDER.includes(k) ? KIND_ORDER.indexOf(k) : 99)
+  const rank = (c: CategoryRow) => (c.rank !== undefined ? 10 + c.rank : KIND_ORDER.includes(c.kind) ? KIND_ORDER.indexOf(c.kind) : 9999)
   const categories = [...cats.values()]
     .map((c) => ({ ...c, vat: vatSplit(c.net, vat), products: c.products.sort((a, b) => b.net - a.net) }))
-    .sort((a, b) => rank(a.kind) - rank(b.kind))
+    .sort((a, b) => rank(a) - rank(b))
 
   // Promotions
   const promoMap = new Map<string, { name: string; bills: number; discount: number }>()

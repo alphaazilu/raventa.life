@@ -84,8 +84,12 @@ export function BillBuilder({
   // A different earner for single lines (lineKey → staff id).
   const [lineStaff, setLineStaff] = useState<Record<string, string>>({})
 
-  const items = catalog?.items ?? []
-  const byId = useMemo(() => new Map(items.map((i) => [i.id, i])), [items])
+  const allItems = catalog?.items ?? []
+  // Category chips over the items (v0.37).
+  const [group, setGroup] = useState<string>('')
+  const groups = catalog?.groups ?? []
+  const items = group ? allItems.filter((i) => i.group === group) : allItems
+  const byId = useMemo(() => new Map(allItems.map((i) => [i.id, i])), [allItems])
   const name = (n: { th: string; en: string }) => (lang === 'en' ? n.en : n.th)
 
   // Re-price whenever the bill changes (latest answer wins).
@@ -328,9 +332,25 @@ export function BillBuilder({
             {tr(showItems ? deskCopy.hideItems : deskCopy.addItems)}
           </button>
           {showItems &&
-            (items.length === 0 ? (
+            (allItems.length === 0 ? (
               <p className="mt-2 text-xs text-muted-foreground">{tr(deskCopy.noItems)}</p>
             ) : (
+              <>
+              {groups.length > 1 && (
+                <div className="mt-2 flex gap-1.5 overflow-x-auto pb-1 text-xs font-semibold">
+                  {[{ id: '', name: { th: 'ทั้งหมด', en: 'All' } }, ...groups].map((g) => (
+                    <button
+                      key={g.id || 'all'}
+                      type="button"
+                      onClick={() => setGroup(g.id)}
+                      aria-pressed={group === g.id}
+                      className={cn('shrink-0 rounded-full border px-3 py-1', group === g.id ? 'border-primary bg-primary text-primary-foreground' : 'border-border hover:bg-secondary')}
+                    >
+                      {name(g.name)}
+                    </button>
+                  ))}
+                </div>
+              )}
               // Many products scroll inside this box, so the total and the
               // pay button stay on screen.
               <div className="mt-2 grid max-h-[38dvh] grid-cols-2 gap-2 overflow-y-auto pr-1 sm:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
@@ -373,6 +393,7 @@ export function BillBuilder({
                   )
                 })}
               </div>
+              </>
             ))}
           {picking && (
             <div className="mt-2 rounded-xl border border-primary/40 p-3">

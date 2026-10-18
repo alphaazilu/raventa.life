@@ -13,6 +13,7 @@ const nameOf = (p: { first_name?: unknown; last_name?: unknown; email?: unknown 
 const toRule = (r: Record<string, unknown>): CommissionRule => ({
   id: r.id as string,
   productId: (r.product_id as string | null) ?? null,
+  categoryId: (r.category_id as string | null | undefined) ?? null,
   kind: (r.kind as CommissionKind | null) ?? null,
   mode: r.mode as CommissionMode,
   value: Number(r.value),
@@ -33,7 +34,8 @@ export async function listEarners(): Promise<{ id: string; name: string; role: s
 }
 
 export async function listRules(): Promise<CommissionRule[] | null> {
-  const { data, error } = await createAdminClient().from('commission_rules').select('id, product_id, kind, mode, value')
+  // '*' so it still reads before §37 adds category_id.
+  const { data, error } = await createAdminClient().from('commission_rules').select('*')
   if (error) {
     if (isMissingTable(error)) return null
     throw error
@@ -61,6 +63,11 @@ export async function loadDeskCommission(me: string): Promise<DeskCommission> {
     const [earners, rules] = await Promise.all([enabledEarners(), listRules()])
     if (!earners || !rules) return null
     const { data: dp } = await createAdminClient().from('products').select('id').eq('kind', 'day_pass').maybeSingle()
+    // Products whose category has a rate (§37) count as having one — unless
+    // the product itself is set to 'none'.
+    const cats = rules.filter((r) => r.categoryId).map((r) => r.categoryId as string)
+    const { data: inCats } = cats.length ? await createAdminClient().from('products').select('id').in('category_id', cats) : { data: [] }
+    const off = new Set(rules.filter((r) => r.productId && r.mode === 'none').map((r) => r.productId as string))
     return {
       ready: earners.size > 0 && rules.length > 0,
       // The person selling doesn't earn per bill — not in the pickers.
@@ -68,7 +75,10 @@ export async function loadDeskCommission(me: string): Promise<DeskCommission> {
         .filter(([id]) => id !== me)
         .map(([id, name]) => ({ id, name }))
         .sort((a, b) => a.name.localeCompare(b.name, 'th')),
-      productIds: rules.filter((r) => r.productId).map((r) => r.productId as string),
+      productIds: [
+        ...rules.filter((r) => r.productId && r.mode !== 'none').map((r) => r.productId as string),
+        ...(inCats ?? []).map((p) => p.id as string).filter((id) => !off.has(id)),
+      ],
       kinds: rules.filter((r) => r.kind).map((r) => r.kind as string),
       dayPassId: (dp?.id as string | undefined) ?? null,
       me,
@@ -101,12 +111,25 @@ export async function recordCommissions(input: {
     if (!sale || sale.voided_at || !lines?.length) return
     const byProduct = new Map(rules.filter((r) => r.productId).map((r) => [r.productId as string, r]))
     const byKind = new Map(rules.filter((r) => r.kind).map((r) => [r.kind as string, r]))
+    const byCategory = new Map(rules.filter((r) => r.categoryId).map((r) => [r.categoryId as string, r]))
+    // Each product's category (§37) — '*' so this still works before §37.
+    const productCat = new Map<string, string | null>()
+    if (byCategory.size) {
+      const { data: ps } = await db.from('products').select('*').in('id', [...new Set(lines.map((l) => l.product_id as string))])
+      for (const p of ps ?? []) productCat.set(p.id as string, (p.category_id as string | null | undefined) ?? null)
+    }
     const shares = shareDiscount(lines.map((l) => Number(l.line_total)), Number(sale.discount))
     const isPicked = (l: (typeof lines)[number]) => {
       const p = input.lineStaff[lineKey(l.kind as string, l.product_id as string, (l.variant_id as string | null) ?? null)]
       return p && p !== input.cashierId && earners.has(p) ? p : null
     }
-    const ruleOf = (l: (typeof lines)[number]) => byProduct.get(l.product_id as string) ?? byKind.get(l.kind as string)
+    // A product's own rate, else its category's, else its kind's (Day Pass / package).
+    const ruleOf = (l: (typeof lines)[number]) => {
+      const own = byProduct.get(l.product_id as string)
+      if (own) return own.mode === 'none' ? undefined : own
+      const cat = productCat.get(l.product_id as string)
+      return (cat ? byCategory.get(cat) : undefined) ?? byKind.get(l.kind as string)
+    }
     // The member's first-bill referral (v0.36.1) only counts on a bill with
     // something for the referrer: a line with a rate, an amount after the
     // discount, and not picked for someone else. A bill without (Day Pass on

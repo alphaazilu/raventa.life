@@ -280,7 +280,7 @@ function Body({ report: r, date }: { report: SalesReport; date: (d: string) => s
               </tr>
             </thead>
             {r.categories.map((c) => (
-              <CategoryRows key={c.kind} label={kindLabel(c.kind)} row={c} vat={r.vat} />
+              <CategoryRows key={c.kind} label={c.label ? tr(c.label) : kindLabel(c.kind)} row={c} vat={r.vat} />
             ))}
             <tbody>
               <tr className="border-t-2 border-border font-bold">
