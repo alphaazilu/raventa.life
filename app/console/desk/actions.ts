@@ -361,7 +361,7 @@ export async function getFloor(): Promise<DeskResult<Floor>> {
     ids.length > 0 ? supabase.from('profiles').select('id, first_name, last_name, email').in('id', ids) : Promise.resolve({ data: [] }),
     salesQuery(),
     visitIds.length > 0
-      ? supabase.from('visit_loans').select('id, visit_id, qty, products(name_th, name_en), name').in('visit_id', visitIds).is('returned_at', null)
+      ? supabase.from('visit_loans').select('id, visit_id, qty, item_id, name').in('visit_id', visitIds).is('returned_at', null)
       : Promise.resolve({ data: [], error: null }),
   ])
   // sales.branch_id (and sale_date) may predate §47/§18; on a column error,
@@ -371,11 +371,21 @@ export async function getFloor(): Promise<DeskResult<Floor>> {
     salesRes = await supabase.from('sales').select('total, payment_method').eq('sale_date', today).is('voided_at', null)
   }
   for (const p of people.data ?? []) names[p.id] = fullName(p)
+  const loanRows = (loansRes.error ? [] : (loansRes.data ?? [])) as unknown as Record<string, unknown>[]
+  // Product names separately — a PostgREST embed (products(...)) could error on
+  // the relationship and silently drop every loan, so it is kept out of the
+  // query. The loan's own stored `name` is the Thai fallback.
+  const itemIds = [...new Set(loanRows.map((l) => l.item_id).filter(Boolean))] as string[]
+  const itemName: Record<string, { th: string; en: string }> = {}
+  if (itemIds.length > 0) {
+    const { data: prods } = await supabase.from('products').select('id, name_th, name_en').in('id', itemIds)
+    for (const p of prods ?? []) itemName[p.id as string] = { th: p.name_th as string, en: (p.name_en as string) || (p.name_th as string) }
+  }
   const loans: Record<string, { id: string; name: string; nameEn: string; qty: number }[]> = {}
-  for (const l of (loansRes.error ? [] : (loansRes.data ?? [])) as unknown as Record<string, unknown>[]) {
-    const p = l.products as { name_th?: string; name_en?: string } | null
-    const name = (l.name as string) || p?.name_th || '—'
-    ;(loans[l.visit_id as string] ??= []).push({ id: l.id as string, name, nameEn: p?.name_en || name, qty: Number(l.qty) })
+  for (const l of loanRows) {
+    const pn = l.item_id ? itemName[l.item_id as string] : undefined
+    const name = (l.name as string) || pn?.th || '—'
+    ;(loans[l.visit_id as string] ??= []).push({ id: l.id as string, name, nameEn: pn?.en || name, qty: Number(l.qty) })
   }
 
   const takings: Takings = { cash: 0, transfer: 0, card: 0, total: 0 }

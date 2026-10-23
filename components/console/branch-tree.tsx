@@ -40,6 +40,9 @@ export function BranchTree({ branches, companyName }: { branches: Branch[]; comp
   const [editId, setEditId] = useState<string | null>(null)
   const [editName, setEditName] = useState('')
   const [busy, setBusy] = useState(false)
+  // Read synchronously during a drag — React state lags a render behind the
+  // native dragstart/dragover/drop events, which made the first drag miss.
+  const dragRef = useRef<string | null>(null)
 
   const roots = buildTree(branches)
 
@@ -100,10 +103,24 @@ export function BranchTree({ branches, companyName }: { branches: Branch[]; comp
   }
 
   // ---- drag & drop reparent ----
-  const onDrop = (targetId: string | null) => {
-    const id = dragId
-    setDropId(null)
+  const beginDrag = (id: string, e: React.DragEvent) => {
+    dragRef.current = id
+    setDragId(id)
+    try {
+      e.dataTransfer.setData('text/plain', id) // required for a drag to start in some browsers
+      e.dataTransfer.effectAllowed = 'move'
+    } catch {
+      /* ignore */
+    }
+  }
+  const endDrag = () => {
+    dragRef.current = null
     setDragId(null)
+    setDropId(null)
+  }
+  const onDrop = (targetId: string | null) => {
+    const id = dragRef.current
+    endDrag()
     if (id && id !== targetId) act(() => moveBranch(id, targetId))
   }
 
@@ -121,11 +138,13 @@ export function BranchTree({ branches, companyName }: { branches: Branch[]; comp
         )}
         style={{ minWidth: 168, maxWidth: 230, zIndex: 1 }}
         draggable={editId !== n.id}
-        onDragStart={(e) => (setDragId(n.id), e.stopPropagation())}
-        onDragEnd={() => (setDragId(null), setDropId(null))}
+        onDragStart={(e) => (beginDrag(n.id, e), e.stopPropagation())}
+        onDragEnd={endDrag}
         onDragOver={(e) => {
-          if (dragId && dragId !== n.id) {
+          const d = dragRef.current
+          if (d && d !== n.id) {
             e.preventDefault()
+            e.dataTransfer.dropEffect = 'move'
             setDropId(n.id)
           }
         }}
@@ -223,8 +242,9 @@ export function BranchTree({ branches, companyName }: { branches: Branch[]; comp
               className={cn('bt-node relative inline-block rounded-2xl border-2 border-primary bg-card p-3 text-left shadow-sm', dropId === COMPANY && 'outline outline-2 outline-dashed outline-primary')}
               style={{ minWidth: 180, zIndex: 1 }}
               onDragOver={(e) => {
-                if (dragId) {
+                if (dragRef.current) {
                   e.preventDefault()
+                  e.dataTransfer.dropEffect = 'move'
                   setDropId(COMPANY)
                 }
               }}
