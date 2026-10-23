@@ -597,9 +597,10 @@ export function BranchManager({ branches }: { branches: Branch[] | null }) {
               </>
             ) : (
               <>
-                <button type="button" onClick={() => (setEditId(b.id), setEditName(b.name))} className="min-w-0 flex-1 truncate text-left text-sm font-semibold hover:text-primary">
+                <Link href={`/console/settings/branch/${b.id}`} className="flex min-w-0 flex-1 items-center gap-1.5 truncate text-left text-sm font-semibold hover:text-primary">
                   {b.name}
-                </button>
+                  <ChevronRight className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden="true" />
+                </Link>
                 <button
                   type="button"
                   disabled={pending}
