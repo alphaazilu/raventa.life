@@ -4344,3 +4344,36 @@ end;
 $$;
 revoke execute on function public.pos_checkout(uuid, text, jsonb, text, text, text, uuid, text, uuid) from public, anon;
 grant execute on function public.pos_checkout(uuid, text, jsonb, text, text, text, uuid, text, uuid) to authenticated;
+
+-- 50. Branch hierarchy (v0.38.8). A branch can sit under a group (a region or
+-- province) and groups can nest, so the org reads company → region/province →
+-- branch. The company itself is the fixed root in the UI, not a row here.
+-- 'group' nodes are organisational only (no sales, stock, price or tablets);
+-- 'branch' nodes are the real ones everything else already points at.
+alter table public.branches add column if not exists parent_id uuid references public.branches(id) on delete set null;
+alter table public.branches add column if not exists kind text not null default 'branch';
+-- existing rows are real branches at the top level (directly under the company)
+update public.branches set kind = 'branch' where kind is null;
+do $$ begin
+  alter table public.branches add constraint branches_kind_check check (kind in ('group', 'branch'));
+exception when duplicate_object then null; end $$;
+-- a node cannot be its own parent (deeper cycles are guarded in the server action)
+do $$ begin
+  alter table public.branches add constraint branches_parent_not_self check (parent_id is null or parent_id <> id);
+exception when duplicate_object then null; end $$;
+create index if not exists branches_parent_idx on public.branches (parent_id);
+
+-- Only real branches (not groups) take part in sales — tighten main_branch so a
+-- group is never picked as the default.
+create or replace function public.main_branch()
+returns uuid
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select id from public.branches
+  where kind = 'branch'
+  order by (not is_active), sort, created_at
+  limit 1
+$$;

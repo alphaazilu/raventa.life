@@ -84,13 +84,24 @@ export async function deskAllowed(input: { userId: string; admin: boolean; onTab
   return (await listPhoneAccess()).includes(input.userId)
 }
 
-// Branches (§46, v0.38). null = §46 not run yet.
-export type Branch = { id: string; name: string; active: boolean }
+// Branches (§46, v0.38). null = §46 not run yet. parentId/kind arrive with §50
+// (the hierarchy): a 'group' is a region/province, a 'branch' is a real branch.
+export type Branch = { id: string; name: string; active: boolean; parentId: string | null; kind: 'group' | 'branch'; sort: number }
 export const listBranches = cache(async (): Promise<Branch[] | null> => {
-  const { data, error } = await createAdminClient().from('branches').select('id, name, is_active').order('sort').order('created_at')
+  const admin = createAdminClient()
+  const run = (cols: string) => admin.from('branches').select(cols).order('sort').order('created_at')
+  let { data, error } = await run('id, name, is_active, sort, parent_id, kind')
+  if ((error as { code?: string } | null)?.code === '42703') ({ data, error } = await run('id, name, is_active, sort'))
   if (error) {
     if (isMissingTable(error)) return null
     throw error
   }
-  return (data ?? []).map((r) => ({ id: r.id as string, name: r.name as string, active: Boolean(r.is_active) }))
+  return ((data ?? []) as unknown as Record<string, unknown>[]).map((r) => ({
+    id: r.id as string,
+    name: r.name as string,
+    active: Boolean(r.is_active),
+    parentId: (r.parent_id as string | null) ?? null,
+    kind: (r.kind as 'group' | 'branch' | undefined) === 'group' ? 'group' : 'branch',
+    sort: Number(r.sort ?? 0),
+  }))
 })
