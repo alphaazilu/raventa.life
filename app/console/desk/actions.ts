@@ -263,6 +263,20 @@ export async function searchMembers(query: string): Promise<DeskResult<MemberHit
   return { ok: true, data: hits }
 }
 
+// Lend one or more flagged items to someone in the shop (§51, v0.38.11).
+// They come back at check-out like any other loan.
+export async function lendItems(visitId: string, items: { itemId: string; qty: number }[]): Promise<DeskResult<number>> {
+  const ctx = await requireDesk()
+  if ('error' in ctx) return { ok: false, error: ctx.error }
+  const clean = items
+    .filter((x) => x.itemId && x.qty > 0)
+    .map((x) => ({ item_id: x.itemId, qty: Math.min(999, Math.round(x.qty)) }))
+  if (clean.length === 0) return { ok: false, error: 'no_items' }
+  const { data, error } = await ctx.supabase.rpc('staff_lend_items', { p_visit: visitId, p_items: clean })
+  if (error) return { ok: false, error: errorCode(error) }
+  return { ok: true, data: Number(data) || 0 }
+}
+
 // Back in the same day (§22): reopens today's visit, no charge.
 export async function reEnter(visitId: string): Promise<DeskResult<null>> {
   const ctx = await requireDesk()
@@ -427,6 +441,7 @@ export type DeskItem = {
   // Packages: what one buys (§21).
   pkg: { visits: number | null; days: number } | null
   group?: string // a category id | 'none' (v0.37)
+  lendable?: boolean // §51: staff can lend it on the spot
 }
 
 // groups: the category chips over the items (v0.37) — only ones with items.
@@ -477,6 +492,7 @@ export async function getDeskCatalog(): Promise<DeskResult<DeskCatalog>> {
         variants: p.variants.filter((v) => v.active).map((v) => ({ id: v.id, label: v.label, stock: v.stock })),
         pkg: p.pkg ? { visits: p.pkg.visits, days: p.pkg.days } : null,
         group: p.categoryId && cat.categories?.some((x) => x.id === p.categoryId) ? p.categoryId : 'none',
+        lendable: Boolean(p.lendable),
       }))
     const has = new Set(items.map((i) => i.group))
     const groups = cat.categories

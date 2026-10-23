@@ -19,7 +19,7 @@ import { cn } from '@/lib/utils'
 import { CASH_PATH, DESK_PATH } from '@/lib/auth/roles'
 import { cashCopy } from '@/lib/cash'
 import { isGift, type MemberPackage, type PackageItem } from '@/lib/packages'
-import type { FloorVisit as FloorVisitT } from '@/app/console/desk/actions'
+import type { FloorVisit as FloorVisitT, DeskItem as DeskItemT } from '@/app/console/desk/actions'
 import { cmCopy, cmErrors, type DeskCommission } from '@/lib/commission'
 import { bkCopy, bkkHm } from '@/lib/booking'
 import {
@@ -28,6 +28,7 @@ import {
   reEnter,
   checkOut,
   checkOutWithLoans,
+  lendItems,
   redeemPackageItem,
   undoPackageItem,
   getDeskCatalog,
@@ -88,9 +89,12 @@ export function CheckInDesk({
   const [lastUse, setLastUse] = useState<{ useId: string; memberId: string } | null>(null)
   // Checking lent items back at check-out (§44).
   const [loanCheckout, setLoanCheckout] = useState<FloorVisitT | null>(null)
+  const [lendVisit, setLendVisit] = useState<FloorVisitT | null>(null)
   const [query, setQuery] = useState('')
   const [busy, startBusy] = useTransition()
   const [catalog, setCatalog] = useState<DeskCatalog>(initialCatalog)
+  // Items staff may lend on the spot (§51).
+  const lendables = (catalog?.items ?? []).filter((i) => i.lendable)
   // Bumped after each sale so a fresh, empty bill is shown.
   const [billKey, setBillKey] = useState(0)
   const [searchOpen, setSearchOpen] = useState(false)
@@ -335,6 +339,8 @@ export function CheckInDesk({
                   },
                 )
           }
+          onLend={(v) => setLendVisit(v)}
+          canLend={lendables.length > 0}
         />
       ) : (
         <div className="grid items-start gap-4 md:grid-cols-[17rem_minmax(0,1fr)] lg:grid-cols-[19rem_minmax(0,1fr)] 2xl:grid-cols-[22rem_minmax(0,1fr)]">
@@ -525,6 +531,91 @@ export function CheckInDesk({
           }}
         />
       )}
+
+      {lendVisit && (
+        <LendModal
+          visit={lendVisit}
+          items={lendables}
+          busy={busy}
+          onClose={() => setLendVisit(null)}
+          onConfirm={(picked) => {
+            const v = lendVisit
+            run(
+              () => lendItems(v.id, picked),
+              () => {
+                setLendVisit(null)
+                setNotice(`${tr(deskCopy.doneLend)} · ${v.name}`)
+                void refreshFloor()
+              },
+            )
+          }}
+        />
+      )}
+    </div>
+  )
+}
+
+// Lend flagged items to someone in the shop (§51, v0.38.11). Pick items and a
+// quantity; they come back at check-out like any other loan.
+function LendModal({
+  visit,
+  items,
+  busy,
+  onClose,
+  onConfirm,
+}: {
+  visit: FloorVisitT
+  items: DeskItemT[]
+  busy: boolean
+  onClose: () => void
+  onConfirm: (picked: { itemId: string; qty: number }[]) => void
+}) {
+  const { tr, lang } = useLanguage()
+  const [qty, setQty] = useState<Record<string, number>>({})
+  const picked = Object.entries(qty)
+    .filter(([, n]) => n > 0)
+    .map(([itemId, n]) => ({ itemId, qty: n }))
+  return (
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-0 sm:items-center sm:p-4" onClick={onClose}>
+      <div className="max-h-[85vh] w-full max-w-md overflow-y-auto rounded-t-2xl bg-card p-5 sm:rounded-2xl" onClick={(e) => e.stopPropagation()}>
+        <h3 className="text-base font-bold text-card-foreground">
+          {tr(deskCopy.lend)} · {visit.name}
+        </h3>
+        <p className="mt-1 text-xs text-muted-foreground">{tr(deskCopy.lendHint)}</p>
+        <ul className="mt-3 divide-y divide-border">
+          {items.map((it) => {
+            const n = qty[it.id] ?? 0
+            const set = (val: number) => setQty((m) => ({ ...m, [it.id]: Math.max(0, Math.min(99, val)) }))
+            return (
+              <li key={it.id} className="flex items-center gap-3 py-2">
+                <span className="min-w-0 flex-1 truncate text-sm font-medium">{lang === 'en' ? it.name.en : it.name.th}</span>
+                <div className="flex items-center gap-1.5">
+                  <button type="button" onClick={() => set(n - 1)} disabled={n <= 0} className="h-7 w-7 rounded-full border border-border text-sm font-bold disabled:opacity-30">
+                    −
+                  </button>
+                  <span className="w-6 text-center text-sm font-semibold">{n}</span>
+                  <button type="button" onClick={() => set(n + 1)} className="h-7 w-7 rounded-full border border-border text-sm font-bold">
+                    +
+                  </button>
+                </div>
+              </li>
+            )
+          })}
+        </ul>
+        <div className="mt-4 flex gap-2">
+          <button type="button" onClick={onClose} className="h-11 flex-1 rounded-full border border-border text-sm font-semibold">
+            {tr(deskCopy.lendCancel)}
+          </button>
+          <button
+            type="button"
+            disabled={busy || picked.length === 0}
+            onClick={() => onConfirm(picked)}
+            className="h-11 flex-1 rounded-full bg-primary text-sm font-bold text-primary-foreground disabled:opacity-40"
+          >
+            {tr(deskCopy.lendConfirm)}
+          </button>
+        </div>
+      </div>
     </div>
   )
 }
@@ -911,6 +1002,8 @@ function FloorPanel({
   onOpen,
   onCheckOut,
   onReEnter,
+  onLend,
+  canLend,
 }: {
   floor: Floor | null
   capacity: number
@@ -920,6 +1013,8 @@ function FloorPanel({
   onOpen: (memberId: string) => void
   onCheckOut: (v: FloorVisit) => void
   onReEnter: (v: FloorVisit) => void
+  onLend: (v: FloorVisit) => void
+  canLend: boolean
 }) {
   const { tr } = useLanguage()
   const visits = floor?.visits ?? []
@@ -979,7 +1074,7 @@ function FloorPanel({
       ) : (
         <ul className="mt-3 divide-y divide-border">
           {inside.map((v) => (
-            <FloorRow key={v.id} v={v} busy={busy} onOpen={onOpen} onCheckOut={onCheckOut} onReEnter={onReEnter} />
+            <FloorRow key={v.id} v={v} busy={busy} onOpen={onOpen} onCheckOut={onCheckOut} onReEnter={onReEnter} onLend={onLend} canLend={canLend} />
           ))}
           {left.length > 0 && (
             <li className="pt-4 pb-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
@@ -987,7 +1082,7 @@ function FloorPanel({
             </li>
           )}
           {left.map((v) => (
-            <FloorRow key={v.id} v={v} busy={busy} onOpen={onOpen} onCheckOut={onCheckOut} onReEnter={onReEnter} />
+            <FloorRow key={v.id} v={v} busy={busy} onOpen={onOpen} onCheckOut={onCheckOut} onReEnter={onReEnter} onLend={onLend} canLend={canLend} />
           ))}
         </ul>
       )}
@@ -1001,12 +1096,16 @@ function FloorRow({
   onOpen,
   onCheckOut,
   onReEnter,
+  onLend,
+  canLend,
 }: {
   v: FloorVisit
   busy: boolean
   onOpen: (memberId: string) => void
   onCheckOut: (v: FloorVisit) => void
   onReEnter: (v: FloorVisit) => void
+  onLend: (v: FloorVisit) => void
+  canLend: boolean
 }) {
   const { tr, lang } = useLanguage()
   return (
@@ -1044,19 +1143,32 @@ function FloorRow({
           </button>
         </span>
       ) : (
-        <button
-          type="button"
-          disabled={busy}
-          onClick={() => onCheckOut(v)}
-          className={cn(
-            'shrink-0 rounded-full border py-1.5 text-xs font-semibold disabled:opacity-40',
-            v.loans?.length
-              ? 'border-amber-500/60 px-3 text-amber-800 hover:bg-amber-500/10 dark:text-amber-300'
-              : 'w-24 border-border text-foreground hover:border-primary/40',
+        <span className="flex shrink-0 items-center gap-2">
+          {canLend && (
+            <button
+              type="button"
+              disabled={busy}
+              onClick={() => onLend(v)}
+              title={tr(deskCopy.lendTitle)}
+              className="rounded-full border border-border px-3 py-1.5 text-xs font-semibold text-foreground hover:border-primary/40 disabled:opacity-40"
+            >
+              {tr(deskCopy.lend)}
+            </button>
           )}
-        >
-          {tr(v.loans?.length ? deskCopy.returnAndOut : deskCopy.checkOut)}
-        </button>
+          <button
+            type="button"
+            disabled={busy}
+            onClick={() => onCheckOut(v)}
+            className={cn(
+              'rounded-full border py-1.5 text-xs font-semibold disabled:opacity-40',
+              v.loans?.length
+                ? 'border-amber-500/60 px-3 text-amber-800 hover:bg-amber-500/10 dark:text-amber-300'
+                : 'w-24 border-border text-foreground hover:border-primary/40',
+            )}
+          >
+            {tr(v.loans?.length ? deskCopy.returnAndOut : deskCopy.checkOut)}
+          </button>
+        </span>
       )}
     </li>
   )

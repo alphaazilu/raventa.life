@@ -261,6 +261,7 @@ function Products({ catalog, rules, saleTypes }: { catalog: Catalog; rules: Comm
               entriesReady={Boolean(catalog.entriesReady)}
               branchPricesReady={Boolean(catalog.branchPricesReady)}
               branchStockReady={Boolean(catalog.branchStockReady)}
+              lendableReady={Boolean(catalog.lendableReady)}
               branches={catalog.branches ?? []}
               onCreated={() => setFresh((n) => n + 1)}
             />
@@ -506,6 +507,7 @@ function ProductForm({
   entriesReady = false,
   branchPricesReady = false,
   branchStockReady = false,
+  lendableReady = false,
   branches = [],
   onCreated,
 }: {
@@ -520,6 +522,7 @@ function ProductForm({
   entriesReady?: boolean // §41: several entries, packages without entry
   branchPricesReady?: boolean // §48: per-branch price overrides
   branchStockReady?: boolean // §49: per-branch stock
+  lendableReady?: boolean // §51: lendable items
   branches?: { id: string; name: string; active: boolean }[] // active branches (§46)
   onCreated: () => void
 }) {
@@ -562,6 +565,7 @@ function ProductForm({
   })
   const [bsOpen, setBsOpen] = useState(false)
   const [track, setTrack] = useState(product?.trackStock ?? false)
+  const [lendable, setLendable] = useState(product?.lendable ?? false)
   const [active, setActive] = useState(product?.active ?? true)
   const [sort, setSort] = useState(String(product?.sort ?? 0))
   // Per-branch stock shows for a tracked, non-variant item once there is more
@@ -646,6 +650,7 @@ function ProductForm({
               branchStock: showBranchStock
                 ? stockBranches.map((b) => ({ branchId: b.id, stock: brStock[b.id] === undefined || brStock[b.id] === '' ? null : Number(brStock[b.id]) }))
                 : undefined,
+              lendable: lendableReady && !isPass && !isPkg ? lendable : undefined,
             }),
           product ? undefined : onCreated,
         )
@@ -919,6 +924,12 @@ function ProductForm({
           <label className="flex items-center gap-2">
             <input type="checkbox" checked={track} onChange={(e) => setTrack(e.target.checked)} className="h-4 w-4 accent-[var(--primary)]" />
             {tr(c.trackStock)}
+          </label>
+        )}
+        {!isPass && !isPkg && lendableReady && (
+          <label className="flex items-center gap-2" title={tr(c.lendableHint)}>
+            <input type="checkbox" checked={lendable} onChange={(e) => setLendable(e.target.checked)} className="h-4 w-4 accent-[var(--primary)]" />
+            {tr(c.lendableLabel)}
           </label>
         )}
         <label className="flex items-center gap-2">

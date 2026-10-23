@@ -555,6 +555,8 @@ export const catalogCopy = {
   branchCfgPricesOff: { th: 'ยังตั้งราคารายสาขาไม่ได้ (ต้องรัน schema.sql ถึง §48)', en: 'Per-branch prices need schema.sql through §48' },
   branchCfgStockOff: { th: 'ยังตั้งสต็อกรายสาขาไม่ได้ (ต้องรัน schema.sql ถึง §49)', en: 'Per-branch stock needs schema.sql through §49' },
   trackStock: { th: 'นับสต็อก (ขายเกินไม่ได้)', en: 'Track stock (can’t oversell)' },
+  lendableLabel: { th: 'ให้ยืมได้', en: 'Lendable' },
+  lendableHint: { th: 'พนักงานหยิบให้ลูกค้ายืมเฉพาะกิจได้ (คืนตอนเช็คเอาต์)', en: 'Staff can lend it to a customer on the spot (returned at check-out)' },
   activeLabel: { th: 'เปิดขาย', en: 'On sale' },
   sortLabel: { th: 'ลำดับ', en: 'Order' },
   save: { th: 'บันทึก', en: 'Save' },

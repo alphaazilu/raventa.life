@@ -74,6 +74,8 @@ export type Product = {
   branchPrices?: { branchId: string; weekday: number | null; weekend: number | null; holiday: number | null }[]
   // Per-branch stock (§49, v0.38.6): branchId → stock the branch keeps of its own.
   branchStock?: { branchId: string; stock: number }[]
+  // §51 (v0.38.11): staff can lend this item to a customer on the spot.
+  lendable?: boolean
 }
 
 export type PackageRules = {
@@ -118,6 +120,7 @@ export type Catalog = {
   entriesReady?: boolean // §41 run: several entries, packages without entry
   branchPricesReady?: boolean // §48 run: per-branch price overrides
   branchStockReady?: boolean // §49 run: per-branch stock
+  lendableReady?: boolean // §51 run: lendable items
 }
 
 export const PRODUCT_KINDS: ProductKind[] = ['day_pass', 'package', 'addon', 'merch', 'souvenir']
@@ -176,6 +179,7 @@ export async function loadCatalog(client: Client): Promise<Catalog | null> {
         priceWeekend: r.price_weekend == null ? null : Number(r.price_weekend),
         priceHoliday: r.price_holiday == null ? null : Number(r.price_holiday),
         trackStock: Boolean(r.track_stock),
+        lendable: Boolean(r.lendable),
         stock: Number(r.stock ?? 0),
         active: Boolean(r.is_active),
       hidden: Boolean(r.hidden),
@@ -238,6 +242,8 @@ export async function loadCatalog(client: Client): Promise<Catalog | null> {
     entriesReady: !ne.error,
     branchPricesReady: !bp.error,
     branchStockReady: !bs.error,
+    // §51 adds products.lendable — detect it from the rows we already read.
+    lendableReady: ((p.data ?? []) as Row[]).some((r) => 'lendable' in r),
     branches: br.error ? null : ((br.data ?? []) as Row[]).map((r) => ({ id: r.id as string, name: r.name as string, active: Boolean(r.is_active) })),
     categories,
     products,

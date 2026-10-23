@@ -61,6 +61,8 @@ export async function saveProduct(input: {
   // v0.38.6 (§49): per-branch stock for a non-variant product. undefined = leave
   // as is; a branch with null stock keeps no stock of its own (shared pool).
   branchStock?: { branchId: string; stock: number | null }[]
+  // v0.38.11 (§51): staff can lend this item to a customer on the spot.
+  lendable?: boolean
 }): Promise<CatalogResult> {
   const ctx = await requireAdmin()
   if ('error' in ctx) return { ok: false, error: ctx.error }
@@ -166,6 +168,7 @@ export async function saveProduct(input: {
     }
     if (input.branchPrices) await saveBranchPrices(admin, input.id, input.branchPrices)
     if (input.branchStock) await saveBranchStock(admin, input.id, input.branchStock)
+    if (input.lendable !== undefined) await setLendable(admin, input.id, input.lendable)
   } else {
     const kind: ProductKind = general ? 'merch' : input.kind === 'package' ? 'package' : input.kind === 'day_pass' ? 'day_pass' : ('' as ProductKind)
     if (!SELLABLE.includes(kind)) return { ok: false, error: 'bad_kind' }
@@ -184,8 +187,18 @@ export async function saveProduct(input: {
     }
     if (data && input.branchPrices) await saveBranchPrices(admin, data.id as string, input.branchPrices)
     if (data && input.branchStock) await saveBranchStock(admin, data.id as string, input.branchStock)
+    if (data && input.lendable !== undefined) await setLendable(admin, data.id as string, input.lendable)
   }
   return done()
+}
+
+// "Lendable" flag (§51, v0.38.11), written separately so the save still works
+// before §51 is run (the column just isn't there yet).
+async function setLendable(admin: ReturnType<typeof createAdminClient>, productId: string, lendable: boolean) {
+  const { error } = await admin.from('products').update({ lendable }).eq('id', productId)
+  if (error && error.code !== '42703' && error.code !== 'PGRST204') {
+    // a real error — ignore anyway; the product itself saved fine
+  }
 }
 
 // Per-branch stock for a non-variant product (§49, v0.38.6). A branch with no

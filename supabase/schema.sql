@@ -4377,3 +4377,54 @@ as $$
   order by (not is_active), sort, created_at
   limit 1
 $$;
+
+-- 51. Lendable items (v0.38.11). An item can be marked "lendable" so staff can
+-- hand it to a customer on the spot (a towel, a lock, a yoga mat) — a loan not
+-- tied to a product's includes. It comes back at check-out like any other loan.
+alter table public.products add column if not exists lendable boolean not null default false;
+-- An ad-hoc loan need not come from a sale (a reward check-in has none).
+alter table public.visit_loans alter column sale_id drop not null;
+
+-- Lend one or more items to a visit that is in the shop (§51). Staff only;
+-- each item must be flagged lendable. Returns how many loans were added.
+create or replace function public.staff_lend_items(p_visit uuid, p_items jsonb)
+returns integer
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v public.visits;
+  x jsonb;
+  v_prod public.products;
+  v_qty integer;
+  v_added integer := 0;
+begin
+  if not public.is_staff() then
+    raise exception 'not_staff';
+  end if;
+  select * into v from public.visits where id = p_visit;
+  if not found or v.cancelled_at is not null then
+    raise exception 'visit_not_found';
+  end if;
+  if v.checked_out_at is not null then
+    raise exception 'already_checked_out';
+  end if;
+  for x in select * from jsonb_array_elements(coalesce(p_items, '[]'::jsonb)) loop
+    v_qty := greatest(1, least(999, coalesce((x->>'qty')::int, 1)));
+    select * into v_prod from public.products where id = (x->>'item_id')::uuid and lendable and not hidden;
+    if not found then
+      raise exception 'not_lendable';
+    end if;
+    -- The loan belongs to the visit (and its check-in sale, for reference).
+    insert into public.visit_loans (sale_id, visit_id, member_id, item_id, name, qty)
+    values (v.sale_id, p_visit, v.member_id, v_prod.id, v_prod.name_th, v_qty);
+    v_added := v_added + 1;
+  end loop;
+  insert into public.staff_actions (actor_id, member_id, visit_id, action, detail)
+  values (auth.uid(), v.member_id, p_visit, 'lend', jsonb_build_object('count', v_added));
+  return v_added;
+end;
+$$;
+revoke execute on function public.staff_lend_items(uuid, jsonb) from public, anon;
+grant execute on function public.staff_lend_items(uuid, jsonb) to authenticated;
