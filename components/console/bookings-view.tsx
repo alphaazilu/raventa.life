@@ -738,7 +738,7 @@ function BookingPanel({ b, admin, rules, onClose, onMove }: { b: Booking; admin:
 
 // ---------------- New booking / move ----------------
 
-export function BookForm({
+function BookForm({
   types,
   day: startDay,
   typeId: startType,

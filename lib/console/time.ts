@@ -27,11 +27,7 @@ export function weekStart(isoDate = bangkokToday()): string {
   return d.toISOString().slice(0, 10)
 }
 
-export function addDays(isoDate: string, days: number): string {
-  const d = new Date(`${isoDate}T00:00:00Z`)
-  d.setUTCDate(d.getUTCDate() + days)
-  return d.toISOString().slice(0, 10)
-}
+export { addDays } from '@/lib/date'
 
 // "2026-10-02T08:05" typed in Bangkok time → ISO instant.
 export function bangkokLocalToIso(local: string): string | null {

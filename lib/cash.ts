@@ -29,6 +29,8 @@ export type CashSession = {
   reviewedAt: string | null
   reviewedBy: string | null
   reviewNote: string | null
+  branchId: string | null
+  branchName: string | null
 }
 
 export type CashRules = { float: number; alert: number }
@@ -61,8 +63,8 @@ export const needsReview = (s: CashSession, rules: CashRules) =>
 const L = (th: string, en: string) => ({ th, en })
 
 export const cashCopy = {
-  title: L('ปิดกะ · ลิ้นชักเงินสด', 'Shift close · cash drawer'),
-  tabDrawer: L('ปิดกะ', 'Close shift'),
+  title: L('ลิ้นชักเงินสด', 'Cash drawer'),
+  tabDrawer: L('ลิ้นชัก', 'Drawer'),
   tabHistory: L('ประวัติ', 'History'),
   notSetUp: L('ยังไม่ได้ตั้งค่าลิ้นชักเงินสด — แอดมินรัน schema.sql ส่วน §30 ก่อน', 'Cash drawer not set up yet — an admin needs to run schema.sql §30'),
   // open

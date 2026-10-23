@@ -12,7 +12,7 @@ import { cn } from '@/lib/utils'
 
 // Member: rate the latest visit (§32, v0.33).
 
-export function Stars({ value, onChange, size = 'lg', label }: { value: number; onChange: (n: number) => void; size?: 'lg' | 'sm'; label: string }) {
+function Stars({ value, onChange, size = 'lg', label }: { value: number; onChange: (n: number) => void; size?: 'lg' | 'sm'; label: string }) {
   const { tr } = useLanguage()
   return (
     <div role="radiogroup" aria-label={label} className="flex gap-1">

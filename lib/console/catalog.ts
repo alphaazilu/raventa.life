@@ -70,6 +70,10 @@ export type Product = {
   pkgItems?: { itemId: string; qty: number | null }[]
   // What comes with it (§39, v0.37.2): given (on the bill at 0) or lent (back at check-out).
   includes?: { itemId: string; qty: number; lend: boolean }[]
+  // Per-branch price overrides (§48, v0.38.5): branchId → prices (null = base).
+  branchPrices?: { branchId: string; weekday: number | null; weekend: number | null; holiday: number | null }[]
+  // Per-branch stock (§49, v0.38.6): branchId → stock the branch keeps of its own.
+  branchStock?: { branchId: string; stock: number }[]
 }
 
 export type PackageRules = {
@@ -107,9 +111,13 @@ export type Catalog = {
   promotions: Promotion[]
   holidays: Holiday[]
   categories: ProductCategory[] | null
+  // Branches for per-branch pricing (§48, v0.38.5). null = §46 not run.
+  branches?: { id: string; name: string; active: boolean }[] | null
   includesReady?: boolean // §39 run: products can bring items along
   packageExtrasReady?: boolean // §40 run: packages can hold other items
   entriesReady?: boolean // §41 run: several entries, packages without entry
+  branchPricesReady?: boolean // §48 run: per-branch price overrides
+  branchStockReady?: boolean // §49 run: per-branch stock
 }
 
 export const PRODUCT_KINDS: ProductKind[] = ['day_pass', 'package', 'addon', 'merch', 'souvenir']
@@ -130,7 +138,7 @@ function toVariant(v: Row): Variant {
 
 // null = §18 hasn't been run yet.
 export async function loadCatalog(client: Client): Promise<Catalog | null> {
-  const [p, v, pr, pt, h, pc, pi, inc, mpi, ne] = await Promise.all([
+  const [p, v, pr, pt, h, pc, pi, inc, mpi, ne, bp, br, bs] = await Promise.all([
     client.from('products').select('*').order('sort').order('created_at'),
     client.from('product_variants').select('*').order('sort').order('created_at'),
     client.from('promotions').select('*').order('created_at', { ascending: false }),
@@ -141,6 +149,9 @@ export async function loadCatalog(client: Client): Promise<Catalog | null> {
     client.from('product_includes').select('product_id, item_id, qty, lend, sort').order('sort').order('created_at'),
     client.from('member_package_items').select('id').limit(1),
     client.from('member_packages').select('no_entry').limit(1),
+    client.from('product_branch_prices').select('product_id, branch_id, price_weekday, price_weekend, price_holiday'),
+    client.from('branches').select('id, name, is_active').order('sort').order('created_at'),
+    client.from('product_branch_stock').select('product_id, branch_id, stock'),
   ])
   const err = [p.error, v.error, pr.error, h.error].find(Boolean) as { code?: string } | undefined
   if (err) {
@@ -178,6 +189,21 @@ export async function loadCatalog(client: Client): Promise<Catalog | null> {
         includes: inc.error
           ? undefined
           : ((inc.data ?? []) as Row[]).filter((x) => x.product_id === r.id).map((x) => ({ itemId: x.item_id as string, qty: Number(x.qty), lend: Boolean(x.lend) })),
+        // §48 not run → undefined (the form hides the per-branch price section).
+        branchPrices: bp.error
+          ? undefined
+          : ((bp.data ?? []) as Row[])
+              .filter((x) => x.product_id === r.id)
+              .map((x) => ({
+                branchId: x.branch_id as string,
+                weekday: x.price_weekday == null ? null : Number(x.price_weekday),
+                weekend: x.price_weekend == null ? null : Number(x.price_weekend),
+                holiday: x.price_holiday == null ? null : Number(x.price_holiday),
+              })),
+        // §49 not run → undefined (the form hides the per-branch stock section).
+        branchStock: bs.error
+          ? undefined
+          : ((bs.data ?? []) as Row[]).filter((x) => x.product_id === r.id).map((x) => ({ branchId: x.branch_id as string, stock: Number(x.stock) })),
         variants: byProduct.get(r.id as string) ?? [],
         pkg:
           r.kind === 'package'
@@ -210,6 +236,9 @@ export async function loadCatalog(client: Client): Promise<Catalog | null> {
     includesReady: !inc.error,
     packageExtrasReady: !mpi.error,
     entriesReady: !ne.error,
+    branchPricesReady: !bp.error,
+    branchStockReady: !bs.error,
+    branches: br.error ? null : ((br.data ?? []) as Row[]).map((r) => ({ id: r.id as string, name: r.name as string, active: Boolean(r.is_active) })),
     categories,
     products,
     promotions: ((pr.data ?? []) as Row[]).map((r) => ({

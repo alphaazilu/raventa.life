@@ -825,7 +825,7 @@ function TemplateSave({ f }: { f: TypeInput }) {
   )
 }
 
-export function TemplateList({ templates }: { templates: BookingTemplate[] }) {
+function TemplateList({ templates }: { templates: BookingTemplate[] }) {
   const { tr } = useLanguage()
   const router = useRouter()
   const [pending, start] = useTransition()

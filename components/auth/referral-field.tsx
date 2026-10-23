@@ -13,7 +13,7 @@ import { cn } from '@/lib/utils'
 // and `refVia` (code | qr) with the form. Starts from ?ref= (kept in a
 // cookie through a Google/LINE round trip).
 
-export function readRefCookie(): string {
+function readRefCookie(): string {
   try {
     const m = document.cookie.match(new RegExp(`(?:^|; )${REF_COOKIE}=([^;]*)`))
     return m ? extractRefCode(decodeURIComponent(m[1])) : ''

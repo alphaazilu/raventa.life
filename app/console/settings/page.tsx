@@ -2,7 +2,7 @@ import type { Metadata } from 'next'
 import { redirect } from 'next/navigation'
 import { SettingsView, type SettingsTab } from '@/components/console/settings-view'
 import { getConsoleSession } from '@/lib/console/session'
-import { getAppSettings, listPhoneAccess } from '@/lib/console/settings'
+import { getAppSettings, listPhoneAccess, listBranches } from '@/lib/console/settings'
 import { getCashRules } from '@/lib/console/cash'
 import { getReviewUrl } from '@/lib/console/feedback'
 import { DEFAULT_SETTINGS, getTimeSettings } from '@/lib/console/shifts'
@@ -26,7 +26,7 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
   const { tab } = await searchParams
   const initialTab: SettingsTab = tab === 'work' || tab === 'shop' ? tab : 'team'
   const admin = createAdminClient()
-  const [settings, phone, check, staffRes, timeRules, cash, reviewUrl] = await Promise.all([
+  const [settings, phone, check, staffRes, timeRules, cash, reviewUrl, branches] = await Promise.all([
     getAppSettings(),
     listPhoneAccess(),
     admin.from('app_settings').select('id').limit(1),
@@ -34,6 +34,7 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
     getTimeSettings().catch(() => DEFAULT_SETTINGS),
     getCashRules(),
     getReviewUrl().catch(() => null),
+    listBranches(),
   ])
   const staff = (staffRes.data ?? []).map((p) => ({
     id: p.id as string,
@@ -42,7 +43,7 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
 
   return (
     <main>
-      <SettingsView settings={settings} staff={staff} phoneAccess={phone} setUp={!isMissingTable(check.error)} initialTab={initialTab} timeRules={timeRules} cash={cash} reviewUrl={reviewUrl ?? ''} />
+      <SettingsView settings={settings} staff={staff} phoneAccess={phone} setUp={!isMissingTable(check.error)} initialTab={initialTab} timeRules={timeRules} cash={cash} reviewUrl={reviewUrl ?? ''} branches={branches} />
     </main>
   )
 }

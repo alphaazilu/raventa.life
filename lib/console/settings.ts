@@ -12,6 +12,7 @@ export type AppSettings = {
   staffMembersOnTablet: boolean
   staffIdleMinutes: number
   adminIdleMinutes: number
+  floorCapacity: number // §45: in-store cap for the desk/dashboard
   vatRegistered: boolean // reports split out 7% VAT (prices include it)
   leave: LeaveRules // §25
   pay: PayCycleRules // §28 — where pay periods end
@@ -23,6 +24,7 @@ const DEFAULT_APP_SETTINGS: AppSettings = {
   staffMembersOnTablet: true,
   staffIdleMinutes: 10,
   adminIdleMinutes: 5,
+  floorCapacity: 40,
   vatRegistered: false,
   leave: DEFAULT_LEAVE_RULES,
   pay: DEFAULT_PAY_CYCLE,
@@ -41,6 +43,7 @@ export const getAppSettings = cache(async (): Promise<AppSettings> => {
     staffMembersOnTablet: Boolean(data.staff_members_on_tablet),
     staffIdleMinutes: Number(data.staff_idle_minutes) || DEFAULT_APP_SETTINGS.staffIdleMinutes,
     adminIdleMinutes: Number(data.admin_idle_minutes) || DEFAULT_APP_SETTINGS.adminIdleMinutes,
+    floorCapacity: Number(data.floor_capacity) || DEFAULT_APP_SETTINGS.floorCapacity,
     vatRegistered: Boolean(data.vat_registered),
     leave: {
       noticeDays: data.leave_notice_days == null ? DEFAULT_LEAVE_RULES.noticeDays : Number(data.leave_notice_days),
@@ -80,3 +83,14 @@ export async function deskAllowed(input: { userId: string; admin: boolean; onTab
   if (settings.staffDeskOnPhone) return true
   return (await listPhoneAccess()).includes(input.userId)
 }
+
+// Branches (§46, v0.38). null = §46 not run yet.
+export type Branch = { id: string; name: string; active: boolean }
+export const listBranches = cache(async (): Promise<Branch[] | null> => {
+  const { data, error } = await createAdminClient().from('branches').select('id, name, is_active').order('sort').order('created_at')
+  if (error) {
+    if (isMissingTable(error)) return null
+    throw error
+  }
+  return (data ?? []).map((r) => ({ id: r.id as string, name: r.name as string, active: Boolean(r.is_active) }))
+})

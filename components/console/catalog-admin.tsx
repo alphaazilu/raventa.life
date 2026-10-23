@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useEffect, useState, useTransition } from 'react'
-import { ArrowDown, ArrowUp, BadgePercent, CalendarDays, FolderTree, Package, Percent, Trash2 } from 'lucide-react'
+import { ArrowDown, ArrowUp, BadgePercent, CalendarDays, ChevronDown, FolderTree, Package, Percent, Trash2 } from 'lucide-react'
 import { useLanguage } from '@/components/language-provider'
 import { Spinner } from '@/components/ui/spinner'
 import { catalogCopy as c, catalogErrors } from '@/lib/console/copy'
@@ -141,7 +141,7 @@ export function CatalogAdmin({
 // ---------------- Products ----------------
 
 // The products grouped by category (v0.37), then "No category". Before §37: by sale type.
-export function productGroups(catalog: Catalog, tr: (l: { th: string; en: string }) => string, lang: string, saleTypes: SaleTypeNames = DEFAULT_SALE_TYPES) {
+function productGroups(catalog: Catalog, tr: (l: { th: string; en: string }) => string, lang: string, saleTypes: SaleTypeNames = DEFAULT_SALE_TYPES) {
   const cats = catalog.categories
   const groups: { key: string; label: string; items: Product[] }[] = []
   if (!cats) {
@@ -192,6 +192,8 @@ function Products({ catalog, rules, saleTypes }: { catalog: Catalog; rules: Comm
             </button>
           </span>
         </div>
+        {/* The header bar above stays put; the list scrolls when long (v0.38.3). */}
+        <div className="max-h-[70vh] overflow-y-auto">
         {groups.map((g) => (
           <div key={g.key}>
             <p className="border-t border-border bg-secondary/40 px-4 py-1.5 text-xs font-bold uppercase tracking-wide text-muted-foreground first:border-t-0">
@@ -233,6 +235,7 @@ function Products({ catalog, rules, saleTypes }: { catalog: Catalog; rules: Comm
             </ul>
           </div>
         ))}
+        </div>
       </section>
       <section className="rounded-2xl border border-border bg-card p-5">
         {selected === 'cats' ? (
@@ -256,6 +259,9 @@ function Products({ catalog, rules, saleTypes }: { catalog: Catalog; rules: Comm
               includesReady={Boolean(catalog.includesReady)}
               packageExtrasReady={Boolean(catalog.packageExtrasReady)}
               entriesReady={Boolean(catalog.entriesReady)}
+              branchPricesReady={Boolean(catalog.branchPricesReady)}
+              branchStockReady={Boolean(catalog.branchStockReady)}
+              branches={catalog.branches ?? []}
               onCreated={() => setFresh((n) => n + 1)}
             />
             {product && product.kind !== 'day_pass' && product.kind !== 'package' && <Variants key={`v-${product.id}`} product={product} />}
@@ -313,23 +319,27 @@ function CategoryManager({
         <h2 className="font-display text-lg font-bold">{tr(c.catsTitle)}</h2>
         <p className="mt-0.5 text-xs text-muted-foreground">{tr(c.catsHint)}</p>
       </div>
-      <ul className="divide-y divide-border rounded-xl border border-border">
-        {categories.map((cat, i) => (
-          <CategoryRow
-            key={cat.id}
-            cat={cat}
-            count={count(cat.id)}
-            rule={rules?.find((r) => r.categoryId === cat.id) ?? null}
-            showRate={rules !== null}
-            first={i === 0}
-            last={i === categories.length - 1}
-            onMove={(d) => move(i, d)}
-            pending={pending}
-            run={run}
-            api={api}
-          />
-        ))}
-      </ul>
+      {/* The list scrolls on its own when long, so the title above and the
+          "add category" box below stay in view (v0.38.1). */}
+      <div className="max-h-[48vh] overflow-y-auto rounded-xl border border-border">
+        <ul className="divide-y divide-border">
+          {categories.map((cat, i) => (
+            <CategoryRow
+              key={cat.id}
+              cat={cat}
+              count={count(cat.id)}
+              rule={rules?.find((r) => r.categoryId === cat.id) ?? null}
+              showRate={rules !== null}
+              first={i === 0}
+              last={i === categories.length - 1}
+              onMove={(d) => move(i, d)}
+              pending={pending}
+              run={run}
+              api={api}
+            />
+          ))}
+        </ul>
+      </div>
       <form
         onSubmit={(e) => {
           e.preventDefault()
@@ -494,6 +504,9 @@ function ProductForm({
   includesReady = false,
   packageExtrasReady = false,
   entriesReady = false,
+  branchPricesReady = false,
+  branchStockReady = false,
+  branches = [],
   onCreated,
 }: {
   product: Product | null
@@ -505,6 +518,9 @@ function ProductForm({
   includesReady?: boolean
   packageExtrasReady?: boolean
   entriesReady?: boolean // §41: several entries, packages without entry
+  branchPricesReady?: boolean // §48: per-branch price overrides
+  branchStockReady?: boolean // §49: per-branch stock
+  branches?: { id: string; name: string; active: boolean }[] // active branches (§46)
   onCreated: () => void
 }) {
   const { tr, lang } = useLanguage()
@@ -526,9 +542,33 @@ function ProductForm({
   const [wd, setWd] = useState(product ? String(product.priceWeekday) : '')
   const [we, setWe] = useState(product?.priceWeekend != null ? String(product.priceWeekend) : '')
   const [ho, setHo] = useState(product?.priceHoliday != null ? String(product.priceHoliday) : '')
+  // Per-branch price overrides (§48): branchId → {wd,we,ho} as strings. Only
+  // shown when there is more than one branch and §48 has been run.
+  const pickBranches = branchPricesReady ? branches.filter((b) => b.active) : []
+  const showBranchPrices = pickBranches.length > 1 && type !== 'package'
+  const [brPrices, setBrPrices] = useState<Record<string, { wd: string; we: string; ho: string }>>(() => {
+    const m: Record<string, { wd: string; we: string; ho: string }> = {}
+    for (const o of product?.branchPrices ?? [])
+      m[o.branchId] = { wd: o.weekday != null ? String(o.weekday) : '', we: o.weekend != null ? String(o.weekend) : '', ho: o.holiday != null ? String(o.holiday) : '' }
+    return m
+  })
+  const [brOpen, setBrOpen] = useState(false)
+  // Per-branch stock (§49): branchId → stock as string. Only for a non-variant
+  // tracked product, with more than one branch, once §49 has been run.
+  const [brStock, setBrStock] = useState<Record<string, string>>(() => {
+    const m: Record<string, string> = {}
+    for (const s of product?.branchStock ?? []) m[s.branchId] = String(s.stock)
+    return m
+  })
+  const [bsOpen, setBsOpen] = useState(false)
   const [track, setTrack] = useState(product?.trackStock ?? false)
   const [active, setActive] = useState(product?.active ?? true)
   const [sort, setSort] = useState(String(product?.sort ?? 0))
+  // Per-branch stock shows for a tracked, non-variant item once there is more
+  // than one branch and §49 is run (variant products keep stock per variant).
+  const hasVariants = (product?.variants?.length ?? 0) > 0
+  const stockBranches = branchStockReady ? branches.filter((b) => b.active) : []
+  const showBranchStock = stockBranches.length > 1 && track && !hasVariants && type !== 'package' && type !== 'entry'
   const isPkg = kind === 'package'
   const pk = product?.pkg
   const [pkgUnlimited, setPkgUnlimited] = useState(pk ? pk.visits === null : false)
@@ -597,6 +637,15 @@ function ProductForm({
                     ]
                   : undefined,
               includes: includesReady && !isPkg ? incl.filter((x) => x.itemId) : undefined,
+              branchPrices: showBranchPrices
+                ? pickBranches.map((b) => {
+                    const o = brPrices[b.id] ?? { wd: '', we: '', ho: '' }
+                    return { branchId: b.id, weekday: o.wd === '' ? null : Number(o.wd), weekend: o.we === '' ? null : Number(o.we), holiday: o.ho === '' ? null : Number(o.ho) }
+                  })
+                : undefined,
+              branchStock: showBranchStock
+                ? stockBranches.map((b) => ({ branchId: b.id, stock: brStock[b.id] === undefined || brStock[b.id] === '' ? null : Number(brStock[b.id]) }))
+                : undefined,
             }),
           product ? undefined : onCreated,
         )
@@ -833,6 +882,37 @@ function ProductForm({
       <p className="text-xs text-muted-foreground">{tr(c.priceBlankHint)}</p>
         </>
       )}
+      {showBranchPrices && (
+        <div className="rounded-xl border border-border">
+          <button
+            type="button"
+            onClick={() => setBrOpen((o) => !o)}
+            className="flex w-full items-center justify-between px-3 py-2 text-left text-sm font-semibold text-foreground"
+          >
+            <span>{tr(c.branchPriceTitle)}</span>
+            <ChevronDown className={cn('h-4 w-4 transition-transform', brOpen && 'rotate-180')} aria-hidden="true" />
+          </button>
+          {brOpen && (
+            <div className="space-y-2 border-t border-border p-3">
+              <p className="text-[11px] text-muted-foreground">{tr(c.branchPriceHint)}</p>
+              {pickBranches.map((b) => {
+                const o = brPrices[b.id] ?? { wd: '', we: '', ho: '' }
+                const set = (k: 'wd' | 'we' | 'ho', v: string) =>
+                  setBrPrices((m) => ({ ...m, [b.id]: { ...(m[b.id] ?? { wd: '', we: '', ho: '' }), [k]: v.replace(/\D/g, '') } }))
+                return (
+                  <div key={b.id} className="grid grid-cols-[minmax(0,1fr)_repeat(3,56px)] items-center gap-2 sm:grid-cols-[minmax(0,1fr)_repeat(3,72px)]">
+                    <span className="truncate text-sm">{b.name}</span>
+                    <input className={cn(input, 'py-1 text-center')} inputMode="numeric" placeholder={wd || '—'} value={o.wd} onChange={(e) => set('wd', e.target.value)} aria-label={`${b.name} ${tr(c.priceWeekday)}`} />
+                    <input className={cn(input, 'py-1 text-center')} inputMode="numeric" placeholder={we || '—'} value={o.we} onChange={(e) => set('we', e.target.value)} aria-label={`${b.name} ${tr(c.priceWeekend)}`} />
+                    <input className={cn(input, 'py-1 text-center')} inputMode="numeric" placeholder={ho || '—'} value={o.ho} onChange={(e) => set('ho', e.target.value)} aria-label={`${b.name} ${tr(c.priceHoliday)}`} />
+                  </div>
+                )
+              })}
+              <p className="text-[11px] text-muted-foreground">{tr(c.branchPriceCols)}</p>
+            </div>
+          )}
+        </div>
+      )}
       {!isPass && !isPkg && <p className={cn(label, 'pt-2 text-primary')}>{tr(c.secStock)}</p>}
       <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-sm">
         {!isPass && !isPkg && (
@@ -850,6 +930,36 @@ function ProductForm({
           <input className={cn(input, 'w-16 py-1')} inputMode="numeric" value={sort} onChange={(e) => setSort(e.target.value.replace(/[^\d-]/g, ''))} />
         </label>
       </div>
+      {showBranchStock && (
+        <div className="rounded-xl border border-border">
+          <button
+            type="button"
+            onClick={() => setBsOpen((o) => !o)}
+            className="flex w-full items-center justify-between px-3 py-2 text-left text-sm font-semibold text-foreground"
+          >
+            <span>{tr(c.branchStockTitle)}</span>
+            <ChevronDown className={cn('h-4 w-4 transition-transform', bsOpen && 'rotate-180')} aria-hidden="true" />
+          </button>
+          {bsOpen && (
+            <div className="space-y-2 border-t border-border p-3">
+              <p className="text-[11px] text-muted-foreground">{tr(c.branchStockHint)}</p>
+              {stockBranches.map((b) => (
+                <div key={b.id} className="grid grid-cols-[minmax(0,1fr)_80px] items-center gap-2">
+                  <span className="truncate text-sm">{b.name}</span>
+                  <input
+                    className={cn(input, 'py-1 text-center')}
+                    inputMode="numeric"
+                    placeholder="—"
+                    value={brStock[b.id] ?? ''}
+                    onChange={(e) => setBrStock((m) => ({ ...m, [b.id]: e.target.value.replace(/\D/g, '') }))}
+                    aria-label={`${b.name} ${tr(c.secStock)}`}
+                  />
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
       {includesReady && !isPkg && (
         <>
           <p className={cn(label, 'pt-2 text-primary')}>{tr(c.secIncl)}</p>

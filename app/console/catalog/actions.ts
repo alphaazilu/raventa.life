@@ -55,6 +55,12 @@ export async function saveProduct(input: {
   includes?: { itemId: string; qty: number; lend: boolean }[]
   // v0.37: this product's own commission — 'cat' = follow its category, 'none' = never.
   commission?: { mode: 'cat' | 'none' | 'pct' | 'thb'; value?: number }
+  // v0.38.5 (§48): per-branch price overrides. undefined = leave as is; a row
+  // with every field null clears that branch's override.
+  branchPrices?: { branchId: string; weekday: number | null; weekend: number | null; holiday: number | null }[]
+  // v0.38.6 (§49): per-branch stock for a non-variant product. undefined = leave
+  // as is; a branch with null stock keeps no stock of its own (shared pool).
+  branchStock?: { branchId: string; stock: number | null }[]
 }): Promise<CatalogResult> {
   const ctx = await requireAdmin()
   if ('error' in ctx) return { ok: false, error: ctx.error }
@@ -158,6 +164,8 @@ export async function saveProduct(input: {
       const e = await saveIncludes(admin, input.id, input.includes)
       if (e) return { ok: false, error: e }
     }
+    if (input.branchPrices) await saveBranchPrices(admin, input.id, input.branchPrices)
+    if (input.branchStock) await saveBranchStock(admin, input.id, input.branchStock)
   } else {
     const kind: ProductKind = general ? 'merch' : input.kind === 'package' ? 'package' : input.kind === 'day_pass' ? 'day_pass' : ('' as ProductKind)
     if (!SELLABLE.includes(kind)) return { ok: false, error: 'bad_kind' }
@@ -174,8 +182,57 @@ export async function saveProduct(input: {
       const e = await saveIncludes(admin, data.id as string, input.includes)
       if (e) return { ok: false, error: e }
     }
+    if (data && input.branchPrices) await saveBranchPrices(admin, data.id as string, input.branchPrices)
+    if (data && input.branchStock) await saveBranchStock(admin, data.id as string, input.branchStock)
   }
   return done()
+}
+
+// Per-branch stock for a non-variant product (§49, v0.38.6). A branch with no
+// number keeps no stock of its own (it draws on the shared pool). Never fails
+// the save — skipped if §49 isn't run.
+async function saveBranchStock(
+  admin: ReturnType<typeof createAdminClient>,
+  productId: string,
+  list: { branchId: string; stock: number | null }[],
+) {
+  const toSet = list
+    .filter((b) => typeof b.stock === 'number' && Number.isFinite(b.stock) && b.stock >= 0)
+    .map((b) => ({ product_id: productId, branch_id: b.branchId, stock: Math.round(b.stock as number), updated_at: new Date().toISOString() }))
+  const toClear = list.filter((b) => b.stock === null || b.stock === undefined).map((b) => b.branchId)
+  try {
+    if (toSet.length) {
+      const { error } = await admin.from('product_branch_stock').upsert(toSet, { onConflict: 'product_id,branch_id' })
+      if (error && (error as { code?: string }).code === '42P01') return
+    }
+    if (toClear.length) await admin.from('product_branch_stock').delete().eq('product_id', productId).in('branch_id', toClear)
+  } catch {
+    // ignore — shared stock still applies
+  }
+}
+
+// Per-branch price overrides (§48, v0.38.5). A branch with every field empty is
+// removed (falls back to the base price). Never fails the save — if §48 isn't
+// run yet the write is skipped.
+async function saveBranchPrices(
+  admin: ReturnType<typeof createAdminClient>,
+  productId: string,
+  list: { branchId: string; weekday: number | null; weekend: number | null; holiday: number | null }[],
+) {
+  const clean = (v: number | null) => (typeof v === 'number' && Number.isFinite(v) && v >= 0 ? Math.round(v) : null)
+  const rows = list
+    .map((b) => ({ product_id: productId, branch_id: b.branchId, price_weekday: clean(b.weekday), price_weekend: clean(b.weekend), price_holiday: clean(b.holiday) }))
+  const toSet = rows.filter((r) => r.price_weekday !== null || r.price_weekend !== null || r.price_holiday !== null)
+  const toClear = rows.filter((r) => r.price_weekday === null && r.price_weekend === null && r.price_holiday === null).map((r) => r.branch_id)
+  try {
+    if (toSet.length) {
+      const { error } = await admin.from('product_branch_prices').upsert(toSet.map((r) => ({ ...r, updated_at: new Date().toISOString() })), { onConflict: 'product_id,branch_id' })
+      if (error && (error as { code?: string }).code === '42P01') return // table not there yet
+    }
+    if (toClear.length) await admin.from('product_branch_prices').delete().eq('product_id', productId).in('branch_id', toClear)
+  } catch {
+    // ignore — base prices still apply
+  }
 }
 
 // A product's own commission rate (§33/§37): replaced, or removed for 'cat'.

@@ -18,6 +18,7 @@ export type DeviceRow = {
   lastSeenAt: string | null
   paired: boolean
   revokedAt: string | null
+  branchId: string | null
 }
 
 export type DeviceResult<T = null> = { ok: true; data: T } | { ok: false; error: string }
@@ -38,23 +39,40 @@ function isMissing(error: { code?: string } | null) {
 export async function listDevices(): Promise<DeviceResult<DeviceRow[]>> {
   const ctx = await requireAdmin()
   if ('error' in ctx) return { ok: false, error: ctx.error }
-  const { data, error } = await createAdminClient()
-    .from('devices')
-    .select('id, name, created_at, last_seen_at, token_hash, revoked_at')
-    .order('revoked_at', { ascending: true, nullsFirst: true })
-    .order('created_at', { ascending: false })
+  const pick = (cols: string) =>
+    createAdminClient()
+      .from('devices')
+      .select(cols)
+      .order('revoked_at', { ascending: true, nullsFirst: true })
+      .order('created_at', { ascending: false })
+  // branch_id arrives with §47; tolerate it being absent.
+  let res = await pick('id, name, created_at, last_seen_at, token_hash, revoked_at, branch_id')
+  if ((res.error as { code?: string } | null)?.code === '42703') res = await pick('id, name, created_at, last_seen_at, token_hash, revoked_at')
+  const { data, error } = res
   if (error) return { ok: false, error: isMissing(error) ? 'not_set_up' : 'failed' }
   return {
     ok: true,
-    data: (data ?? []).map((d) => ({
-      id: d.id,
-      name: d.name,
-      createdAt: d.created_at,
-      lastSeenAt: d.last_seen_at,
+    data: ((data ?? []) as unknown as Record<string, unknown>[]).map((d) => ({
+      id: d.id as string,
+      name: d.name as string,
+      createdAt: d.created_at as string,
+      lastSeenAt: (d.last_seen_at as string | null) ?? null,
       paired: Boolean(d.token_hash),
-      revokedAt: d.revoked_at,
+      revokedAt: (d.revoked_at as string | null) ?? null,
+      branchId: (d.branch_id as string | null) ?? null,
     })),
   }
+}
+
+// Assign a tablet to a branch (§47): everything it rings up is tagged with
+// this branch, and it works that branch's cash drawer. null = main branch.
+export async function setDeviceBranch(id: string, branchId: string | null): Promise<DeviceResult> {
+  const ctx = await requireAdmin()
+  if ('error' in ctx) return { ok: false, error: ctx.error }
+  const { error } = await createAdminClient().from('devices').update({ branch_id: branchId }).eq('id', id)
+  if (error) return { ok: false, error: (error as { code?: string }).code === '42703' ? 'not_set_up' : 'failed' }
+  revalidatePath(DEVICES_PATH)
+  return { ok: true, data: null }
 }
 
 export async function approveDevice(rawCode: string, rawName: string): Promise<DeviceResult<{ name: string }>> {

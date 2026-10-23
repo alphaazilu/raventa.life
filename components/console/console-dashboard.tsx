@@ -25,7 +25,7 @@ function formatToday(date: string, lang: 'th' | 'en'): string {
   }).format(new Date(`${date}T00:00:00Z`))
 }
 
-export function ConsoleDashboard({ firstName, data, alerts }: { firstName: string | null; data: DashboardData; alerts: ConsoleAlerts }) {
+export function ConsoleDashboard({ firstName, data, alerts, capacity = FLOOR_CAPACITY }: { firstName: string | null; data: DashboardData; alerts: ConsoleAlerts; capacity?: number }) {
   const { tr, lang } = useLanguage()
   const router = useRouter()
 
@@ -35,7 +35,7 @@ export function ConsoleDashboard({ firstName, data, alerts }: { firstName: strin
     return () => clearInterval(id)
   }, [router])
 
-  const pct = Math.min(100, Math.round((data.inside / FLOOR_CAPACITY) * 100))
+  const pct = Math.min(100, Math.round((data.inside / capacity) * 100))
   const n = (x: number) => x.toLocaleString()
 
   return (
@@ -58,8 +58,8 @@ export function ConsoleDashboard({ firstName, data, alerts }: { firstName: strin
       <ToDo alerts={alerts} />
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <Kpi label={tr(consoleCopy.inStoreNow)} value={<>{n(data.inside)} <small className="text-sm font-semibold text-muted-foreground">/ {FLOOR_CAPACITY}</small></>}
-          sub={`${tr(consoleCopy.seatsLeft)} ${Math.max(0, FLOOR_CAPACITY - data.inside)} ${tr(consoleCopy.seatsUnit)}`}>
+        <Kpi label={tr(consoleCopy.inStoreNow)} value={<>{n(data.inside)} <small className="text-sm font-semibold text-muted-foreground">/ {capacity}</small></>}
+          sub={`${tr(consoleCopy.seatsLeft)} ${Math.max(0, capacity - data.inside)} ${tr(consoleCopy.seatsUnit)}`}>
           <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-secondary">
             <div className={cn('h-full rounded-full', pct >= 90 ? 'bg-destructive' : pct >= 70 ? 'bg-amber-500' : 'bg-loading')} style={{ width: `${pct}%` }} />
           </div>

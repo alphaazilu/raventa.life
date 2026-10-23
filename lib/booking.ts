@@ -1,3 +1,4 @@
+import { addDays } from '@/lib/date'
 // Bookings (§34, v0.35) — shared by the server and the screens. Times are
 // Bangkok wall-clock: a day "YYYY-MM-DD" and "HH:MM"; instants are ISO.
 
@@ -94,13 +95,12 @@ export type NoShowStatus = { score: number; noShows: number; lateCancels: number
 
 // ---- time ----
 
-const DAY = 86_400_000
-export const addDays = (d: string, n: number) => new Date(Date.parse(`${d}T00:00:00Z`) + n * DAY).toISOString().slice(0, 10)
+export { addDays } from '@/lib/date'
 export const weekdayOf = (d: string) => new Date(`${d}T00:00:00Z`).getUTCDay()
 export const toMin = (t: string) => Number(t.slice(0, 2)) * 60 + Number(t.slice(3, 5))
-export const fromMin = (m: number) => `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`
+const fromMin = (m: number) => `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`
 // A Bangkok wall-clock time as an instant (Thailand has no daylight saving).
-export const bkkInstant = (day: string, time: string) => new Date(`${day}T${time.slice(0, 5)}:00+07:00`).toISOString()
+const bkkInstant = (day: string, time: string) => new Date(`${day}T${time.slice(0, 5)}:00+07:00`).toISOString()
 export const bkkHm = (iso: string) => new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Bangkok', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).format(new Date(iso))
 
 export const typeName = (t: Pick<BookingType, 'nameTh' | 'nameEn'>, lang: string) => (lang === 'en' && t.nameEn ? t.nameEn : t.nameTh)

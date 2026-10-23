@@ -1,3 +1,4 @@
+import { addDays } from '@/lib/date'
 // Calendar (§31, v0.32) — shared by the server and the screens.
 
 export const KINDS = ['event', 'campaign', 'note', 'closed'] as const
@@ -55,7 +56,7 @@ export function canSee(item: Pick<CalItem, 'visibility' | 'staffIds'>, v: Viewer
 export const forOutside = (i: CalItem): CalItem => ({ ...i, internalNote: null, staffIds: [], createdBy: null, createdByName: null })
 
 const DAY = 86_400_000
-export const addDays = (d: string, n: number) => new Date(Date.parse(`${d}T00:00:00Z`) + n * DAY).toISOString().slice(0, 10)
+export { addDays } from '@/lib/date'
 export const daysBetween = (a: string, b: string) => Math.round((Date.parse(`${b}T00:00:00Z`) - Date.parse(`${a}T00:00:00Z`)) / DAY)
 
 function addMonths(d: string, n: number): string | null {

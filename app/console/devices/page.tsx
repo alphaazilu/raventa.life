@@ -4,6 +4,7 @@ import { DevicesView } from '@/components/console/devices-view'
 import { getConsoleSession } from '@/lib/console/session'
 import { DESK_PATH, isAdmin } from '@/lib/auth/roles'
 import { getCurrentDevice } from '@/lib/console/device'
+import { listBranches } from '@/lib/console/settings'
 import { listDevices } from './actions'
 
 export const metadata: Metadata = {
@@ -21,13 +22,16 @@ export default async function DevicesPage({ searchParams }: { searchParams: Prom
   if (await getCurrentDevice().catch(() => null)) redirect(DESK_PATH)
 
   const { code } = await searchParams
-  const devices = await listDevices()
+  const [devices, branches] = await Promise.all([listDevices(), listBranches().catch(() => null)])
+  // Only worth showing the branch picker once there's more than one branch.
+  const pickBranches = branches && branches.length > 1 ? branches.filter((b) => b.active) : []
   return (
     <main>
       <DevicesView
         initialCode={(code ?? '').replace(/\D/g, '').slice(0, 6)}
         devices={devices.ok ? devices.data : []}
         loadError={devices.ok ? null : devices.error}
+        branches={pickBranches}
       />
     </main>
   )

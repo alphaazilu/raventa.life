@@ -7,7 +7,8 @@ import { useLanguage } from '@/components/language-provider'
 import { consoleCopy, deviceErrors } from '@/lib/console/copy'
 import { QrScanner } from '@/components/admin/qr-scanner'
 import { Spinner } from '@/components/ui/spinner'
-import { approveDevice, renameDevice, revokeDevice, type DeviceRow } from '@/app/console/devices/actions'
+import { approveDevice, renameDevice, revokeDevice, setDeviceBranch, type DeviceRow } from '@/app/console/devices/actions'
+import type { Branch } from '@/lib/console/settings'
 import { cn } from '@/lib/utils'
 import { CodeInput } from '@/components/ui/code-input'
 
@@ -35,10 +36,12 @@ export function DevicesView({
   initialCode,
   devices,
   loadError,
+  branches = [],
 }: {
   initialCode: string
   devices: DeviceRow[]
   loadError: string | null
+  branches?: Branch[]
 }) {
   const { tr, lang } = useLanguage()
   const router = useRouter()
@@ -155,7 +158,7 @@ export function DevicesView({
         ) : (
           <div className="mt-4 grid gap-3 md:grid-cols-2">
             {active.map((d) => (
-              <DeviceCard key={d.id} d={d} lang={lang} onError={setError} />
+              <DeviceCard key={d.id} d={d} lang={lang} onError={setError} branches={branches} />
             ))}
           </div>
         )}
@@ -178,13 +181,14 @@ export function DevicesView({
   )
 }
 
-function DeviceCard({ d, lang, onError }: { d: DeviceRow; lang: 'th' | 'en'; onError: (e: string) => void }) {
+function DeviceCard({ d, lang, onError, branches = [] }: { d: DeviceRow; lang: 'th' | 'en'; onError: (e: string) => void; branches?: Branch[] }) {
   const { tr } = useLanguage()
   const router = useRouter()
   const [editing, setEditing] = useState(false)
   const [name, setName] = useState(d.name)
   const [confirming, setConfirming] = useState(false)
   const [busy, start] = useTransition()
+  const [branchBusy, startBranch] = useTransition()
 
   const online = d.paired && d.lastSeenAt && Date.now() - Date.parse(d.lastSeenAt) < ONLINE_MS
   const status = !d.paired ? tr(consoleCopy.waitingKey) : online ? tr(consoleCopy.online) : tr(consoleCopy.offline)
@@ -231,6 +235,31 @@ function DeviceCard({ d, lang, onError }: { d: DeviceRow; lang: 'th' | 'en'; onE
           {status}
         </span>
       </div>
+
+      {branches.length > 0 && (
+        <label className="mt-3 flex items-center gap-2 text-xs font-semibold text-muted-foreground">
+          <span className="shrink-0">{lang === 'th' ? 'สาขา' : 'Branch'}</span>
+          <select
+            value={d.branchId ?? branches[0]?.id ?? ''}
+            disabled={branchBusy}
+            onChange={(e) => {
+              const v = e.target.value
+              startBranch(async () => {
+                const res = await setDeviceBranch(d.id, v)
+                if (!res.ok) return onError(res.error)
+                router.refresh()
+              })
+            }}
+            className="h-9 w-full rounded-lg border border-border bg-background px-2 text-sm font-normal text-foreground outline-none focus:border-primary disabled:opacity-50"
+          >
+            {branches.map((b) => (
+              <option key={b.id} value={b.id}>
+                {b.name}
+              </option>
+            ))}
+          </select>
+        </label>
+      )}
 
       <div className="mt-4 flex gap-2">
         {editing ? (

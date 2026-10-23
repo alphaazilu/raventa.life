@@ -53,7 +53,7 @@ const card = 'rounded-2xl border border-border bg-card p-4 md:p-5'
 
 const flagText = (f: string, tr: (l: L) => string) => tr((c as Record<string, L>)[`flag_${f}`] ?? { th: f, en: f })
 
-export function resultSummary(results: Answer[], tr: (l: L) => string): string {
+function resultSummary(results: Answer[], tr: (l: L) => string): string {
   const checks = results.filter((r) => typeof r.value === 'boolean')
   const parts: string[] = []
   if (checks.length) parts.push(tr(t.ticks).replace('{a}', String(checks.filter((r) => r.value === true).length)).replace('{b}', String(checks.length)))

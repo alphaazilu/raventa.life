@@ -1,3 +1,4 @@
+import { addDays } from '@/lib/date'
 import type { Metadata } from 'next'
 import { redirect } from 'next/navigation'
 import { getConsoleSession } from '@/lib/console/session'
@@ -14,7 +15,6 @@ export const metadata: Metadata = {
 export const dynamic = 'force-dynamic'
 
 const ISO = /^\d{4}-\d{2}-\d{2}$/
-const addDays = (d: string, n: number) => new Date(Date.parse(`${d}T00:00:00Z`) + n * 86_400_000).toISOString().slice(0, 10)
 
 // Back Office › Checklists (§29, v0.29). Admins only.
 //   ?tab=board  today (or ?date=) — each round's windows, done / missed, problems

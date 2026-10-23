@@ -263,7 +263,7 @@ export function RoleSwitch({
 
 // Paid by the day or by the month (v0.28) — a small switch on each team
 // row and at the add-to-team station.
-export function PaySwitch({
+function PaySwitch({
   person,
   big = false,
   onChanged,

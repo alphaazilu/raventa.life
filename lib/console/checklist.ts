@@ -19,7 +19,7 @@ type RoundRow = {
   sort: number
 }
 
-export const toPoint = (r: PointRow): CheckPoint => ({
+const toPoint = (r: PointRow): CheckPoint => ({
   id: r.id,
   name: r.name,
   place: r.place,

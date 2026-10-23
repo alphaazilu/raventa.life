@@ -17,7 +17,7 @@ export function extractRefCode(text: string): string {
   return normalizeRefCode(m ? decodeURIComponent(m[1]) : t)
 }
 
-export function normalizeRefCode(t: string): string {
+function normalizeRefCode(t: string): string {
   return t.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 12)
 }
 

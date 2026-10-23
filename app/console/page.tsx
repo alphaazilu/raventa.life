@@ -5,6 +5,7 @@ import { getConsoleSession } from '@/lib/console/session'
 import { CONSOLE_PATH, DESK_PATH, isAdmin } from '@/lib/auth/roles'
 import { loadDashboard } from './dashboard-data'
 import { loadAlerts } from '@/lib/console/alerts'
+import { getAppSettings } from '@/lib/console/settings'
 
 export const metadata: Metadata = {
   title: 'ภาพรวม | RAVENTA Back Office',
@@ -20,10 +21,10 @@ export default async function ConsolePage() {
   if (!user) redirect(`/login?next=${CONSOLE_PATH}`)
   if (!isAdmin(role)) redirect(DESK_PATH)
 
-  const [data, alerts] = await Promise.all([loadDashboard(), loadAlerts()])
+  const [data, alerts, settings] = await Promise.all([loadDashboard(), loadAlerts(), getAppSettings()])
   return (
     <main>
-      <ConsoleDashboard firstName={firstName} data={data} alerts={alerts} />
+      <ConsoleDashboard firstName={firstName} data={data} alerts={alerts} capacity={settings.floorCapacity} />
     </main>
   )
 }

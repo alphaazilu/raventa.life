@@ -6,7 +6,7 @@ import { isMissingTable } from '@/lib/console/db-errors'
 import { getConsoleSession } from '@/lib/console/session'
 import { getCurrentDevice } from '@/lib/console/device'
 import { deskAllowed } from '@/lib/console/settings'
-import { getCashRules, takingsBetween } from '@/lib/console/cash'
+import { getCashRules, takingsBetween, mainBranchId } from '@/lib/console/cash'
 import { CASH_PATH, CONSOLE_PATH, DESK_PATH, canUseDesk, isAdmin } from '@/lib/auth/roles'
 import { cleanCounted, countedTotal } from '@/lib/cash'
 
@@ -24,13 +24,16 @@ const done = () => {
   revalidatePath(CONSOLE_PATH)
 }
 
-async function requireDrawer(): Promise<{ userId: string; admin: boolean; deviceId: string | null } | { error: string }> {
+async function requireDrawer(): Promise<{ userId: string; admin: boolean; deviceId: string | null; branchId: string | null } | { error: string }> {
   const { user, role } = await getConsoleSession()
   if (!user || !canUseDesk(role)) return { error: 'not_staff' }
   const device = await getCurrentDevice().catch(() => null)
   const admin = isAdmin(role)
   if (!(await deskAllowed({ userId: user.id, admin, onTablet: Boolean(device) }))) return { error: 'desk_tablet_only' }
-  return { userId: user.id, admin, deviceId: device?.id ?? null }
+  // This drawer belongs to the tablet's branch (§47); off a tablet, the admin
+  // works the main branch's drawer.
+  const branchId = device?.branchId ?? (await mainBranchId())
+  return { userId: user.id, admin, deviceId: device?.id ?? null, branchId }
 }
 
 const log = (actor: string, action: string, detail: Record<string, unknown>) =>
@@ -41,11 +44,15 @@ export async function openDrawer(): Promise<CashResult> {
   if ('error' in ctx) return { ok: false, error: ctx.error }
   const rules = await getCashRules()
   if (!rules.setUp) return { ok: false, error: 'not_set_up' }
-  const { data, error } = await createAdminClient()
-    .from('cash_sessions')
-    .insert({ status: 'open', opened_by: ctx.userId, float_amount: rules.float, device_id: ctx.deviceId })
-    .select('id')
-    .single()
+  const row: Record<string, unknown> = { status: 'open', opened_by: ctx.userId, float_amount: rules.float, device_id: ctx.deviceId }
+  if (ctx.branchId) row.branch_id = ctx.branchId
+  let ins = await createAdminClient().from('cash_sessions').insert(row).select('id').single()
+  // branch_id arrives with §47; on an older database, open without it.
+  if (ins.error?.code === '42703' && 'branch_id' in row) {
+    delete row.branch_id
+    ins = await createAdminClient().from('cash_sessions').insert(row).select('id').single()
+  }
+  const { data, error } = ins
   if (error) return error.code === '23505' ? { ok: false, error: 'already_open' } : fail(error)
   await log(ctx.userId, 'cash_open', { session: data.id, float: rules.float })
   done()
@@ -61,13 +68,17 @@ export async function sendCount(id: string, raw: unknown): Promise<CashResult> {
   const counted = cleanCounted(raw)
   if (!counted) return { ok: false, error: 'bad_count' }
   const db = createAdminClient()
-  const { data: s, error } = await db.from('cash_sessions').select('id, status, opened_at, float_amount').eq('id', id).maybeSingle()
+  // branch_id read tolerantly (§47) — drawers opened before it keep counting
+  // the whole shop.
+  let sv = await db.from('cash_sessions').select('id, status, opened_at, float_amount, branch_id').eq('id', id).maybeSingle()
+  if (sv.error?.code === '42703') sv = await db.from('cash_sessions').select('id, status, opened_at, float_amount').eq('id', id).maybeSingle()
+  const { data: s, error } = sv
   if (error) return fail(error)
   if (!s || s.status !== 'open') return { ok: false, error: 'not_open' }
   const now = new Date().toISOString()
   let t: Awaited<ReturnType<typeof takingsBetween>>
   try {
-    t = await takingsBetween(s.opened_at as string, now)
+    t = await takingsBetween(s.opened_at as string, now, (s as { branch_id?: string | null }).branch_id ?? null)
   } catch {
     return { ok: false, error: 'failed' }
   }

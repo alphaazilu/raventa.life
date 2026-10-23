@@ -1,3 +1,4 @@
+import { addDays } from '@/lib/date'
 import type { Metadata } from 'next'
 import { redirect } from 'next/navigation'
 import { getConsoleSession } from '@/lib/console/session'
@@ -5,7 +6,7 @@ import { getCurrentDevice } from '@/lib/console/device'
 import { deskAllowed } from '@/lib/console/settings'
 import { CASH_PATH, canUseDesk, isAdmin } from '@/lib/auth/roles'
 import { bangkokToday } from '@/lib/check-in/day'
-import { getCashRules, getCurrentSession, listSessions } from '@/lib/console/cash'
+import { getCashRules, getCurrentSession, listSessions, mainBranchId } from '@/lib/console/cash'
 import { dayBounds } from '@/lib/console/checklist'
 import type { CashSession } from '@/lib/cash'
 import { CashView } from '@/components/console/cash-view'
@@ -18,7 +19,6 @@ export const metadata: Metadata = {
 export const dynamic = 'force-dynamic'
 
 const ISO = /^\d{4}-\d{2}-\d{2}$/
-const addDays = (d: string, n: number) => new Date(Date.parse(`${d}T00:00:00Z`) + n * 86_400_000).toISOString().slice(0, 10)
 
 // Staff never see what the drawer should hold or the day's takings (B7):
 // after the count they get only the difference.
@@ -32,7 +32,8 @@ export default async function CashPage({ searchParams }: { searchParams: Promise
   if (!user) redirect(`/login?next=${CASH_PATH}`)
   if (!canUseDesk(role)) redirect('/account')
   const admin = isAdmin(role)
-  const onTablet = Boolean(await getCurrentDevice().catch(() => null))
+  const device = await getCurrentDevice().catch(() => null)
+  const onTablet = Boolean(device)
   if (!(await deskAllowed({ userId: user.id, admin, onTablet }))) return <DeskTabletOnly />
 
   const q = await searchParams
@@ -43,9 +44,12 @@ export default async function CashPage({ searchParams }: { searchParams: Promise
   if (to < from) [from, to] = [to, from]
   if (addDays(from, 92) < to) to = addDays(from, 92)
 
+  // The drawer this tablet shows is its own branch's (§47); off a tablet, the
+  // admin sees the main branch's drawer.
+  const branchId = device?.branchId ?? (await mainBranchId())
   const [rules, current, history] = await Promise.all([
     getCashRules(),
-    getCurrentSession().catch(() => undefined),
+    getCurrentSession(branchId).catch(() => undefined),
     tab === 'history' ? listSessions(dayBounds(from).from, dayBounds(to).to).catch(() => null) : Promise.resolve(null),
   ])
   const setUp = rules.setUp && current !== undefined

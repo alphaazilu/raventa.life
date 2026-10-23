@@ -1,3 +1,4 @@
+import { addDays } from '@/lib/date'
 import { cache } from 'react'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { isMissingTable } from '@/lib/console/db-errors'
@@ -6,7 +7,6 @@ import { FEEDBACK_DAYS, type FeedbackRow, type FeedbackTopic, type PendingVisit 
 
 // Member feedback (§32, v0.33). SERVER ONLY (service role).
 
-const addDays = (d: string, n: number) => new Date(Date.parse(`${d}T00:00:00Z`) + n * 86_400_000).toISOString().slice(0, 10)
 
 // All topics (admin) or the active ones (member form). null = §32 not run.
 export const listTopics = cache(async (all = false): Promise<FeedbackTopic[] | null> => {

@@ -1,5 +1,7 @@
 'use client'
 
+import { addDays } from '@/lib/date'
+
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useEffect, useMemo, useState, useTransition } from 'react'
@@ -27,11 +29,6 @@ const btn =
 
 const forgotten = isForgotten
 const toLocal = (iso: string) => new Date(Date.parse(iso) + 7 * 3600 * 1000).toISOString().slice(0, 16)
-const addDays = (iso: string, n: number) => {
-  const d = new Date(`${iso}T00:00:00Z`)
-  d.setUTCDate(d.getUTCDate() + n)
-  return d.toISOString().slice(0, 10)
-}
 
 export function TimeView({
   admin,

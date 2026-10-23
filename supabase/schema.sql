@@ -1332,11 +1332,11 @@ begin
       if not found then
         raise exception 'product_unavailable';
       end if;
-      v_stock := v_v.stock;
+      v_stock := public.effective_stock(v_p.id, v_v.id);
       v_name := v_p.name_th || ' · ' || v_v.label;
     else
       v_vid := null;
-      v_stock := v_p.stock;
+      v_stock := public.effective_stock(v_p.id, null);
     end if;
     if v_p.track_stock and v_stock < v_qty then
       raise exception 'out_of_stock';
@@ -1584,11 +1584,9 @@ begin
     join public.products p on p.id = sl.product_id
     where sl.sale_id = p_sale_id and sl.kind <> 'day_pass' and p.track_stock
   loop
-    if l.variant_id is not null then
-      update public.product_variants set stock = stock + l.qty where id = l.variant_id;
-    else
-      update public.products set stock = stock + l.qty where id = l.product_id;
-    end if;
+    -- Give it back to wherever it was taken from (§49): the sale's branch stock,
+    -- or the shared pool if that branch keeps none of its own.
+    perform public.staff_give_stock(l.product_id, l.variant_id, v.branch_id, l.qty);
   end loop;
 
   update public.visits
@@ -2992,11 +2990,11 @@ begin
       if not found then
         raise exception 'product_unavailable';
       end if;
-      v_stock := v_v.stock;
+      v_stock := public.effective_stock(v_p.id, v_v.id);
       v_name := v_p.name_th || ' · ' || v_v.label;
     else
       v_vid := null;
-      v_stock := v_p.stock;
+      v_stock := public.effective_stock(v_p.id, null);
     end if;
     if v_p.track_stock and v_stock < v_qty then
       raise exception 'out_of_stock';
@@ -3466,13 +3464,14 @@ create or replace function public.pos_quote(
   p_day_pass text,
   p_items jsonb,
   p_promo_code text default null,
-  p_entry uuid default null
+  p_entry uuid default null,
+  p_branch uuid default null
 )
 returns jsonb
 language plpgsql
 security definer
 set search_path = public
-stable
+-- not stable: it sets app.branch so product_price can read a per-branch price (§48).
 as $$
 declare
   v_today date := public.bkk_today();
@@ -3503,6 +3502,12 @@ begin
   end if;
   if p_member_id is not null and p_member_id = auth.uid() then
     raise exception 'self_service';
+  end if;
+  -- Price this quote for the given branch when one is passed (§48). product_price
+  -- reads app.branch; set it only when a branch is named, so other callers and
+  -- the internal call from pos_checkout are untouched.
+  if p_branch is not null then
+    perform set_config('app.branch', p_branch::text, true);
   end if;
   if coalesce(p_day_pass, 'none') not in ('none', 'paid', 'reward', 'package') then
     raise exception 'bad_entry_type';
@@ -3590,11 +3595,11 @@ begin
       if not found then
         raise exception 'product_unavailable';
       end if;
-      v_stock := v_v.stock;
+      v_stock := public.effective_stock(v_p.id, v_v.id);
       v_name := v_p.name_th || ' · ' || v_v.label;
     else
       v_vid := null;
-      v_stock := v_p.stock;
+      v_stock := public.effective_stock(v_p.id, null);
     end if;
     if v_p.track_stock and v_stock < v_qty then
       raise exception 'out_of_stock';
@@ -3667,7 +3672,8 @@ create or replace function public.pos_checkout(
   p_promo_code text default null,
   p_wristband text default null,
   p_entry uuid default null,
-  p_locker text default null
+  p_locker text default null,
+  p_branch uuid default null
 )
 returns jsonb
 language plpgsql
@@ -3675,7 +3681,7 @@ security definer
 set search_path = public
 as $$
 declare
-  v_q jsonb := public.pos_quote(p_member_id, p_day_pass, p_items, p_promo_code, p_entry);
+  v_q jsonb := public.pos_quote(p_member_id, p_day_pass, p_items, p_promo_code, p_entry, p_branch);
   v_total integer := (v_q->>'total')::int;
   v_member_no text;
   v_sale public.sales;
@@ -3793,10 +3799,14 @@ begin
   return jsonb_build_object('sale_id', v_sale.id, 'receipt_no', v_sale.receipt_no, 'total', v_total, 'visit_id', v_visit);
 end;
 $$;
-revoke execute on function public.pos_quote(uuid, text, jsonb, text, uuid) from public, anon;
-grant execute on function public.pos_quote(uuid, text, jsonb, text, uuid) to authenticated;
-revoke execute on function public.pos_checkout(uuid, text, jsonb, text, text, text, uuid, text) from public, anon;
-grant execute on function public.pos_checkout(uuid, text, jsonb, text, text, text, uuid, text) to authenticated;
+-- Drop the superseded overloads (pre-§48: pos_quote had 5 args, pos_checkout
+-- 8) so only the branch-aware versions remain and calls never go ambiguous.
+drop function if exists public.pos_quote(uuid, text, jsonb, text, uuid);
+drop function if exists public.pos_checkout(uuid, text, jsonb, text, text, text, uuid, text);
+revoke execute on function public.pos_quote(uuid, text, jsonb, text, uuid, uuid) from public, anon;
+grant execute on function public.pos_quote(uuid, text, jsonb, text, uuid, uuid) to authenticated;
+revoke execute on function public.pos_checkout(uuid, text, jsonb, text, text, text, uuid, text, uuid) from public, anon;
+grant execute on function public.pos_checkout(uuid, text, jsonb, text, text, text, uuid, text, uuid) to authenticated;
 
 
 -- 42. Promotions target categories and several products (v0.37.5). Besides
@@ -3947,8 +3957,8 @@ begin
       v_lines := v_lines || jsonb_build_object('item_id', r.item_id, 'name', r.name || ' · ของหาย', 'qty', r.qty, 'unit', v_price, 'loan', r.loan_id);
     end loop;
     if jsonb_array_length(v_lines) > 0 then
-      insert into public.sales (member_id, member_no, subtotal, discount, total, payment_method, staff_id)
-      values (v.member_id, v.member_no, v_total, 0, v_total, p_payment_method, auth.uid())
+      insert into public.sales (member_id, member_no, subtotal, discount, total, payment_method, staff_id, branch_id)
+      values (v.member_id, v.member_no, v_total, 0, v_total, p_payment_method, auth.uid(), v.branch_id)
       returning * into v_sale;
       for x in select value from jsonb_array_elements(v_lines) loop
         insert into public.sale_lines (sale_id, product_id, variant_id, kind, name, qty, unit_price, line_total)
@@ -3976,3 +3986,361 @@ end;
 $fn$;
 revoke execute on function public.staff_checkout_with_loans(uuid, uuid[], uuid[], text) from public, anon;
 grant execute on function public.staff_checkout_with_loans(uuid, uuid[], uuid[], text) to authenticated;
+
+
+-- 45. Floor capacity is configurable (v0.37.11). The "in store now X / 40"
+-- cap used by the desk and dashboard is an admin setting, not a fixed 40.
+alter table public.app_settings add column if not exists floor_capacity integer not null default 40 check (floor_capacity between 1 and 10000);
+
+
+-- 46. Branches (v0.38, step 1). The shop can have more than one branch. This
+-- step only introduces the list; nothing is scoped to a branch yet (that
+-- comes next). One "main" branch is seeded so existing data has a home.
+create table if not exists public.branches (
+  id uuid primary key default gen_random_uuid(),
+  name text not null check (char_length(btrim(name)) between 1 and 60),
+  sort integer not null default 0,
+  is_active boolean not null default true,
+  created_at timestamptz not null default now()
+);
+alter table public.branches enable row level security;
+revoke insert, update, delete on public.branches from anon, authenticated;
+drop policy if exists "Staff read" on public.branches;
+create policy "Staff read" on public.branches for select to authenticated using (public.is_staff());
+
+insert into public.branches (name, sort)
+select 'สาขาหลัก', 0
+where not exists (select 1 from public.branches);
+-- 47. Branch scoping (v0.38, step 2). Every sale, visit and cash drawer is now
+-- tagged with the branch it happened at. An admin assigns each tablet to a
+-- branch (devices.branch_id); the counter stamps that branch onto what it
+-- rings up (done in the server action, right after the row is created, so the
+-- big checkout/check-in functions keep their signatures). Existing rows and
+-- single-branch shops fall back to the main branch, so nothing breaks. The
+-- "one open cash drawer" rule becomes one open drawer per branch.
+
+-- The "home" branch: the lowest-sort active branch (any branch if none is
+-- active). Used as the column default so a shop that never touches branches
+-- keeps working, and as the fallback when a tablet has no branch set.
+create or replace function public.main_branch()
+returns uuid
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select id from public.branches
+  order by (not is_active), sort, created_at
+  limit 1
+$$;
+revoke execute on function public.main_branch() from public, anon;
+grant execute on function public.main_branch() to authenticated;
+
+alter table public.devices       add column if not exists branch_id uuid references public.branches(id) on delete set null;
+alter table public.sales         add column if not exists branch_id uuid references public.branches(id) on delete set null;
+alter table public.visits        add column if not exists branch_id uuid references public.branches(id) on delete set null;
+alter table public.cash_sessions add column if not exists branch_id uuid references public.branches(id) on delete set null;
+
+-- New rows get the main branch unless the caller sets one.
+alter table public.sales         alter column branch_id set default public.main_branch();
+alter table public.visits        alter column branch_id set default public.main_branch();
+alter table public.cash_sessions alter column branch_id set default public.main_branch();
+
+-- Give every existing row a home.
+update public.devices       set branch_id = public.main_branch() where branch_id is null;
+update public.sales         set branch_id = public.main_branch() where branch_id is null;
+update public.visits        set branch_id = public.main_branch() where branch_id is null;
+update public.cash_sessions set branch_id = public.main_branch() where branch_id is null;
+
+create index if not exists sales_branch_idx  on public.sales (branch_id);
+create index if not exists visits_branch_idx on public.visits (branch_id);
+
+-- One open drawer per branch (was one open drawer for the whole shop).
+drop index if exists public.cash_sessions_one_open;
+create unique index if not exists cash_sessions_one_open_per_branch
+  on public.cash_sessions (branch_id) where status <> 'closed';
+
+-- 48. Per-branch prices (v0.38, step 3a). A branch can override a product's
+-- price; where it doesn't, the product's own price stands. pos_quote sets
+-- app.branch before pricing a bill, and product_price reads it. Nothing set
+-- (reports, other callers, a single-branch shop) = the base price, unchanged.
+create table if not exists public.product_branch_prices (
+  product_id uuid not null references public.products(id) on delete cascade,
+  branch_id uuid not null references public.branches(id) on delete cascade,
+  price_weekday integer check (price_weekday is null or price_weekday >= 0),
+  price_weekend integer check (price_weekend is null or price_weekend >= 0),
+  price_holiday integer check (price_holiday is null or price_holiday >= 0),
+  updated_at timestamptz not null default now(),
+  primary key (product_id, branch_id)
+);
+alter table public.product_branch_prices enable row level security;
+revoke insert, update, delete on public.product_branch_prices from anon, authenticated;
+drop policy if exists "Staff read" on public.product_branch_prices;
+create policy "Staff read" on public.product_branch_prices for select to authenticated using (public.is_staff());
+
+-- Same name and arguments as §18, now aware of a per-branch override. The
+-- branch is passed in app.branch (a transaction-local GUC set by pos_quote);
+-- when it is unset the override lookup finds nothing and the base price stands.
+create or replace function public.product_price(p public.products, p_date date)
+returns integer
+language sql
+security definer
+set search_path = public
+stable
+as $$
+  with b as (
+    select bp.price_weekday, bp.price_weekend, bp.price_holiday
+    from public.product_branch_prices bp
+    where bp.product_id = p.id
+      and bp.branch_id = nullif(current_setting('app.branch', true), '')::uuid
+  )
+  select case public.day_type(p_date)
+    when 'holiday' then coalesce((select price_holiday from b), p.price_holiday, p.price_weekend, p.price_weekday)
+    when 'weekend' then coalesce((select price_weekend from b), p.price_weekend, p.price_weekday)
+    else coalesce((select price_weekday from b), p.price_weekday)
+  end;
+$$;
+
+-- 49. Per-branch stock (v0.38, step 3b). A branch can keep its own stock for a
+-- product (or a variant); where it doesn't, the product's shared stock is used,
+-- exactly like §48 does for price. pos_quote reads the branch's stock through
+-- app.branch; checkout takes from it, and a void gives it back. A single-branch
+-- shop, and any product no branch overrides, behave exactly as before.
+create table if not exists public.product_branch_stock (
+  product_id uuid not null references public.products(id) on delete cascade,
+  branch_id uuid not null references public.branches(id) on delete cascade,
+  stock integer not null default 0 check (stock >= 0),
+  updated_at timestamptz not null default now(),
+  primary key (product_id, branch_id)
+);
+create table if not exists public.variant_branch_stock (
+  variant_id uuid not null references public.product_variants(id) on delete cascade,
+  branch_id uuid not null references public.branches(id) on delete cascade,
+  stock integer not null default 0 check (stock >= 0),
+  updated_at timestamptz not null default now(),
+  primary key (variant_id, branch_id)
+);
+alter table public.product_branch_stock enable row level security;
+alter table public.variant_branch_stock enable row level security;
+revoke insert, update, delete on public.product_branch_stock from anon, authenticated;
+revoke insert, update, delete on public.variant_branch_stock from anon, authenticated;
+drop policy if exists "Staff read" on public.product_branch_stock;
+drop policy if exists "Staff read" on public.variant_branch_stock;
+create policy "Staff read" on public.product_branch_stock for select to authenticated using (public.is_staff());
+create policy "Staff read" on public.variant_branch_stock for select to authenticated using (public.is_staff());
+
+-- The stock that counts for the branch in app.branch: the branch's own row if
+-- it has one, else the product's / variant's shared stock. Unset branch = shared.
+create or replace function public.effective_stock(p_product uuid, p_variant uuid)
+returns integer
+language sql
+security definer
+set search_path = public
+stable
+as $$
+  select case
+    when p_variant is not null then coalesce(
+      (select s.stock from public.variant_branch_stock s
+         where s.variant_id = p_variant and s.branch_id = nullif(current_setting('app.branch', true), '')::uuid),
+      (select v.stock from public.product_variants v where v.id = p_variant))
+    else coalesce(
+      (select s.stock from public.product_branch_stock s
+         where s.product_id = p_product and s.branch_id = nullif(current_setting('app.branch', true), '')::uuid),
+      (select p.stock from public.products p where p.id = p_product))
+  end;
+$$;
+revoke execute on function public.effective_stock(uuid, uuid) from public, anon;
+grant execute on function public.effective_stock(uuid, uuid) to authenticated;
+
+-- Take stock for a sale at a branch: from the branch's own row when it has one,
+-- otherwise the shared stock. Going below zero raises out_of_stock, the same as
+-- the shared-stock guard it replaces.
+create or replace function public.staff_take_stock(p_product uuid, p_variant uuid, p_branch uuid, p_qty integer)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  begin
+    if p_variant is not null then
+      if exists (select 1 from public.variant_branch_stock where variant_id = p_variant and branch_id = p_branch) then
+        update public.variant_branch_stock set stock = stock - p_qty, updated_at = now() where variant_id = p_variant and branch_id = p_branch;
+      else
+        update public.product_variants set stock = stock - p_qty where id = p_variant;
+      end if;
+    else
+      if p_branch is not null and exists (select 1 from public.product_branch_stock where product_id = p_product and branch_id = p_branch) then
+        update public.product_branch_stock set stock = stock - p_qty, updated_at = now() where product_id = p_product and branch_id = p_branch;
+      else
+        update public.products set stock = stock - p_qty where id = p_product;
+      end if;
+    end if;
+  exception when check_violation then
+    raise exception 'out_of_stock';
+  end;
+end;
+$$;
+
+-- Give stock back (a void): to the same place staff_take_stock took it from.
+create or replace function public.staff_give_stock(p_product uuid, p_variant uuid, p_branch uuid, p_qty integer)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if p_variant is not null then
+    if exists (select 1 from public.variant_branch_stock where variant_id = p_variant and branch_id = p_branch) then
+      update public.variant_branch_stock set stock = stock + p_qty, updated_at = now() where variant_id = p_variant and branch_id = p_branch;
+    else
+      update public.product_variants set stock = stock + p_qty where id = p_variant;
+    end if;
+  else
+    if p_branch is not null and exists (select 1 from public.product_branch_stock where product_id = p_product and branch_id = p_branch) then
+      update public.product_branch_stock set stock = stock + p_qty, updated_at = now() where product_id = p_product and branch_id = p_branch;
+    else
+      update public.products set stock = stock + p_qty where id = p_product;
+    end if;
+  end if;
+end;
+$$;
+revoke execute on function public.staff_take_stock(uuid, uuid, uuid, integer) from public, anon;
+revoke execute on function public.staff_give_stock(uuid, uuid, uuid, integer) from public, anon;
+
+-- §49 (cont.): re-create pos_checkout so the stock it takes comes from the
+-- selling branch (staff_take_stock) instead of the shared pool. Same 9-arg
+-- signature as §48, so its grant still applies; only the stock line changes.
+create or replace function public.pos_checkout(
+  p_member_id uuid,
+  p_day_pass text,
+  p_items jsonb,
+  p_payment_method text default null,
+  p_promo_code text default null,
+  p_wristband text default null,
+  p_entry uuid default null,
+  p_locker text default null,
+  p_branch uuid default null
+)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_q jsonb := public.pos_quote(p_member_id, p_day_pass, p_items, p_promo_code, p_entry, p_branch);
+  v_branch uuid := coalesce(p_branch, public.main_branch());
+  v_total integer := (v_q->>'total')::int;
+  v_member_no text;
+  v_sale public.sales;
+  v_line jsonb;
+  v_line_id bigint;
+  v_visit uuid;
+  v_track boolean;
+  v_entry text;
+  v_pkg_id uuid;
+  v_pkg_stamp boolean;
+  v_prod public.products;
+  v_today date := public.bkk_today();
+begin
+  if v_total > 0 or p_day_pass = 'paid' then
+    if p_payment_method is null or p_payment_method not in ('cash', 'transfer', 'card') then
+      raise exception 'payment_method_required';
+    end if;
+  else
+    p_payment_method := null;
+  end if;
+  if p_member_id is not null then
+    select member_no into v_member_no from public.profiles where id = p_member_id;
+  end if;
+
+  insert into public.sales (member_id, member_no, subtotal, discount, total, payment_method, promotion_id, promo_name, staff_id, branch_id)
+  values (
+    p_member_id, v_member_no, (v_q->>'subtotal')::int, (v_q->>'discount')::int, v_total,
+    p_payment_method, nullif(v_q->>'promotion_id', '')::uuid, v_q->>'promo_name', auth.uid(), v_branch
+  )
+  returning * into v_sale;
+
+  for v_line in select * from jsonb_array_elements(v_q->'lines') loop
+    insert into public.sale_lines (sale_id, product_id, variant_id, kind, name, qty, unit_price, line_total)
+    values (
+      v_sale.id, (v_line->>'product_id')::uuid, nullif(v_line->>'variant_id', '')::uuid, v_line->>'kind',
+      v_line->>'name', (v_line->>'qty')::int, (v_line->>'unit_price')::int, (v_line->>'line_total')::int
+    )
+    returning id into v_line_id;
+
+    if v_line->>'kind' = 'day_pass' then
+      v_entry := case
+        when (v_line->>'reward')::boolean then 'reward'
+        when v_line->>'package_id' is not null then 'package'
+        else 'paid' end;
+      if v_entry = 'package' then
+        -- Use one visit; a "starts on first use" package starts today.
+        update public.member_packages
+        set visits_used = visits_used + 1,
+            starts_on = coalesce(starts_on, v_today),
+            expires_on = coalesce(expires_on, v_today + valid_days - 1)
+        where id = (v_line->>'package_id')::uuid
+        -- Shared visits (§23) never earn a stamp — only the owner's own.
+        returning id, earns_stamp and member_id = p_member_id into v_pkg_id, v_pkg_stamp;
+      end if;
+      insert into public.visits (
+        member_id, member_no, entry_type, price, payment_method, earns_stamp, wristband, locker, checked_in_by, sale_id, package_id, branch_id
+      ) values (
+        p_member_id, v_member_no, v_entry,
+        (v_line->>'unit_price')::int,
+        case when v_entry = 'paid' then p_payment_method end,
+        case v_entry when 'paid' then true when 'package' then coalesce(v_pkg_stamp, false) else false end,
+        nullif(btrim(coalesce(p_wristband, '')), ''), nullif(btrim(coalesce(p_locker, '')), ''), auth.uid(), v_sale.id,
+        case when v_entry = 'package' then v_pkg_id end, v_branch
+      )
+      returning id into v_visit;
+      update public.sale_lines set visit_id = v_visit where id = v_line_id;
+      insert into public.staff_actions (actor_id, member_id, visit_id, action, detail)
+      values (auth.uid(), p_member_id, v_visit, 'check_in',
+        jsonb_build_object('entry_type', v_entry, 'package_id', v_pkg_id,
+          'price', (v_line->>'unit_price')::int, 'payment_method', p_payment_method, 'receipt_no', v_sale.receipt_no));
+    elsif v_line->>'kind' = 'package' then
+      -- Sold a package (§21): one per unit, with the product's rules copied
+      -- so later edits to the product don't change what was bought.
+      select * into v_prod from public.products where id = (v_line->>'product_id')::uuid;
+      for i in 1..(v_line->>'qty')::int loop
+        insert into public.member_packages (
+          member_id, product_id, sale_id, sale_line_id, name, visits_total, valid_days,
+          weekday_only, earns_stamp, shareable, share_whole, starts_on, expires_on, activate_by
+        ) values (
+          p_member_id, v_prod.id, v_sale.id, v_line_id, v_prod.name_th, v_prod.pkg_visits, v_prod.pkg_days,
+          v_prod.pkg_weekday_only, v_prod.pkg_earns_stamp,
+          v_prod.pkg_shareable and (v_prod.pkg_visits is not null or v_prod.pkg_share_whole),
+          v_prod.pkg_shareable and v_prod.pkg_share_whole,
+          case when v_prod.pkg_start = 'purchase' then v_today end,
+          case when v_prod.pkg_start = 'purchase' then v_today + v_prod.pkg_days - 1 end,
+          case when v_prod.pkg_start = 'first_use' then v_today + v_prod.pkg_activate_days - 1 end
+        );
+      end loop;
+    else
+      select track_stock into v_track from public.products where id = (v_line->>'product_id')::uuid;
+      if v_track then
+        -- Take it from the selling branch's stock (§49); a branch with no stock
+        -- row of its own falls back to the shared pool.
+        perform public.staff_take_stock(
+          (v_line->>'product_id')::uuid, nullif(v_line->>'variant_id', '')::uuid, v_branch, (v_line->>'qty')::int);
+      end if;
+    end if;
+  end loop;
+
+  -- Lent with what was sold (§39): to come back at check-out.
+  insert into public.visit_loans (sale_id, visit_id, member_id, item_id, name, qty)
+  select v_sale.id, v_visit, p_member_id, (x->>'item_id')::uuid, x->>'name', (x->>'qty')::int
+  from jsonb_array_elements(coalesce(v_q->'loans', '[]'::jsonb)) x;
+
+  insert into public.staff_actions (actor_id, member_id, visit_id, action, detail)
+  values (auth.uid(), p_member_id, v_visit, 'sale', jsonb_build_object(
+    'sale_id', v_sale.id, 'receipt_no', v_sale.receipt_no, 'total', v_total,
+    'discount', v_sale.discount, 'payment_method', p_payment_method, 'promo', v_sale.promo_name));
+
+  return jsonb_build_object('sale_id', v_sale.id, 'receipt_no', v_sale.receipt_no, 'total', v_total, 'visit_id', v_visit);
+end;
+$$;
+revoke execute on function public.pos_checkout(uuid, text, jsonb, text, text, text, uuid, text, uuid) from public, anon;
+grant execute on function public.pos_checkout(uuid, text, jsonb, text, text, text, uuid, text, uuid) to authenticated;

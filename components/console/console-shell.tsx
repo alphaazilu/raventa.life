@@ -96,7 +96,7 @@ const t = {
   overview: { th: 'ภาพรวม', en: 'Overview' },
   desk: { th: 'ขาย + เช็คอิน', en: 'Sell + check-in' },
   members: { th: 'ลูกค้า', en: 'Members' },
-  cash: { th: 'ปิดกะ', en: 'Shift close' },
+  cash: { th: 'เงินสด', en: 'Cash' },
   feedback: { th: 'ความเห็นลูกค้า', en: 'Feedback' },
   fbList: { th: 'ความเห็น', en: 'Answers' },
   fbTopics: { th: 'หัวข้อคะแนน + QR', en: 'Topics + QR' },

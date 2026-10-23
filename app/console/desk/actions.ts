@@ -85,15 +85,33 @@ function errorCode(error: { code?: string; message?: string } | null): string {
   return m ? m[1] : 'failed'
 }
 
-async function requireDesk(): Promise<{ supabase: Supabase; userId: string; onTablet: boolean } | { error: string }> {
+async function requireDesk(): Promise<{ supabase: Supabase; userId: string; onTablet: boolean; branchId: string | null } | { error: string }> {
   const { supabase, user, role } = await getConsoleSession()
   if (!user) return { error: 'not_staff' }
   if (!canUseDesk(role)) return { error: 'not_staff' }
   // Staff sell on a registered tablet unless an admin allowed their phone
   // (Back Office › Settings, §19).
-  const onTablet = Boolean(await getCurrentDevice().catch(() => null))
+  const device = await getCurrentDevice().catch(() => null)
+  const onTablet = Boolean(device)
   if (!(await deskAllowed({ userId: user.id, admin: isAdmin(role), onTablet }))) return { error: 'desk_tablet_only' }
-  return { supabase, userId: user.id, onTablet }
+  // The branch this tablet rings up for (§47). Off a tablet there is no branch
+  // to pin, so the row keeps its default (the main branch).
+  return { supabase, userId: user.id, onTablet, branchId: device?.branchId ?? null }
+}
+
+// Pin a just-created sale and its visits to the tablet's branch (§47). The
+// rows were inserted with the main branch as default; this corrects them for a
+// multi-branch shop. Service-role, best-effort: a miss leaves the main branch,
+// which never corrupts takings, only misattributes them.
+async function tagBranch(branchId: string | null, saleId: string | null, visitId?: string | null): Promise<void> {
+  if (!branchId) return
+  const admin = createAdminClient()
+  const ignore = () => undefined
+  if (saleId) {
+    await admin.from('sales').update({ branch_id: branchId }).eq('id', saleId).then(ignore, ignore)
+    await admin.from('visits').update({ branch_id: branchId }).eq('sale_id', saleId).then(ignore, ignore)
+  }
+  if (visitId) await admin.from('visits').update({ branch_id: branchId }).eq('id', visitId).then(ignore, ignore)
 }
 
 function fullName(p: { first_name?: string | null; last_name?: string | null; email?: string | null }): string {
@@ -116,11 +134,13 @@ function toVisit(v: Record<string, unknown>): TodayVisit {
 
 const VISIT_COLUMNS_BASE = 'id, member_id, member_no, entry_type, price, payment_method, wristband, checked_in_at, checked_out_at'
 const VISIT_COLUMNS = `${VISIT_COLUMNS_BASE}, sale_id, locker`
+const VISIT_COLUMNS_BRANCH = `${VISIT_COLUMNS}, branch_id`
 
-// visits.sale_id arrives with §18 and locker with §44; before each is run,
-// drop the missing column and read the rest.
+// visits.sale_id arrives with §18, locker with §44 and branch_id with §47;
+// before each is run, drop the missing column and read the rest.
 async function selectVisits<T>(run: (columns: string) => PromiseLike<{ data: T; error: { code?: string } | null }>) {
-  let res = await run(VISIT_COLUMNS)
+  let res = await run(VISIT_COLUMNS_BRANCH)
+  if (res.error?.code === '42703') res = await run(VISIT_COLUMNS)
   if (res.error?.code === '42703') res = await run(`${VISIT_COLUMNS_BASE}, sale_id`)
   if (res.error?.code === '42703') res = await run(VISIT_COLUMNS_BASE)
   return res
@@ -321,18 +341,35 @@ export async function getFloor(): Promise<DeskResult<Floor>> {
     supabase.from('visits').select(cols).eq('visit_date', today).is('cancelled_at', null).order('checked_in_at', { ascending: false }),
   )
   if (error) return { ok: false, error: errorCode(error) }
-  const data = (rows ?? []) as unknown as Record<string, unknown>[]
+  let data = (rows ?? []) as unknown as Record<string, unknown>[]
+  // On a branch's tablet, show only that branch's floor and takings (§47).
+  // Pre-§47 rows carry no branch_id, so the filter is skipped for them.
+  const branchId = ctx.branchId
+  const scoped = Boolean(branchId) && data.some((v) => 'branch_id' in v)
+  if (scoped) data = data.filter((v) => v.branch_id === branchId)
 
   const ids = [...new Set(data.map((v) => v.member_id).filter(Boolean))] as string[]
   const names: Record<string, string> = {}
   const visitIds = data.map((v) => v.id as string)
-  const [people, salesRes, loansRes] = await Promise.all([
+  // Takings sales, scoped to this branch when we can. branch_id arrives with
+  // §47; fall back to the whole shop if it isn't there.
+  const salesQuery = () => {
+    const base = supabase.from('sales').select('total, payment_method, branch_id').eq('sale_date', today).is('voided_at', null)
+    return scoped ? base.eq('branch_id', branchId as string) : base
+  }
+  const [people, salesRes0, loansRes] = await Promise.all([
     ids.length > 0 ? supabase.from('profiles').select('id, first_name, last_name, email').in('id', ids) : Promise.resolve({ data: [] }),
-    supabase.from('sales').select('total, payment_method').eq('sale_date', today).is('voided_at', null),
+    salesQuery(),
     visitIds.length > 0
       ? supabase.from('visit_loans').select('id, visit_id, qty, products(name_th, name_en), name').in('visit_id', visitIds).is('returned_at', null)
       : Promise.resolve({ data: [], error: null }),
   ])
+  // sales.branch_id (and sale_date) may predate §47/§18; on a column error,
+  // retry the takings query plainly so money still shows.
+  let salesRes = salesRes0 as { data: { total: unknown; payment_method: unknown }[] | null; error: { code?: string } | null }
+  if (salesRes.error?.code === '42703') {
+    salesRes = await supabase.from('sales').select('total, payment_method').eq('sale_date', today).is('voided_at', null)
+  }
   for (const p of people.data ?? []) names[p.id] = fullName(p)
   const loans: Record<string, { id: string; name: string; nameEn: string; qty: number }[]> = {}
   for (const l of (loansRes.error ? [] : (loansRes.data ?? [])) as unknown as Record<string, unknown>[]) {
@@ -448,7 +485,7 @@ export async function getDeskCatalog(): Promise<DeskResult<DeskCatalog>> {
   }
 }
 
-function rpcArgs(input: BillInput) {
+function rpcArgs(input: BillInput, branchId?: string | null) {
   return {
     p_member_id: input.memberId,
     p_day_pass: input.dayPass,
@@ -458,6 +495,9 @@ function rpcArgs(input: BillInput) {
     p_promo_code: input.code.trim().toUpperCase().slice(0, 20) || null,
     // Only sent when picked — before §41 the functions don't take it.
     ...(input.entryId ? { p_entry: input.entryId } : {}),
+    // The tablet's branch, so the bill is priced with that branch's prices
+    // (§48). Sent only when set, so older databases aren't asked for it.
+    ...(branchId ? { p_branch: branchId } : {}),
   }
 }
 
@@ -469,7 +509,7 @@ function legacyOnly(input: BillInput) {
 export async function quoteBill(input: BillInput): Promise<DeskResult<Quote>> {
   const ctx = await requireDesk()
   if ('error' in ctx) return { ok: false, error: ctx.error }
-  const { data, error } = await ctx.supabase.rpc('pos_quote', rpcArgs(input))
+  const { data, error } = await ctx.supabase.rpc('pos_quote', rpcArgs(input, ctx.branchId))
   if (error) {
     const code = errorCode(error)
     if (code === 'not_set_up' && legacyOnly(input)) {
@@ -531,7 +571,7 @@ export async function checkoutBill(
   const wristband = input.wristband.trim().slice(0, 20) || null
   const locker = (input.locker ?? '').trim().slice(0, 20) || null
   const { data, error } = await ctx.supabase.rpc('pos_checkout', {
-    ...rpcArgs(input),
+    ...rpcArgs(input, ctx.branchId),
     p_payment_method: input.paymentMethod,
     p_wristband: input.dayPass === 'none' ? null : wristband,
     p_locker: input.dayPass === 'none' ? null : locker,
@@ -549,11 +589,13 @@ export async function checkoutBill(
       p_wristband: wristband,
     })
     if (legacy.error) return { ok: false, error: errorCode(legacy.error) }
+    await tagBranch(ctx.branchId, null, (legacy.data as string | null) ?? null)
   } else {
     const r = data as Record<string, unknown>
     receiptNo = Number(r.receipt_no)
     total = Number(r.total)
     saleId = (r.sale_id as string | undefined) ?? null
+    await tagBranch(ctx.branchId, saleId, (r.visit_id as string | null) ?? null)
     // Sold away from a counter tablet (an admin, or staff allowed on their
     // phone): note it, so the log shows where each bill was taken.
     if (!ctx.onTablet) {

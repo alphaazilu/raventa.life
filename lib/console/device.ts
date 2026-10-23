@@ -21,7 +21,7 @@ const SEEN_EVERY_MS = 5 * 60 * 1000
 // A sanity cap on unclaimed codes, since /tablet is open to anyone.
 const MAX_OPEN_CODES = 30
 
-export type Device = { id: string; name: string; createdAt: string; lastSeenAt: string | null }
+export type Device = { id: string; name: string; createdAt: string; lastSeenAt: string | null; branchId: string | null }
 
 const sha256 = (s: string) => createHash('sha256').update(s).digest('hex')
 const secret = () => randomBytes(32).toString('base64url')
@@ -39,18 +39,18 @@ export const getCurrentDevice = cache(async (): Promise<Device | null> => {
   const token = (await cookies()).get(DEVICE_COOKIE)?.value
   if (!token) return null
   const admin = createAdminClient()
-  const { data } = await admin
-    .from('devices')
-    .select('id, name, created_at, last_seen_at')
-    .eq('token_hash', sha256(token))
-    .is('revoked_at', null)
-    .maybeSingle()
+  // branch_id arrives with §47; tolerate it being absent on older databases.
+  const run = (cols: string) =>
+    admin.from('devices').select(cols).eq('token_hash', sha256(token)).is('revoked_at', null).maybeSingle()
+  let { data, error } = await run('id, name, created_at, last_seen_at, branch_id')
+  if (error?.code === '42703') ({ data, error } = await run('id, name, created_at, last_seen_at'))
   if (!data) return null
-  const seen = data.last_seen_at ? Date.parse(data.last_seen_at) : 0
+  const row = data as unknown as { id: string; name: string; created_at: string; last_seen_at: string | null; branch_id?: string | null }
+  const seen = row.last_seen_at ? Date.parse(row.last_seen_at) : 0
   if (Date.now() - seen > SEEN_EVERY_MS) {
-    await admin.from('devices').update({ last_seen_at: new Date().toISOString() }).eq('id', data.id)
+    await admin.from('devices').update({ last_seen_at: new Date().toISOString() }).eq('id', row.id)
   }
-  return { id: data.id, name: data.name, createdAt: data.created_at, lastSeenAt: data.last_seen_at }
+  return { id: row.id, name: row.name, createdAt: row.created_at, lastSeenAt: row.last_seen_at, branchId: row.branch_id ?? null }
 })
 
 export type PairStart =

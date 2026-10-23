@@ -55,10 +55,6 @@ export async function listItems(from: string, to: string): Promise<CalItem[] | n
   return rows.map((r) => toItem(r, names))
 }
 
-export async function getItem(id: string): Promise<CalItem | null> {
-  const { data } = await createAdminClient().from('calendar_items').select('*').eq('id', id).maybeSingle()
-  return data ? toItem(data as Row, new Map()) : null
-}
 
 // Showings a viewer may see, sorted by start (then all-day first, then time).
 export function visibleOccurrences(items: CalItem[], v: Viewer, from: string, to: string, outside = false): Occurrence[] {

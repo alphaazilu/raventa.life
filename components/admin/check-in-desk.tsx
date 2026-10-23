@@ -64,6 +64,7 @@ export function CheckInDesk({
   initialView = 'desk',
   drawerWarn = false,
   commission = null,
+  capacity = FLOOR_CAPACITY,
 }: {
   // Day totals are for admins only; staff see each visit's method, not sums.
   showTakings: boolean
@@ -76,6 +77,7 @@ export function CheckInDesk({
   drawerWarn?: boolean
   // Who earns commission and which items have a rate (§33, v0.34). null = off.
   commission?: DeskCommission
+  capacity?: number // §45: in-store cap (admin setting)
 }) {
   const { tr, lang } = useLanguage()
   const [panel, setPanel] = useState<Panel>(initialMember ? { kind: 'member', member: initialMember } : { kind: 'empty' })
@@ -256,7 +258,7 @@ export function CheckInDesk({
           onClick={() => go('floor')}
           className={cn('rounded-full px-4 py-1.5', view === 'floor' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground')}
         >
-          {tr(deskCopy.tabFloor)} ({inside}/{FLOOR_CAPACITY})
+          {tr(deskCopy.tabFloor)} ({inside}/{capacity})
         </button>
       </div>
 
@@ -303,6 +305,7 @@ export function CheckInDesk({
       {view === 'floor' ? (
         <FloorPanel
           floor={floor}
+          capacity={capacity}
           showTakings={showTakings}
           busy={busy}
           onRefresh={() => startBusy(refreshFloor)}
@@ -901,6 +904,7 @@ function StampRow({ progress, rewardReady }: { progress: number; rewardReady: bo
 
 function FloorPanel({
   floor,
+  capacity,
   showTakings,
   busy,
   onRefresh,
@@ -909,6 +913,7 @@ function FloorPanel({
   onReEnter,
 }: {
   floor: Floor | null
+  capacity: number
   showTakings: boolean
   busy: boolean
   onRefresh: () => void
@@ -923,7 +928,7 @@ function FloorPanel({
   const takings = floor?.takings ?? { cash: 0, transfer: 0, card: 0, total: 0 }
   const free = visits.filter((v) => v.entryType === 'reward').length
   const total = takings.total
-  const pct = Math.min(100, Math.round((inside.length / FLOOR_CAPACITY) * 100))
+  const pct = Math.min(100, Math.round((inside.length / capacity) * 100))
 
   return (
     <section className="rounded-2xl border border-border bg-card p-4 md:p-5">
@@ -932,7 +937,7 @@ function FloorPanel({
           <h2 className="text-base font-semibold text-card-foreground">{tr(deskCopy.floorHeading)}</h2>
           <p className="mt-1 text-sm text-muted-foreground">
             {tr(deskCopy.capacity)}{' '}
-            <span className="font-display text-xl font-extrabold text-foreground">{inside.length}</span> / {FLOOR_CAPACITY}
+            <span className="font-display text-xl font-extrabold text-foreground">{inside.length}</span> / {capacity}
           </p>
         </div>
         <button

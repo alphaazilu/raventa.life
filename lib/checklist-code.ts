@@ -26,7 +26,7 @@ function toUuid(short: string): string | null {
   return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`
 }
 
-export function pointCode(pointId: string, version: number): string {
+function pointCode(pointId: string, version: number): string {
   const body = `${PREFIX}.${toShort(pointId)}.${version.toString(36)}`
   return `${body}.${sign(body)}`
 }

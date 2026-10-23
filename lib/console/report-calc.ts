@@ -1,3 +1,4 @@
+import { addDays } from '@/lib/date'
 // Sales report maths (Back Office › Reports, v0.23). Pure functions over
 // rows already read from the database, so they can be tested on their own.
 // Money is whole baht throughout; dates are Bangkok calendar days
@@ -109,10 +110,10 @@ export type SalesReport = {
 
 const DAY = 86_400_000
 const toMs = (d: string) => Date.parse(`${d}T00:00:00Z`)
-export const addDays = (d: string, n: number) => new Date(toMs(d) + n * DAY).toISOString().slice(0, 10)
+export { addDays } from '@/lib/date'
 const daysBetween = (a: string, b: string) => Math.round((toMs(b) - toMs(a)) / DAY) + 1 // inclusive; ≤0 = none
 
-export function vatSplit(net: number, on: boolean): VatSplit {
+function vatSplit(net: number, on: boolean): VatSplit {
   if (!on) return null
   const exVat = Math.round((net * 100) / 107)
   return { exVat, vat: net - exVat }
@@ -139,7 +140,7 @@ export function allocateDiscount(lines: { line_total: number }[], discount: numb
 // ended). Count packages: visits not yet used × value per visit. Unlimited
 // passes: days left × value per day; one not started keeps its full value
 // until its start-by date.
-export function packageValueAt(p: RPackage, x: string, usedBefore: number): number {
+function packageValueAt(p: RPackage, x: string, usedBefore: number): number {
   if (p.visitsTotal !== null) {
     const end = p.expiresOn ?? (p.startsOn ? null : p.activateBy)
     if (end && end < x) return 0

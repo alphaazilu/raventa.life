@@ -237,7 +237,7 @@ export async function loadCommissionReport(from: string, to: string, staffId?: s
 }
 
 // My account: my own total for a period (null = §33 not run or I don't earn and have nothing).
-export async function myCommission(staffId: string, from: string, to: string): Promise<{ amount: number; lines: number } | null> {
+async function myCommission(staffId: string, from: string, to: string): Promise<{ amount: number; lines: number } | null> {
   try {
     const r = await loadCommissionReport(from, to, staffId)
     if (!r) return null

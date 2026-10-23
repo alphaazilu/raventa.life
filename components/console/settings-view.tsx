@@ -3,17 +3,17 @@
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useEffect, useState, useTransition } from 'react'
-import { CalendarOff, ChevronRight, Clock, Lock, Receipt, Smartphone, Star, Users, Wallet } from 'lucide-react'
+import { Building2, CalendarOff, ChevronRight, Clock, Lock, Plus, Receipt, Smartphone, Star, Trash2, Users, Wallet } from 'lucide-react'
 import { LEAVE_KINDS, leaveCopy } from '@/lib/leave'
 import { useLanguage } from '@/components/language-provider'
 import { Spinner } from '@/components/ui/spinner'
 import { settingsCopy as c, settingsErrors } from '@/lib/console/copy'
 import { CATALOG_PATH, DEVICES_PATH, SETTINGS_PATH, TIME_PATH } from '@/lib/auth/roles'
-import type { AppSettings } from '@/lib/console/settings'
+import type { AppSettings, Branch } from '@/lib/console/settings'
 import { cycleOf, type DailyCycle } from '@/lib/console/pay-cycle'
 import { formatMemberDate } from '@/lib/format-date'
 import { bangkokToday } from '@/lib/check-in/day'
-import { saveAccessSettings, saveCashRules, savePayCycle, saveReviewUrl, setPhoneAccess } from '@/app/console/settings/actions'
+import { saveAccessSettings, saveBranch, deleteBranch, saveCashRules, savePayCycle, saveReviewUrl, setPhoneAccess } from '@/app/console/settings/actions'
 import type { CashRules } from '@/lib/cash'
 import { saveTimeSettings } from '@/app/console/time/shift-actions'
 import { shiftErrors, timeCopy } from '@/lib/console/copy'
@@ -86,6 +86,7 @@ export function SettingsView({
   timeRules,
   cash,
   reviewUrl = '',
+  branches,
 }: {
   settings: AppSettings
   staff: { id: string; name: string }[]
@@ -98,6 +99,8 @@ export function SettingsView({
   cash: CashRules & { setUp: boolean }
   // Google Maps review link (§32, v0.33)
   reviewUrl?: string
+  // Branches (§46, v0.38 step 1). null = not set up yet.
+  branches: Branch[] | null
 }) {
   const { tr, lang } = useLanguage()
   const router = useRouter()
@@ -133,11 +136,11 @@ export function SettingsView({
       form.staffIdleMinutes !== settings.staffIdleMinutes ||
       form.adminIdleMinutes !== settings.adminIdleMinutes,
     work: !same(form.leave, settings.leave) || !same(form.pay, settings.pay) || !same(rules, timeRules),
-    shop: form.vatRegistered !== settings.vatRegistered || cashDirty || reviewDirty,
+    shop: form.vatRegistered !== settings.vatRegistered || form.floorCapacity !== settings.floorCapacity || cashDirty || reviewDirty,
   }
   const dirty = SETTINGS_TABS.some((k) => dirtyBy[k])
   const payDirty = !same(form.pay, settings.pay)
-  const restDirty = dirtyBy.team || form.vatRegistered !== settings.vatRegistered || !same(form.leave, settings.leave)
+  const restDirty = dirtyBy.team || form.vatRegistered !== settings.vatRegistered || form.floorCapacity !== settings.floorCapacity || !same(form.leave, settings.leave)
 
   const go = (k: SettingsTab) => {
     setTab(k)
@@ -473,6 +476,7 @@ export function SettingsView({
               <span className="text-xs text-muted-foreground">{tr(c.reviewUrlHint)}</span>
             </label>
           </section>
+          <BranchManager branches={branches} />
           <section className={card}>
             <h2 className="flex items-center gap-2 text-base font-bold">
               <Receipt className="h-4 w-4" aria-hidden="true" /> {tr(c.accountingHeading)}
@@ -480,6 +484,12 @@ export function SettingsView({
             <div className="mt-1 divide-y divide-border">
               <Toggle on={form.vatRegistered} onChange={(v) => setForm({ ...form, vatRegistered: v })} label={tr(c.vatRegistered)} hint={tr(c.vatRegisteredHint)} />
             </div>
+            <label className="mt-3 flex items-center gap-2 text-sm">
+              {tr(c.floorCapacity)}
+              <input className={input} inputMode="numeric" value={form.floorCapacity} onChange={(e) => setForm({ ...form, floorCapacity: Number(e.target.value.replace(/\D/g, '')) || 0 })} />
+              {tr(c.floorCapacityUnit)}
+            </label>
+            <p className="mt-1 text-xs text-muted-foreground">{tr(c.floorCapacityHint)}</p>
           </section>
           <section className={card}>
             <h2 className="text-base font-bold">{tr(c.elsewhereHeading)}</h2>
@@ -529,5 +539,109 @@ export function SettingsView({
         </div>
       )}
     </div>
+  )
+}
+
+// Manage branches (§46, v0.38 step 1) — add, rename, turn on/off, remove.
+export function BranchManager({ branches }: { branches: Branch[] | null }) {
+  const { tr } = useLanguage()
+  const router = useRouter()
+  const [pending, start] = useTransition()
+  const [adding, setAdding] = useState('')
+  const [editId, setEditId] = useState<string | null>(null)
+  const [editName, setEditName] = useState('')
+  const run = (task: () => Promise<{ ok: boolean }>) =>
+    start(async () => {
+      await task()
+      router.refresh()
+    })
+  if (branches === null) {
+    return (
+      <section className={card}>
+        <h2 className="flex items-center gap-2 text-base font-bold">
+          <Building2 className="h-4 w-4" aria-hidden="true" /> {tr(c.branchesHeading)}
+        </h2>
+        <p className="mt-2 text-sm text-muted-foreground">{tr(c.branchesNotSetUp)}</p>
+      </section>
+    )
+  }
+  return (
+    <section className={card}>
+      <h2 className="flex items-center gap-2 text-base font-bold">
+        <Building2 className="h-4 w-4" aria-hidden="true" /> {tr(c.branchesHeading)}
+      </h2>
+      <p className="mt-1 text-xs text-muted-foreground">{tr(c.branchesHint)}</p>
+      <ul className="mt-3 divide-y divide-border">
+        {branches.map((b) => (
+          <li key={b.id} className="flex items-center gap-2 py-2">
+            {editId === b.id ? (
+              <>
+                <input
+                  autoFocus
+                  value={editName}
+                  onChange={(e) => setEditName(e.target.value)}
+                  className="min-w-0 flex-1 rounded-xl border border-border bg-background px-3 py-1.5 text-sm"
+                  maxLength={60}
+                />
+                <button
+                  type="button"
+                  disabled={pending || !editName.trim()}
+                  onClick={() => run(() => saveBranch({ id: b.id, name: editName }).then((r) => (r.ok && setEditId(null), r)))}
+                  className="rounded-full bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground disabled:opacity-40"
+                >
+                  {tr(c.save)}
+                </button>
+                <button type="button" onClick={() => setEditId(null)} className="rounded-full border border-border px-3 py-1.5 text-xs font-semibold">
+                  {tr(c.branchCancel)}
+                </button>
+              </>
+            ) : (
+              <>
+                <button type="button" onClick={() => (setEditId(b.id), setEditName(b.name))} className="min-w-0 flex-1 truncate text-left text-sm font-semibold hover:text-primary">
+                  {b.name}
+                </button>
+                <button
+                  type="button"
+                  disabled={pending}
+                  onClick={() => run(() => saveBranch({ id: b.id, name: b.name, active: !b.active }))}
+                  className={cn('rounded-full px-2.5 py-0.5 text-xs font-semibold', b.active ? 'bg-accent/15 text-accent' : 'bg-muted text-muted-foreground')}
+                >
+                  {tr(b.active ? c.branchOn : c.branchOff)}
+                </button>
+                {branches.length > 1 && (
+                  <button
+                    type="button"
+                    disabled={pending}
+                    onClick={() => window.confirm(tr(c.branchDeleteAsk).replace('{name}', b.name)) && run(() => deleteBranch(b.id))}
+                    aria-label={tr(c.branchDelete)}
+                    title={tr(c.branchDelete)}
+                    className="flex h-8 w-8 items-center justify-center rounded-full text-muted-foreground hover:bg-secondary hover:text-destructive"
+                  >
+                    <Trash2 className="h-4 w-4" aria-hidden="true" />
+                  </button>
+                )}
+              </>
+            )}
+          </li>
+        ))}
+      </ul>
+      <div className="mt-3 flex items-center gap-2">
+        <input
+          value={adding}
+          onChange={(e) => setAdding(e.target.value)}
+          placeholder={tr(c.branchNamePh)}
+          maxLength={60}
+          className="min-w-0 flex-1 rounded-xl border border-border bg-background px-3 py-2 text-sm"
+        />
+        <button
+          type="button"
+          disabled={pending || !adding.trim()}
+          onClick={() => run(() => saveBranch({ name: adding }).then((r) => (r.ok && setAdding(''), r)))}
+          className="inline-flex items-center gap-1 rounded-full bg-primary px-3 py-2 text-xs font-semibold text-primary-foreground disabled:opacity-40"
+        >
+          <Plus className="h-4 w-4" aria-hidden="true" /> {tr(c.branchAdd)}
+        </button>
+      </div>
+    </section>
   )
 }

@@ -1,5 +1,7 @@
 'use client'
 
+import { addDays } from '@/lib/date'
+
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, useTransition } from 'react'
@@ -17,11 +19,6 @@ import { cn } from '@/lib/utils'
 
 export type LeaveMark = { staffId: string; start: string; end: string; kind: LeaveKind }
 
-const addDays = (iso: string, n: number) => {
-  const d = new Date(`${iso}T00:00:00Z`)
-  d.setUTCDate(d.getUTCDate() + n)
-  return d.toISOString().slice(0, 10)
-}
 const addMonths = (monthStart: string, n: number) => {
   const d = new Date(`${monthStart}T00:00:00Z`)
   d.setUTCMonth(d.getUTCMonth() + n)

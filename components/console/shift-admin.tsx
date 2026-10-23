@@ -1,5 +1,7 @@
 'use client'
 
+import { addDays } from '@/lib/date'
+
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { SETTINGS_PATH } from '@/lib/auth/roles'
@@ -18,11 +20,6 @@ const inputClass =
 const btn =
   'inline-flex items-center justify-center gap-2 rounded-full px-5 py-2.5 text-sm font-semibold transition-opacity disabled:cursor-not-allowed disabled:opacity-50'
 
-const addDays = (iso: string, n: number) => {
-  const d = new Date(`${iso}T00:00:00Z`)
-  d.setUTCDate(d.getUTCDate() + n)
-  return d.toISOString().slice(0, 10)
-}
 
 // The week's roster: one row per person, one dropdown per day.
 export function RosterGrid({

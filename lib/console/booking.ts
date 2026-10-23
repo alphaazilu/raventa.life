@@ -130,7 +130,7 @@ export async function getRules(): Promise<NoShowRules> {
 
 // Bookings still "booked" from an earlier day become no-shows (the day is
 // over). Run lazily whenever bookings are read — there's no nightly job.
-export async function sweepNoShows(): Promise<void> {
+async function sweepNoShows(): Promise<void> {
   await db()
     .from('bookings')
     .update({ status: 'no_show', no_show_at: new Date().toISOString() })
@@ -230,7 +230,7 @@ export async function memberBookings(memberId: string): Promise<{ upcoming: Book
 
 // ---- closed days (calendar) ----
 
-export async function closedOn(day: string, preloaded?: CalItem[] | null): Promise<Closed> {
+async function closedOn(day: string, preloaded?: CalItem[] | null): Promise<Closed> {
   const items = preloaded !== undefined ? preloaded : await listItems(day, day).catch(() => null)
   const out: Closed = { all: false, ranges: [] }
   for (const it of items ?? []) {

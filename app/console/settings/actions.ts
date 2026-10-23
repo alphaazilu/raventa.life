@@ -20,6 +20,7 @@ export async function saveAccessSettings(input: {
   staffMembersOnTablet: boolean
   staffIdleMinutes: number
   adminIdleMinutes: number
+  floorCapacity: number
   vatRegistered: boolean
   leave: LeaveRules
 }): Promise<SettingsResult> {
@@ -28,6 +29,8 @@ export async function saveAccessSettings(input: {
   const staffIdle = Math.round(Number(input.staffIdleMinutes))
   const adminIdle = Math.round(Number(input.adminIdleMinutes))
   if (!(staffIdle >= 1 && staffIdle <= 60) || !(adminIdle >= 1 && adminIdle <= 60)) return { ok: false, error: 'bad_minutes' }
+  const capacity = Math.round(Number(input.floorCapacity))
+  if (!(capacity >= 1 && capacity <= 10000)) return { ok: false, error: 'bad_capacity' }
   const lv = input.leave
   const int = (v: unknown, lo: number, hi: number) => Number.isInteger(v) && (v as number) >= lo && (v as number) <= hi
   if (!lv || !int(lv.noticeDays, 0, 60) || !LEAVE_KINDS.every((k) => int(lv.quotas?.[k], 0, 366))) return { ok: false, error: 'bad_leave' }
@@ -37,6 +40,7 @@ export async function saveAccessSettings(input: {
     staff_members_on_tablet: Boolean(input.staffMembersOnTablet),
     staff_idle_minutes: staffIdle,
     admin_idle_minutes: adminIdle,
+    floor_capacity: capacity,
     vat_registered: Boolean(input.vatRegistered),
     leave_notice_days: lv.noticeDays,
     leave_vacation: Boolean(lv.kinds.vacation),
@@ -125,6 +129,43 @@ export async function savePayCycle(input: PayCycleRules): Promise<SettingsResult
     if (e) return fail(e)
   }
   await admin.from('staff_actions').insert({ actor_id: ctx.userId, action: 'settings_pay', detail: row })
+  revalidatePath(SETTINGS_PATH)
+  return { ok: true }
+}
+
+// ---- Branches (§46, v0.38 step 1) ----
+
+export async function saveBranch(input: { id?: string; name: string; active?: boolean }): Promise<SettingsResult> {
+  const ctx = await requireAdmin()
+  if ('error' in ctx) return { ok: false, error: ctx.error }
+  const name = input.name.trim().slice(0, 60)
+  if (!name) return { ok: false, error: 'need_name' }
+  const db = createAdminClient()
+  if (input.id) {
+    const row: Record<string, unknown> = { name }
+    if (input.active !== undefined) row.is_active = input.active
+    const { error } = await db.from('branches').update(row).eq('id', input.id)
+    if (error) return fail(error)
+  } else {
+    const { data: last } = await db.from('branches').select('sort').order('sort', { ascending: false }).limit(1)
+    const { error } = await db.from('branches').insert({ name, sort: Number(last?.[0]?.sort ?? 0) + 1 })
+    if (error) return fail(error)
+  }
+  revalidatePath(SETTINGS_PATH)
+  return { ok: true }
+}
+
+export async function deleteBranch(id: string): Promise<SettingsResult> {
+  const ctx = await requireAdmin()
+  if ('error' in ctx) return { ok: false, error: ctx.error }
+  const db = createAdminClient()
+  // Keep at least one branch; a branch with history is hidden (set inactive),
+  // not deleted — nothing is scoped to a branch yet, so for now delete is fine
+  // only when more than one remains.
+  const { count } = await db.from('branches').select('id', { count: 'exact', head: true })
+  if ((count ?? 0) <= 1) return { ok: false, error: 'branch_last' }
+  const { error } = await db.from('branches').delete().eq('id', id)
+  if (error) return fail(error)
   revalidatePath(SETTINGS_PATH)
   return { ok: true }
 }
