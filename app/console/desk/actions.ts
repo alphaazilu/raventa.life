@@ -38,6 +38,9 @@ export type TodayVisit = {
   saleId: string | null
 }
 
+// Items lent and not handed back yet (§39).
+export type Loan = { id: string; name: string; nameEn: string; qty: number }
+
 export type DeskMember = {
   id: string
   name: string
@@ -52,7 +55,7 @@ export type DeskMember = {
   // Packages still alive (§21), and the one a check-in today would use.
   packages: MemberPackage[]
   packageToday: string | null
-  today: TodayVisit | null
+  today: (TodayVisit & { loans?: Loan[] }) | null
   priceToday: number
   weekend: boolean
   // Booked for today (§34, v0.35): shown with "add to bill".
@@ -64,7 +67,7 @@ export type DeskBooking = { id: string; name: { th: string; en: string }; start:
 export type MemberHit = { id: string; name: string; memberNo: string | null; phone: string | null; avatarUrl: string | null }
 
 // loans: lent and not handed back yet (§39, v0.37.2).
-export type FloorVisit = TodayVisit & { memberId: string | null; memberNo: string | null; name: string; loans?: { id: string; name: string; nameEn: string; qty: number }[] }
+export type FloorVisit = TodayVisit & { memberId: string | null; memberNo: string | null; name: string; loans?: Loan[] }
 
 export type Takings = { cash: number; transfer: number; card: number; total: number }
 
@@ -132,6 +135,30 @@ function toVisit(v: Record<string, unknown>): TodayVisit {
   }
 }
 
+// Loans still out for one visit (§39). Same tolerant shape as the floor loader:
+// no PostgREST embed (a bad relationship could silently drop every row), product
+// names fetched separately, the loan's stored `name` as the Thai fallback.
+async function loadVisitLoans(supabase: Supabase, visitId: string): Promise<Loan[]> {
+  const { data, error } = await supabase
+    .from('visit_loans')
+    .select('id, qty, item_id, name')
+    .eq('visit_id', visitId)
+    .is('returned_at', null)
+  if (error || !data || data.length === 0) return []
+  const rows = data as unknown as Record<string, unknown>[]
+  const itemIds = [...new Set(rows.map((l) => l.item_id).filter(Boolean))] as string[]
+  const itemName: Record<string, { th: string; en: string }> = {}
+  if (itemIds.length > 0) {
+    const { data: prods } = await supabase.from('products').select('id, name_th, name_en').in('id', itemIds)
+    for (const p of prods ?? []) itemName[p.id as string] = { th: p.name_th as string, en: (p.name_en as string) || (p.name_th as string) }
+  }
+  return rows.map((l) => {
+    const pn = l.item_id ? itemName[l.item_id as string] : undefined
+    const name = (l.name as string) || pn?.th || '—'
+    return { id: l.id as string, name, nameEn: pn?.en || name, qty: Number(l.qty) }
+  })
+}
+
 const VISIT_COLUMNS_BASE = 'id, member_id, member_no, entry_type, price, payment_method, wristband, checked_in_at, checked_out_at'
 const VISIT_COLUMNS = `${VISIT_COLUMNS_BASE}, sale_id, locker`
 const VISIT_COLUMNS_BRANCH = `${VISIT_COLUMNS}, branch_id`
@@ -177,6 +204,10 @@ async function loadMember(supabase: Supabase, userId: string, memberId: string):
   if (setupError) return { ok: false, error: errorCode(setupError) }
 
   const s = Array.isArray(stampRes.data) ? stampRes.data[0] : stampRes.data
+  // Carry any still-out loans on today's visit so the member panel can show the
+  // return tick at check-out and whether more can be lent (§39).
+  const todayVisit = visitRes.data ? toVisit(visitRes.data as unknown as Record<string, unknown>) : null
+  const todayLoans = todayVisit && !todayVisit.checkedOutAt ? await loadVisitLoans(supabase, todayVisit.id) : []
   return {
     ok: true,
     data: {
@@ -191,7 +222,7 @@ async function loadMember(supabase: Supabase, userId: string, memberId: string):
       packages: pkgRes,
       packageToday: pkgNowRes.error ? null : ((pkgNowRes.data as string | null) ?? null),
       history: { count: pastRes.count ?? 0, last: (pastRes.data?.[0]?.visit_date as string | undefined) ?? null },
-      today: visitRes.data ? toVisit(visitRes.data as unknown as Record<string, unknown>) : null,
+      today: todayVisit ? { ...todayVisit, loans: todayLoans } : null,
       priceToday: Number(priceRes.data),
       weekend: isWeekend(today),
       bookingsToday: booked.map((b) => ({
@@ -590,12 +621,26 @@ export type CheckoutDone = { receiptNo: number | null; total: number; member: De
 export type BillCommission = { lineStaff: Record<string, string> }
 
 export async function checkoutBill(
-  input: BillInput & { paymentMethod: PaymentMethod | null; wristband: string; locker?: string; commission?: BillCommission; bookingIds?: string[] },
+  input: BillInput & {
+    paymentMethod: PaymentMethod | null
+    wristband: string
+    locker?: string
+    commission?: BillCommission
+    bookingIds?: string[]
+    // Items borrowed with this check-in (§39): recorded as loans, not sold.
+    lends?: { itemId: string; qty: number }[]
+  },
 ): Promise<DeskResult<CheckoutDone>> {
   const ctx = await requireDesk()
   if ('error' in ctx) return { ok: false, error: ctx.error }
   const wristband = input.wristband.trim().slice(0, 20) || null
   const locker = (input.locker ?? '').trim().slice(0, 20) || null
+  // Borrowed items get hung on the visit once it exists (helper below).
+  const lendOnto = async (visitId: string | null) => {
+    const items = (input.lends ?? []).filter((l) => l.itemId && l.qty > 0).map((l) => ({ item_id: l.itemId, qty: Math.min(99, Math.round(l.qty)) }))
+    if (!visitId || items.length === 0) return
+    await ctx.supabase.rpc('staff_lend_items', { p_visit: visitId, p_items: items }).then(() => undefined, () => undefined)
+  }
   const { data, error } = await ctx.supabase.rpc('pos_checkout', {
     ...rpcArgs(input, ctx.branchId),
     p_payment_method: input.paymentMethod,
@@ -615,13 +660,16 @@ export async function checkoutBill(
       p_wristband: wristband,
     })
     if (legacy.error) return { ok: false, error: errorCode(legacy.error) }
-    await tagBranch(ctx.branchId, null, (legacy.data as string | null) ?? null)
+    const legacyVisit = (legacy.data as string | null) ?? null
+    await tagBranch(ctx.branchId, null, legacyVisit)
+    await lendOnto(legacyVisit)
   } else {
     const r = data as Record<string, unknown>
     receiptNo = Number(r.receipt_no)
     total = Number(r.total)
     saleId = (r.sale_id as string | undefined) ?? null
     await tagBranch(ctx.branchId, saleId, (r.visit_id as string | null) ?? null)
+    await lendOnto((r.visit_id as string | null) ?? null)
     // Sold away from a counter tablet (an admin, or staff allowed on their
     // phone): note it, so the log shows where each bill was taken.
     if (!ctx.onTablet) {

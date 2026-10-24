@@ -58,6 +58,7 @@ export function BillBuilder({
     wristband: string
     locker: string
     lineStaff: Record<string, string>
+    lends: { itemId: string; qty: number }[]
   }) => void
   // A note shown at the top of the bill (e.g. "no products yet").
   hint?: React.ReactNode
@@ -77,6 +78,10 @@ export function BillBuilder({
   const [entryPick, setEntryPick] = useState<string | null>(null)
   const entryId = entries.length > 1 && dayPass !== 'package' && dayPass !== 'none' ? (entryPick ?? entries[0].id) : null
   const [lines, setLines] = useState<BillLine[]>(initialLines)
+  // Items the guest borrows (§39, v0.38.14) — free, handed back at check-out.
+  // Kept apart from the sale lines so they never get priced or sold; recorded
+  // as loans after the visit is created.
+  const [lends, setLends] = useState<{ itemId: string; qty: number }[]>([])
   // The catalog starts collapsed — staff opens it only when adding extras.
   const [showItems, setShowItems] = useState(false)
   const [codeInput, setCodeInput] = useState('')
@@ -137,11 +142,23 @@ export function BillBuilder({
   const bump = (idx: number, d: number) =>
     setLines((ls) => ls.flatMap((l, j) => (j !== idx ? [l] : l.qty + d <= 0 ? [] : [{ ...l, qty: Math.min(99, l.qty + d) }])))
 
+  // Borrowing needs a visit to hang the loan on, so it's only on when checking in.
+  const willCheckIn = withDayPass && dayPass !== 'none'
+  const addLend = (item: DeskItem) =>
+    setLends((ls) => {
+      const i = ls.findIndex((l) => l.itemId === item.id)
+      if (i >= 0) return ls.map((l, j) => (j === i ? { ...l, qty: Math.min(99, l.qty + 1) } : l))
+      return [...ls, { itemId: item.id, qty: 1 }]
+    })
+  const bumpLend = (itemId: string, d: number) =>
+    setLends((ls) => ls.flatMap((l) => (l.itemId !== itemId ? [l] : l.qty + d <= 0 ? [] : [{ ...l, qty: Math.min(99, l.qty + d) }])))
+
   // "Clear bill": back to how it opened.
   const clear = () => {
     setDayPass(startMode)
     setEntryPick(null)
     setLines([])
+    setLends([])
     setCode('')
     setCodeInput('')
     setMethod(null)
@@ -150,7 +167,7 @@ export function BillBuilder({
     setPicking(null)
     setLineStaff({})
   }
-  const dirty = lines.length > 0 || code !== '' || codeInput !== '' || method !== null || wristband !== '' || locker !== '' || dayPass !== startMode
+  const dirty = lines.length > 0 || lends.length > 0 || code !== '' || codeInput !== '' || method !== null || wristband !== '' || locker !== '' || dayPass !== startMode
   const hasBill = dayPass !== 'none' || lines.length > 0
   const count = lines.reduce((n, l) => n + l.qty, 0) + (dayPass !== 'none' ? 1 : 0)
 
@@ -355,6 +372,39 @@ export function BillBuilder({
         </ul>
       )}
 
+      {/* Items the guest is borrowing now (free, returned at check-out). */}
+      {willCheckIn && lends.length > 0 && (
+        <div className="mt-3 rounded-2xl border border-amber-500/40 bg-amber-500/5 p-3">
+          <p className="text-xs font-semibold text-amber-700 dark:text-amber-400">{tr(deskCopy.lendSection)}</p>
+          <ul className="mt-1.5 divide-y divide-amber-500/20">
+            {lends.map((l) => {
+              const item = byId.get(l.itemId)
+              return (
+                <li key={l.itemId} className="flex items-center gap-2 py-1.5 text-sm">
+                  <span className="min-w-0 flex-1 truncate font-medium">{item ? name(item.name) : '—'}</span>
+                  <button type="button" onClick={() => bumpLend(l.itemId, -1)} aria-label="−" className="flex h-8 w-8 items-center justify-center rounded-full border border-border">
+                    <Minus className="h-3.5 w-3.5" aria-hidden="true" />
+                  </button>
+                  <span className="w-6 text-center font-semibold">{l.qty}</span>
+                  <button type="button" onClick={() => bumpLend(l.itemId, 1)} aria-label="+" className="flex h-8 w-8 items-center justify-center rounded-full border border-border">
+                    <Plus className="h-3.5 w-3.5" aria-hidden="true" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => bumpLend(l.itemId, -l.qty)}
+                    aria-label={tr(deskCopy.remove)}
+                    title={tr(deskCopy.remove)}
+                    className="flex h-9 w-9 items-center justify-center rounded-full bg-destructive/10 text-destructive hover:bg-destructive/20"
+                  >
+                    <X className="h-4 w-4" aria-hidden="true" />
+                  </button>
+                </li>
+              )
+            })}
+          </ul>
+        </div>
+      )}
+
       {(givenLines.length > 0 || loanLines.length > 0) && (
         <div className="mt-2 space-y-1 rounded-2xl bg-secondary/60 px-3 py-2 text-xs">
           {givenLines.length > 0 && (
@@ -406,13 +456,16 @@ export function BillBuilder({
                 {items.map((item) => {
                   const stock = item.variants.length > 0 ? item.variants.reduce((n, v) => n + v.stock, 0) : item.stock
                   const memberOnly = item.pkg !== null && !memberId
-                  const out = (item.trackStock && stock <= 0) || memberOnly
+                  // Lendable items are borrowed (free), only while checking in.
+                  const lendOnly = Boolean(item.lendable)
+                  const out = (item.trackStock && stock <= 0) || memberOnly || (lendOnly && !willCheckIn)
                   return (
                     <button
                       key={item.id}
                       type="button"
                       disabled={out}
-                      onClick={() => (item.variants.length > 0 ? setPicking(item) : add(item, null))}
+                      title={lendOnly && !willCheckIn ? tr(deskCopy.lendNeedsCheckIn) : undefined}
+                      onClick={() => (lendOnly ? addLend(item) : item.variants.length > 0 ? setPicking(item) : add(item, null))}
                       className={cn(
                         'rounded-xl border px-3 py-2 text-left text-sm transition-colors',
                         picking?.id === item.id ? 'border-primary bg-primary/5' : 'border-border hover:border-primary/40',
@@ -421,7 +474,16 @@ export function BillBuilder({
                     >
                       <span className="block truncate font-semibold">{name(item.name)}</span>
                       <span className="block text-xs text-primary">
-                        {item.price.toLocaleString()} {tr(deskCopy.baht)}
+                        {lendOnly ? (
+                          <span className="text-amber-700 dark:text-amber-400">
+                            {tr(deskCopy.lendFree)}
+                            {item.price > 0 && ` · ${fill(tr(deskCopy.lendLostFee), { price: item.price.toLocaleString() })}`}
+                          </span>
+                        ) : (
+                          <>
+                            {item.price.toLocaleString()} {tr(deskCopy.baht)}
+                          </>
+                        )}
                         {item.trackStock && (
                           <span className={cn('ml-1', stock < 5 ? 'text-destructive' : 'text-muted-foreground')}>
                             · {stock <= 0 ? tr(deskCopy.soldOut) : `${tr(deskCopy.left)} ${stock}`}
@@ -575,7 +637,7 @@ export function BillBuilder({
           <button
             type="button"
             disabled={!canPay}
-            onClick={() => onPay({ dayPass, items: lines, code, entryId, paymentMethod: needMethod ? method : null, wristband, locker, lineStaff })}
+            onClick={() => onPay({ dayPass, items: lines, code, entryId, paymentMethod: needMethod ? method : null, wristband, locker, lineStaff, lends: willCheckIn ? lends : [] })}
             className="h-14 w-full rounded-full bg-primary text-base font-bold text-primary-foreground transition-opacity disabled:opacity-40"
           >
             {payLabel}

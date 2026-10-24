@@ -108,6 +108,24 @@ const t = {
   exBills: { th: 'รายบิล', en: 'Bills' },
   exLines: { th: 'รายสินค้า', en: 'Items' },
   exDaily: { th: 'รายวัน', en: 'Daily' },
+  exPackages: { th: 'แพ็กเกจรายตัว', en: 'Packages' },
+  // package list (§2b)
+  pkgListHeading: { th: 'แพ็กเกจรายตัว (ซื้อในงวดนี้)', en: 'Packages bought this period' },
+  pkgListHint: { th: 'วันที่ซื้อ · จ่ายครั้งแรก · ใช้ไป/คงเหลือ · หมดอายุ — สำหรับตรวจสอบรายตัว', en: 'Bought · first payment · used/left · expiry — per package' },
+  plDate: { th: 'วันที่ซื้อ', en: 'Bought' },
+  plName: { th: 'แพ็กเกจ', en: 'Package' },
+  plMember: { th: 'สมาชิก', en: 'Member' },
+  plPaid: { th: 'จ่ายครั้งแรก', en: 'Paid' },
+  plUsed: { th: 'ใช้/ทั้งหมด', en: 'Used/total' },
+  plLeft: { th: 'คงเหลือ', en: 'Left' },
+  plExpire: { th: 'หมดอายุ', en: 'Expires' },
+  plStatus: { th: 'สถานะ', en: 'Status' },
+  plNone: { th: 'ไม่มีแพ็กเกจที่ซื้อในงวดนี้', en: 'No packages bought this period' },
+  plUnlimited: { th: 'ไม่จำกัด', en: 'Unlimited' },
+  stActive: { th: 'ใช้งานได้', en: 'Active' },
+  stPending: { th: 'ยังไม่เริ่ม', en: 'Not started' },
+  stDepleted: { th: 'ใช้ครบแล้ว', en: 'Used up' },
+  stExpired: { th: 'หมดอายุ', en: 'Expired' },
 } satisfies Record<string, L>
 
 const baht = (n: number) => `฿${Math.round(n).toLocaleString('en-US')}`
@@ -178,6 +196,7 @@ function ExportMenu({ qs }: { qs: string }) {
     ['bills', t.exBills],
     ['lines', t.exLines],
     ['daily', t.exDaily],
+    ['packages', t.exPackages],
   ] as const
   return (
     <div className="relative">
@@ -350,6 +369,54 @@ function Body({ report: r, date }: { report: SalesReport; date: (d: string) => s
           )}
         </section>
       </div>
+
+      {/* 4b. Packages — one row each (§2b, for the accountant) */}
+      <section className={card}>
+        <Heading title={tr(t.pkgListHeading)} hint={tr(t.pkgListHint)} />
+        {r.packageList.length === 0 ? (
+          <p className="mt-2 text-sm text-muted-foreground">{tr(t.plNone)}</p>
+        ) : (
+          <div className="mt-2 max-h-[28rem] overflow-auto rounded-xl border border-border">
+            <table className="w-full min-w-[46rem] text-sm">
+              <thead className="sticky top-0 bg-card">
+                <tr className="border-b border-border">
+                  <th className={th}>{tr(t.plDate)}</th>
+                  <th className={th}>{tr(t.plName)}</th>
+                  <th className={th}>{tr(t.plMember)}</th>
+                  <th className={cn(th, 'text-right')}>{tr(t.plPaid)}</th>
+                  <th className={cn(th, 'text-right')}>{tr(t.plUsed)}</th>
+                  <th className={cn(th, 'text-right')}>{tr(t.plLeft)}</th>
+                  <th className={th}>{tr(t.plExpire)}</th>
+                  <th className={th}>{tr(t.plStatus)}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {r.packageList.map((p) => {
+                  const stLabel = { active: t.stActive, pending: t.stPending, depleted: t.stDepleted, expired: t.stExpired }[p.status]
+                  const stClass = {
+                    active: 'text-accent',
+                    pending: 'text-muted-foreground',
+                    depleted: 'text-muted-foreground',
+                    expired: 'text-destructive',
+                  }[p.status]
+                  return (
+                    <tr key={p.id} className="border-b border-border/60 last:border-0">
+                      <td className={cn(td, 'whitespace-nowrap tabular-nums')}>{date(p.saleDate)}</td>
+                      <td className={cn(td, 'font-medium')}>{p.name}</td>
+                      <td className={cn(td, 'whitespace-nowrap text-muted-foreground')}>{p.memberNo ?? '—'}</td>
+                      <td className={num}>{baht(p.paid)}</td>
+                      <td className={num}>{p.used}/{p.visitsTotal === null ? tr(t.plUnlimited) : p.visitsTotal}</td>
+                      <td className={num}>{p.remaining === null ? tr(t.plUnlimited) : p.remaining}</td>
+                      <td className={cn(td, 'whitespace-nowrap tabular-nums text-muted-foreground')}>{p.expiresOn ? date(p.expiresOn) : '—'}</td>
+                      <td className={cn(td, 'whitespace-nowrap font-semibold', stClass)}>{tr(stLabel)}</td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </section>
 
       <div className="grid gap-5 lg:grid-cols-2">
         {/* 6. Audit */}

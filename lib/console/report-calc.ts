@@ -34,9 +34,11 @@ export type RVisit = {
 export type RPackage = {
   id: string
   name: string
+  memberNo: string | null // who holds it (for the accountant's list)
   saleDate: string // the bill's date
   paid: number // this unit's share of the bill after discount (may be fractional)
   visitsTotal: number | null // null = unlimited
+  visitsUsed: number // the package's running used counter
   validDays: number
   startsOn: string | null
   expiresOn: string | null
@@ -46,6 +48,7 @@ export type RPackage = {
 export type ReportInput = {
   from: string
   to: string
+  today?: string // bkk today, for package status (expired / still active)
   sales: RSale[] // sale_date in range, voided included
   visits: RVisit[] // visit_date in range, not cancelled
   reEnters: number
@@ -82,6 +85,23 @@ export type BillRow = {
   voidedBy: string | null
 }
 
+// One row per package bought in the period (the accountant's package list):
+// when it was bought, what was paid up front, and how the rights stand now.
+export type PackageDetail = {
+  id: string
+  name: string
+  memberNo: string | null
+  saleDate: string
+  paid: number
+  visitsTotal: number | null // null = unlimited
+  used: number
+  remaining: number | null // null = unlimited
+  validDays: number
+  startsOn: string | null
+  expiresOn: string | null
+  status: 'active' | 'pending' | 'depleted' | 'expired'
+}
+
 export type SalesReport = {
   from: string
   to: string
@@ -104,7 +124,9 @@ export type SalesReport = {
   visits: { paid: number; package: number; gift: number; reward: number; total: number; reEnter: number; noBill: number }
   audit: { firstReceipt: number | null; lastReceipt: number | null; count: number; gaps: number[]; gapCount: number }
   staff: { name: string; bills: number; net: number }[]
-  daily: { date: string; bills: number; net: number; cash: number; transfer: number; card: number; discount: number; voided: number }[]
+  daily: { date: string; bills: number; gross: number; net: number; cash: number; transfer: number; card: number; discount: number; voided: number }[]
+  // Packages bought in this period, one row each (§2b, v0.38.15).
+  packageList: PackageDetail[]
   bills: BillRow[]
 }
 
@@ -306,6 +328,7 @@ export function buildReport(input: ReportInput): SalesReport {
     daily.push({
       date: d,
       bills: ok.length,
+      gross: ok.reduce((t, s) => t + s.subtotal, 0),
       net: ok.reduce((t, s) => t + s.total, 0),
       cash: by('cash'),
       transfer: by('transfer'),
@@ -315,6 +338,36 @@ export function buildReport(input: ReportInput): SalesReport {
     })
     if (daily.length > 400) break
   }
+
+  // Packages bought in this period — one row each, for the accountant.
+  const todayStr = input.today ?? to
+  const packageList: PackageDetail[] = input.packages
+    .filter((p) => p.saleDate >= from && p.saleDate <= to)
+    .map((p) => {
+      const remaining = p.visitsTotal === null ? null : Math.max(0, p.visitsTotal - p.visitsUsed)
+      const status: PackageDetail['status'] = p.expiresOn && p.expiresOn < todayStr
+        ? 'expired'
+        : p.visitsTotal !== null && p.visitsUsed >= p.visitsTotal
+          ? 'depleted'
+          : p.startsOn === null
+            ? 'pending'
+            : 'active'
+      return {
+        id: p.id,
+        name: p.name,
+        memberNo: p.memberNo,
+        saleDate: p.saleDate,
+        paid: Math.round(p.paid),
+        visitsTotal: p.visitsTotal,
+        used: p.visitsUsed,
+        remaining,
+        validDays: p.validDays,
+        startsOn: p.startsOn,
+        expiresOn: p.expiresOn,
+        status,
+      }
+    })
+    .sort((a, b) => (a.saleDate < b.saleDate ? 1 : a.saleDate > b.saleDate ? -1 : 0))
 
   const bills: BillRow[] = input.sales
     .slice()
@@ -369,6 +422,7 @@ export function buildReport(input: ReportInput): SalesReport {
     audit: { firstReceipt: nos[0] ?? null, lastReceipt: nos.at(-1) ?? null, count: nos.length, gaps, gapCount },
     staff: [...staffMap.values()].sort((a, b) => b.net - a.net),
     daily,
+    packageList,
     bills,
   }
 }

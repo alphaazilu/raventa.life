@@ -1,5 +1,6 @@
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getAppSettings } from '@/lib/console/settings'
+import { bangkokToday } from '@/lib/check-in/day'
 import { allocateDiscount, buildReport, type RPackage, type RSale, type RVisit, type SalesReport } from './report-calc'
 
 // Back Office › Reports (v0.23): reads the period's bills, visits and the
@@ -62,7 +63,7 @@ export async function loadSalesReport(from: string, to: string): Promise<SalesRe
       db
         .from('member_packages')
         .select(
-          'id, name, visits_total, valid_days, starts_on, expires_on, activate_by, sale_line_id, sale:sales!member_packages_sale_id_fkey(sale_date, subtotal, discount, voided_at)',
+          'id, name, member_id, visits_total, visits_used, valid_days, starts_on, expires_on, activate_by, sale_line_id, sale:sales!member_packages_sale_id_fkey(sale_date, subtotal, discount, voided_at)',
         )
         .not('sale_line_id', 'is', null)
         .is('cancelled_at', null)
@@ -120,13 +121,22 @@ export async function loadSalesReport(from: string, to: string): Promise<SalesRe
   type PkgRow = {
     id: string
     name: string
+    member_id: string | null
     visits_total: number | null
+    visits_used: number | null
     valid_days: number
     starts_on: string | null
     expires_on: string | null
     activate_by: string | null
     sale_line_id: number
     sale: { sale_date: string; voided_at: string | null } | { sale_date: string; voided_at: string | null }[] | null
+  }
+  // Member numbers for the package list (the accountant checks by member).
+  const pkgMemberIds = [...new Set((pkgRaw as PkgRow[]).map((p) => p.member_id).filter(Boolean))] as string[]
+  const memberNo = new Map<string, string | null>()
+  for (let i = 0; i < pkgMemberIds.length; i += 300) {
+    const { data } = await db.from('profiles').select('id, member_no').in('id', pkgMemberIds.slice(i, i + 300))
+    for (const m of data ?? []) memberNo.set(m.id as string, (m.member_no as string | null) ?? null)
   }
   const packages: RPackage[] = []
   for (const p of pkgRaw as PkgRow[]) {
@@ -135,9 +145,11 @@ export async function loadSalesReport(from: string, to: string): Promise<SalesRe
     packages.push({
       id: p.id,
       name: p.name,
+      memberNo: p.member_id ? (memberNo.get(p.member_id) ?? null) : null,
       saleDate: sale.sale_date,
       paid: lineValue.get(Number(p.sale_line_id)) ?? 0,
       visitsTotal: p.visits_total,
+      visitsUsed: Number(p.visits_used ?? 0),
       validDays: p.valid_days,
       startsOn: p.starts_on,
       expiresOn: p.expires_on,
@@ -173,6 +185,7 @@ export async function loadSalesReport(from: string, to: string): Promise<SalesRe
     groupOf,
     from,
     to,
+    today: bangkokToday(),
     sales,
     visits: visitsRaw as RVisit[],
     reEnters: reEnterRes.count ?? 0,

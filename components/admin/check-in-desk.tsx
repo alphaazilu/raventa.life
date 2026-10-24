@@ -1,9 +1,9 @@
 'use client'
 
-import { useCallback, useEffect, useState, useTransition } from 'react'
+import { useCallback, useEffect, useMemo, useState, useTransition } from 'react'
 import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
-import { Gift, LogIn, Lock, LogOut, RotateCcw, Search, ShoppingBag, Undo2, X } from 'lucide-react'
+import { Gift, HandHelping, LogIn, Lock, LogOut, RotateCcw, Search, ShoppingBag, Undo2, X } from 'lucide-react'
 import { useLanguage } from '@/components/language-provider'
 import { AvatarCircle } from '@/components/account/avatar-circle'
 import { QrScanner } from '@/components/admin/qr-scanner'
@@ -213,7 +213,7 @@ export function CheckInDesk({
 
   const pay = (
     memberId: string | null,
-    bill: Omit<BillInput, 'memberId'> & { paymentMethod: PaymentMethod | null; wristband: string; lineStaff: Record<string, string> },
+    bill: Omit<BillInput, 'memberId'> & { paymentMethod: PaymentMethod | null; wristband: string; lineStaff: Record<string, string>; lends: { itemId: string; qty: number }[] },
   ) =>
     run(
       () => {
@@ -425,16 +425,20 @@ export function CheckInDesk({
                         },
                       )
                     }
-                    onCheckOut={(visitId) =>
-                      run(
-                        () => checkOut(visitId),
-                        () => {
-                          setNotice(`${tr(deskCopy.doneCheckOut)} · ${member.name}`)
-                          reloadMember(member.id)
-                          void refreshFloor()
-                        },
-                      )
+                    onCheckOut={(v) =>
+                      v.loans && v.loans.length > 0
+                        ? setLoanCheckout(v)
+                        : run(
+                            () => checkOut(v.id),
+                            () => {
+                              setNotice(`${tr(deskCopy.doneCheckOut)} · ${member.name}`)
+                              reloadMember(member.id)
+                              void refreshFloor()
+                            },
+                          )
                     }
+                    onLend={(v) => setLendVisit(v)}
+                    canLend={lendables.length > 0}
                     onReEnter={(visitId) =>
                       run(
                         () => reEnter(visitId),
@@ -546,6 +550,7 @@ export function CheckInDesk({
                 setLendVisit(null)
                 setNotice(`${tr(deskCopy.doneLend)} · ${v.name}`)
                 void refreshFloor()
+                if (member && member.id === v.memberId) reloadMember(member.id)
               },
             )
           }}
@@ -635,11 +640,27 @@ function LoanCheckout({
 }) {
   const { tr, lang } = useLanguage()
   const loans = visit.loans ?? []
-  // Each item: 'back' (returned) | 'out' (keep outstanding) | 'charge' (bill it).
-  const [choice, setChoice] = useState<Record<string, 'back' | 'out' | 'charge'>>(Object.fromEntries(loans.map((l) => [l.id, 'back'])))
+  // Same item lent several times shows as one row ("ผ้าขนหนู ×3"), not three
+  // ×1 rows — easier for staff at check-out. The pick applies to the whole
+  // group and, on confirm, each underlying loan id gets that pick.
+  const groups = useMemo(() => {
+    const m = new Map<string, { key: string; name: string; nameEn: string; qty: number; ids: string[] }>()
+    for (const l of loans) {
+      const key = `${l.name}\u0000${l.nameEn}`
+      const g = m.get(key) ?? { key, name: l.name, nameEn: l.nameEn, qty: 0, ids: [] }
+      g.qty += l.qty
+      g.ids.push(l.id)
+      m.set(key, g)
+    }
+    return [...m.values()]
+  }, [loans])
+  // Each group: 'back' (returned) | 'out' (keep outstanding) | 'charge' (bill it).
+  const [choice, setChoice] = useState<Record<string, 'back' | 'out' | 'charge'>>(() =>
+    Object.fromEntries(groups.map((g) => [g.key, 'back'])),
+  )
   const [method, setMethod] = useState<PaymentMethod | null>(null)
-  const chargeIds = loans.filter((l) => choice[l.id] === 'charge').map((l) => l.id)
-  const returnedIds = loans.filter((l) => choice[l.id] === 'back').map((l) => l.id)
+  const chargeIds = groups.filter((g) => choice[g.key] === 'charge').flatMap((g) => g.ids)
+  const returnedIds = groups.filter((g) => choice[g.key] === 'back').flatMap((g) => g.ids)
   const needMethod = chargeIds.length > 0
   const canConfirm = !busy && (!needMethod || method !== null)
   const opt: { k: 'back' | 'out' | 'charge'; label: { th: string; en: string } }[] = [
@@ -656,20 +677,20 @@ function LoanCheckout({
           {visit.locker ? ` · ${tr(deskCopy.locker)} ${visit.locker}` : ''}
         </p>
         <ul className="mt-3 space-y-2">
-          {loans.map((l) => (
-            <li key={l.id} className="rounded-2xl border border-border p-3">
+          {groups.map((g) => (
+            <li key={g.key} className="rounded-2xl border border-border p-3">
               <p className="text-sm font-semibold">
-                {(lang === 'en' ? l.nameEn : l.name)} ×{l.qty}
+                {(lang === 'en' ? g.nameEn : g.name)} ×{g.qty}
               </p>
               <div className="mt-2 flex gap-1.5">
                 {opt.map((o) => (
                   <button
                     key={o.k}
                     type="button"
-                    onClick={() => setChoice((c) => ({ ...c, [l.id]: o.k }))}
+                    onClick={() => setChoice((c) => ({ ...c, [g.key]: o.k }))}
                     className={cn(
                       'flex-1 rounded-full border px-2 py-1.5 text-xs font-semibold',
-                      choice[l.id] === o.k
+                      choice[g.key] === o.k
                         ? o.k === 'charge'
                           ? 'border-destructive bg-destructive/10 text-destructive'
                           : o.k === 'out'
@@ -778,6 +799,18 @@ function maskPhone(phone: string): string {
   return phone.length > 4 ? `•••${phone.slice(-4)}` : phone
 }
 
+// Loan note shown on cards: same item merged into one "name ×total".
+function loanSummary(loans: { name: string; nameEn: string; qty: number }[], lang: 'th' | 'en'): string {
+  const m = new Map<string, { name: string; qty: number }>()
+  for (const l of loans) {
+    const label = lang === 'en' ? l.nameEn : l.name
+    const g = m.get(label) ?? { name: label, qty: 0 }
+    g.qty += l.qty
+    m.set(label, g)
+  }
+  return [...m.values()].map((g) => `${g.name} ×${g.qty}`).join(' · ')
+}
+
 function MemberInfo({
   member,
   busy,
@@ -787,15 +820,19 @@ function MemberInfo({
   onCheckOut,
   onReEnter,
   onCancel,
+  onLend,
+  canLend,
 }: {
   member: DeskMember
   busy: boolean
   added: string[]
   onAddBooking: (b: DeskMember['bookingsToday'][number]) => void
   onUseItem: (k: MemberPackage, x: PackageItem) => void
-  onCheckOut: (visitId: string) => void
+  onCheckOut: (v: FloorVisitT) => void
   onReEnter: (visitId: string) => void
   onCancel: (visit: NonNullable<DeskMember['today']>, reason: string) => void
+  onLend: (v: FloorVisitT) => void
+  canLend: boolean
 }) {
   const { tr, lang } = useLanguage()
   const [cancelling, setCancelling] = useState(false)
@@ -809,6 +846,11 @@ function MemberInfo({
 
   const since = formatMemberDate(member.joinedAt, lang, false)
   const visit = member.today
+  // Shape today's visit like a floor row so check-out / lend reuse the same
+  // loan-aware flow (return modal, lend modal) as the floor list.
+  const floorVisit: FloorVisitT | null = visit
+    ? { ...visit, memberId: member.id, memberNo: member.memberNo, name: member.name }
+    : null
   const rewardReady = (member.stamps?.rewardsAvailable ?? 0) > 0
 
   return (
@@ -900,6 +942,11 @@ function MemberInfo({
                     ? tr(deskCopy.packageLabel)
                     : `${visit.price.toLocaleString()} ${tr(deskCopy.baht)} (${tr(deskCopy[visit.paymentMethod ?? 'cash'])})`}
               </p>
+              {visit.loans && visit.loans.length > 0 && !visit.checkedOutAt && (
+                <p className="mt-1 font-medium text-accent">
+                  {tr(deskCopy.onLoan)}: {loanSummary(visit.loans, lang)}
+                </p>
+              )}
             </div>
 
             {cancelling ? (
@@ -941,15 +988,27 @@ function MemberInfo({
                     {tr(deskCopy.reEnter)}
                   </button>
                 )}
-                {!visit.checkedOutAt && (
+                {!visit.checkedOutAt && canLend && floorVisit && (
                   <button
                     type="button"
                     disabled={busy}
-                    onClick={() => onCheckOut(visit.id)}
+                    onClick={() => onLend(floorVisit)}
+                    title={tr(deskCopy.lendHint)}
+                    className="inline-flex h-11 flex-1 items-center justify-center gap-2 rounded-full border border-accent/40 px-4 text-sm font-semibold text-accent disabled:opacity-40"
+                  >
+                    <HandHelping className="h-4 w-4" aria-hidden="true" />
+                    {tr(deskCopy.lend)}
+                  </button>
+                )}
+                {!visit.checkedOutAt && floorVisit && (
+                  <button
+                    type="button"
+                    disabled={busy}
+                    onClick={() => onCheckOut(floorVisit)}
                     className="inline-flex h-11 flex-1 items-center justify-center gap-2 rounded-full bg-foreground px-4 text-sm font-semibold text-background disabled:opacity-40"
                   >
                     <LogOut className="h-4 w-4" aria-hidden="true" />
-                    {tr(deskCopy.checkOut)}
+                    {tr(visit.loans?.length ? deskCopy.returnAndOut : deskCopy.checkOut)}
                   </button>
                 )}
                 <button
@@ -1121,7 +1180,7 @@ function FloorRow({
         <span className="ml-2 font-mono text-xs text-muted-foreground">{formatMemberNo(v.memberNo)}</span>
         {v.loans && v.loans.length > 0 && !v.checkedOutAt && (
           <span className="block truncate text-xs font-normal text-amber-700 dark:text-amber-400">
-            {tr(deskCopy.onLoan)}: {v.loans.map((l) => `${lang === 'en' ? l.nameEn : l.name} ×${l.qty}`).join(' · ')}
+            {tr(deskCopy.onLoan)}: {loanSummary(v.loans, lang)}
           </span>
         )}
       </button>

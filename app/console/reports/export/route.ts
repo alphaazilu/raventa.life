@@ -48,8 +48,27 @@ function build(type: string, r: SalesReport): (string | number | null)[][] {
   }
   if (type === 'daily') {
     return [
-      ['วันที่', 'จำนวนบิล', 'ยอดสุทธิ', 'เงินสด', 'โอน', 'บัตร', 'ส่วนลด', 'บิลยกเลิก'],
-      ...r.daily.map((d) => [d.date, d.bills, d.net, d.cash, d.transfer, d.card, d.discount, d.voided]),
+      ['วันที่', 'จำนวนบิล', 'ยอดก่อนส่วนลด', 'ส่วนลด', 'ยอดสุทธิ', 'เงินสด', 'โอน', 'บัตร', 'บิลยกเลิก'],
+      ...r.daily.map((d) => [d.date, d.bills, d.gross, d.discount, d.net, d.cash, d.transfer, d.card, d.voided]),
+    ]
+  }
+  if (type === 'packages') {
+    const st: Record<string, string> = { active: 'ใช้งานได้', pending: 'ยังไม่เริ่ม', depleted: 'ใช้ครบแล้ว', expired: 'หมดอายุ' }
+    return [
+      ['วันที่ซื้อ', 'แพ็กเกจ', 'เลขสมาชิก', 'จ่ายครั้งแรก', 'สิทธิ์ทั้งหมด', 'ใช้ไป', 'คงเหลือ', 'อายุ (วัน)', 'เริ่มใช้', 'หมดอายุ', 'สถานะ'],
+      ...r.packageList.map((p) => [
+        p.saleDate,
+        p.name,
+        p.memberNo,
+        p.paid,
+        p.visitsTotal === null ? 'ไม่จำกัด' : p.visitsTotal,
+        p.used,
+        p.remaining === null ? 'ไม่จำกัด' : p.remaining,
+        p.validDays,
+        p.startsOn ?? '—',
+        p.expiresOn ?? '—',
+        st[p.status] ?? p.status,
+      ]),
     ]
   }
   if (type === 'lines') {
@@ -98,7 +117,7 @@ export async function GET(request: Request) {
   const ctx = await requireAdmin()
   if ('error' in ctx) return new NextResponse('Forbidden', { status: 403 })
   const q = Object.fromEntries(new URL(request.url).searchParams)
-  const type = ['bills', 'lines', 'daily', 'summary'].includes(q.type) ? q.type : 'summary'
+  const type = ['bills', 'lines', 'daily', 'summary', 'packages'].includes(q.type) ? q.type : 'summary'
   const period = resolvePeriod(q)
   const report = await loadSalesReport(period.from, period.to)
   const name = `raventa-${type}-${period.from}_${period.to}.csv`
