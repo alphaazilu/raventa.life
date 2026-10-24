@@ -98,6 +98,7 @@ export const quizCopy = {
     call: { th: 'โทรหาเรา', en: 'Call us' },
     share: { th: 'แชร์เส้นทาง', en: 'Share' },
     shareCopied: { th: 'คัดลอกลิงก์แล้ว', en: 'Link copied' },
+    line: { th: 'แอด LINE', en: 'Add on LINE' },
   },
   result: {
     eyebrow: { th: 'เส้นทางของคุณวันนี้', en: 'Your Journey Today' },

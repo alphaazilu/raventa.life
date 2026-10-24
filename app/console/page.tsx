@@ -2,7 +2,7 @@ import type { Metadata } from 'next'
 import { redirect } from 'next/navigation'
 import { ConsoleDashboard } from '@/components/console/console-dashboard'
 import { getConsoleSession } from '@/lib/console/session'
-import { CONSOLE_PATH, DESK_PATH, isAdmin } from '@/lib/auth/roles'
+import { CONSOLE_PATH, consoleHome, isAdmin } from '@/lib/auth/roles'
 import { loadDashboard } from './dashboard-data'
 import { loadAlerts } from '@/lib/console/alerts'
 import { getAppSettings } from '@/lib/console/settings'
@@ -19,7 +19,7 @@ export const dynamic = 'force-dynamic'
 export default async function ConsolePage() {
   const { user, role, firstName } = await getConsoleSession()
   if (!user) redirect(`/login?next=${CONSOLE_PATH}`)
-  if (!isAdmin(role)) redirect(DESK_PATH)
+  if (!isAdmin(role)) redirect(consoleHome(role))
 
   const [data, alerts, settings] = await Promise.all([loadDashboard(), loadAlerts(), getAppSettings()])
   return (

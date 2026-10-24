@@ -562,7 +562,9 @@ create trigger protect_role
 -- themself. Nothing here can be updated or deleted from the app; a mistake
 -- is "cancelled" (with who and why), never erased.
 alter table public.profiles drop constraint if exists profiles_role_check;
-alter table public.profiles add constraint profiles_role_check check (role in ('customer', 'staff', 'admin'));
+-- 'accountant' (v0.38.22): a back-office role that reaches the Reports page
+-- only; is_staff() stays false for it (no front-desk / RLS staff access).
+alter table public.profiles add constraint profiles_role_check check (role in ('customer', 'staff', 'admin', 'accountant'));
 
 create or replace function public.is_staff()
 returns boolean
@@ -1057,7 +1059,11 @@ create table if not exists public.products (
   updated_at timestamptz not null default now()
 );
 
-create unique index if not exists products_one_day_pass on public.products ((true)) where kind = 'day_pass';
+-- Obsolete: before §41 a shop could have only one Day Pass. §41 introduced
+-- multiple day-pass "entries" (picked by p_entry; all selectors now use
+-- `order by … limit 1` for the default), so this one-row index is dropped —
+-- keeping it would block schema.sql once a second Day Pass exists.
+drop index if exists products_one_day_pass;
 
 insert into public.products (kind, name_th, name_en, price_weekday, price_weekend, price_holiday, sort)
 select 'day_pass', 'Day Pass', 'Day Pass', 590, 790, 790, 0

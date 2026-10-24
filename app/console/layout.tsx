@@ -8,7 +8,7 @@ import { TabletLock } from '@/components/console/tablet-lock'
 import { IdleLock } from '@/components/console/idle-lock'
 import { BusyOverlay } from '@/components/console/busy-overlay'
 import { getConsoleSession } from '@/lib/console/session'
-import { canUseDesk, CONSOLE_PATH, isAdmin } from '@/lib/auth/roles'
+import { canUseConsole, canUseDesk, CONSOLE_PATH, isAccountant, isAdmin } from '@/lib/auth/roles'
 import { DEVICE_COOKIE, getCurrentDevice } from '@/lib/console/device'
 import { signOut } from '@/app/login/actions'
 import { lockConsole } from './lock-actions'
@@ -44,7 +44,7 @@ export default async function ConsoleLayout({ children }: { children: React.Reac
 
   const me = { role, first_name: firstName }
 
-  if (!user || !canUseDesk(me?.role)) {
+  if (!user || !canUseConsole(me?.role)) {
     // A revoked or unknown key: back to pairing (never /account, which tablet
     // mode would bounce straight back here).
     if (hasDeviceCookie && !device) redirect('/tablet')
@@ -77,6 +77,7 @@ export default async function ConsoleLayout({ children }: { children: React.Reac
         <ConsoleShell
           name={me?.first_name || user.email || ''}
           admin={isAdmin(me?.role)}
+          accountant={isAccountant(me?.role)}
           deviceName={device?.name ?? null}
           signOutAction={lockConsole.bind(null, 'manual')}
           staffMembers={settings.staffMembersOnTablet}

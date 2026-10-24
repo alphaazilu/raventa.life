@@ -22,9 +22,11 @@ const t = {
   customer: { th: 'ลูกค้า', en: 'Customer' },
   staff: { th: 'พนักงาน', en: 'Staff' },
   admin: { th: 'แอดมิน', en: 'Admin' },
+  accountant: { th: 'บัญชี', en: 'Accountant' },
   customerHint: { th: 'ใช้บัญชีสมาชิกอย่างเดียว', en: 'Member account only' },
   staffHint: { th: 'ขาย/เช็คอิน · ลงเวลา · Tablet', en: 'Sell / check in · time clock · tablet' },
   adminHint: { th: 'ทุกอย่าง รวมยอดขาย รายงาน ตั้งค่า', en: 'Everything incl. takings, reports, settings' },
+  accountantHint: { th: 'เห็นเฉพาะรายงานยอดขาย+แพ็กเกจ (ไม่เห็นอย่างอื่น)', en: 'Sales + package reports only' },
   team: { th: 'ทีมงานตอนนี้', en: 'Current team' },
   now: { th: 'ตอนนี้', en: 'Now' },
   you: { th: 'คุณ', en: 'You' },
@@ -80,7 +82,7 @@ const errors: Record<string, L> = {
 
 // v0.27.1: the switch only moves people within the team; leaving the team
 // is its own button ("no longer staff"), not a third "customer" choice.
-const TEAM_ROLES: Role[] = ['staff', 'admin']
+const TEAM_ROLES: Role[] = ['staff', 'admin', 'accountant']
 
 // The three-way switch for one person, with its confirmation step. Also
 // used on Members › one member.
@@ -379,7 +381,7 @@ export function TeamView({ team, history, meId, paySetUp = true }: { team: Perso
                   <p className="text-xs text-muted-foreground">
                     {[p.memberNo, p.email, p.since ? tr(t.since).replace('{d}', date(p.since) ?? '') : null].filter(Boolean).join(' · ')}
                   </p>
-                  {paySetUp && (
+                  {paySetUp && (p.role === 'staff' || p.role === 'admin') && (
                     <div className="mt-1.5">
                       <PaySwitch key={`${p.id}-${p.payType ?? ''}`} person={p} />
                     </div>
@@ -547,7 +549,7 @@ function AddPeople({ meId, paySetUp, children }: { meId: string; paySetUp: boole
             {found ? (
               <>
                 <RoleSwitch person={found} meId={meId} cards onChanged={(role) => setFound({ ...found, role })} />
-                {paySetUp && found.role !== 'customer' && (
+                {paySetUp && (found.role === 'staff' || found.role === 'admin') && (
                   <div className="mt-3">
                     <h3 className="mb-2 text-sm font-bold">{tr(t.payHeading)}</h3>
                     <PaySwitch key={found.id} person={found} big onChanged={(payType) => setFound({ ...found, payType })} />

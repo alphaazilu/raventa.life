@@ -2,7 +2,7 @@ import type { Metadata } from 'next'
 import { redirect } from 'next/navigation'
 import { CheckInDesk } from '@/components/admin/check-in-desk'
 import { getConsoleSession } from '@/lib/console/session'
-import { canUseDesk, DESK_PATH, isAdmin } from '@/lib/auth/roles'
+import { canUseDesk, DESK_PATH, isAccountant, isAdmin, REPORTS_PATH } from '@/lib/auth/roles'
 import { getDeskCatalog, getFloor } from './actions'
 import { getCurrentDevice } from '@/lib/console/device'
 import { deskAllowed } from '@/lib/console/settings'
@@ -22,7 +22,7 @@ export default async function DeskPage({ searchParams }: { searchParams: Promise
   const view = q.tab ?? q.view
   const { user, role } = await getConsoleSession()
   if (!user) redirect(`/login?next=${DESK_PATH}`)
-  if (!canUseDesk(role)) redirect('/account')
+  if (!canUseDesk(role)) redirect(isAccountant(role) ? REPORTS_PATH : '/account')
   const onTablet = Boolean(await getCurrentDevice().catch(() => null))
   if (!(await deskAllowed({ userId: user.id, admin: isAdmin(role), onTablet }))) return <DeskTabletOnly />
 

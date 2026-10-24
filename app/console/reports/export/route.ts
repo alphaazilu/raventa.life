@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { requireAdmin } from '@/lib/console/guard'
+import { requireReports } from '@/lib/console/guard'
 import { loadSalesReport } from '@/lib/console/reports'
 import { resolvePeriod } from '@/lib/console/report-period'
 import type { SalesReport } from '@/lib/console/report-calc'
@@ -114,7 +114,7 @@ function build(type: string, r: SalesReport): (string | number | null)[][] {
 }
 
 export async function GET(request: Request) {
-  const ctx = await requireAdmin()
+  const ctx = await requireReports()
   if ('error' in ctx) return new NextResponse('Forbidden', { status: 403 })
   const q = Object.fromEntries(new URL(request.url).searchParams)
   const type = ['bills', 'lines', 'daily', 'summary', 'packages'].includes(q.type) ? q.type : 'summary'

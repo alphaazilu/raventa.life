@@ -1,7 +1,7 @@
 import type { Metadata } from 'next'
 import { redirect } from 'next/navigation'
 import { getConsoleSession } from '@/lib/console/session'
-import { DESK_PATH, isAdmin, REPORTS_PATH } from '@/lib/auth/roles'
+import { canUseDesk, canViewReports, DESK_PATH, isAdmin, REPORTS_PATH } from '@/lib/auth/roles'
 import { loadSalesReport } from '@/lib/console/reports'
 import { resolvePeriod } from '@/lib/console/report-period'
 import { resolveTimePeriod } from '@/lib/console/time-period'
@@ -32,8 +32,11 @@ export default async function ReportsPage({
 }) {
   const { user, role } = await getConsoleSession()
   if (!user) redirect(`/login?next=${REPORTS_PATH}`)
-  if (!isAdmin(role)) redirect(DESK_PATH)
+  if (!canViewReports(role)) redirect(canUseDesk(role) ? DESK_PATH : '/account')
   const q = await searchParams
+  // Time and commission are payroll — admins only. An accountant who lands on
+  // those tabs is sent back to the sales report.
+  if (!isAdmin(role) && (q.tab === 'time' || q.tab === 'commission' || q.r === 'time')) redirect(REPORTS_PATH)
 
   // Commission (?tab=commission, v0.34): per person, from the bills' kept amounts.
   if (q.tab === 'commission') {

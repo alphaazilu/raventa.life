@@ -78,6 +78,7 @@ type Item = {
   icon: LucideIcon
   href?: string // none = coming soon
   adminOnly?: boolean
+  accountantOk?: boolean // an accountant (reports-only role) may see it too
   staffOnTablet?: boolean // staff see it too, on a registered tablet
   notOnTablet?: boolean // never on the counter tablet
   badge?: (a: ConsoleAlerts) => number
@@ -270,7 +271,7 @@ const GROUPS: Group[] = [
     key: 'reports',
     label: t.reports,
     items: [
-      { key: 'sales', label: t.sales, icon: BarChart3, href: REPORTS_PATH, adminOnly: true, isActive: (p, tab) => p === REPORTS_PATH && tab !== 'time' && tab !== 'commission' },
+      { key: 'sales', label: t.sales, icon: BarChart3, href: REPORTS_PATH, adminOnly: true, accountantOk: true, isActive: (p, tab) => p === REPORTS_PATH && tab !== 'time' && tab !== 'commission' },
       { key: 'timeReport', label: t.timeReport, icon: FileClock, href: `${REPORTS_PATH}?tab=time`, adminOnly: true, isActive: (p, tab) => p === REPORTS_PATH && tab === 'time' },
       { key: 'commissionReport', label: t.commissionReport, icon: Coins, href: `${REPORTS_PATH}?tab=commission`, adminOnly: true, isActive: (p, tab) => p === REPORTS_PATH && tab === 'commission' },
     ],
@@ -308,12 +309,14 @@ export function ConsoleShell({
   deviceName = null,
   signOutAction,
   staffMembers = true,
+  accountant = false,
   idleMinutes = 5,
   alerts,
   children,
 }: {
   name: string
   admin: boolean
+  accountant?: boolean
   // A registered counter tablet: its name, and "Lock" instead of "Back to site".
   deviceName?: string | null
   signOutAction?: () => Promise<void>
@@ -330,7 +333,9 @@ export function ConsoleShell({
   const railOnly = onTablet && !admin // staff at the counter: icons only, always
 
   const allowed = (i: Item) =>
-    (admin || !i.adminOnly || (i.staffOnTablet && onTablet && (i.key !== 'members' || staffMembers))) && !(i.notOnTablet && onTablet)
+    accountant
+      ? Boolean(i.accountantOk)
+      : (admin || !i.adminOnly || (i.staffOnTablet && onTablet && (i.key !== 'members' || staffMembers))) && !(i.notOnTablet && onTablet)
   const groups = GROUPS.map((g) => ({ ...g, items: g.items.filter(allowed) })).filter((g) => g.items.length > 0)
   const active = (i: Item) => Boolean(i.href) && (i.isActive ? i.isActive(pathname, tab) : under(i.href!)(pathname))
   const current = groups.flatMap((g) => g.items).find(active)
@@ -484,7 +489,7 @@ export function ConsoleShell({
           <span className="min-w-0 flex-1">
             <span className="block truncate text-sm font-semibold">{name}</span>
             <span className="block truncate text-xs text-muted-foreground">
-              {tr(admin ? consoleCopy.roleAdmin : consoleCopy.roleStaff)}
+              {tr(accountant ? consoleCopy.roleAccountant : admin ? consoleCopy.roleAdmin : consoleCopy.roleStaff)}
               {deviceName && ` · ${deviceName}`}
             </span>
           </span>

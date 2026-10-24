@@ -7,6 +7,7 @@ export const consoleCopy = {
   soon: { th: 'เร็วๆ นี้', en: 'Soon' },
   roleAdmin: { th: 'แอดมิน', en: 'Admin' },
   roleStaff: { th: 'พนักงาน', en: 'Staff' },
+  roleAccountant: { th: 'บัญชี', en: 'Accountant' },
 
   // tabs
   tabOverview: { th: 'ภาพรวม', en: 'Overview' },

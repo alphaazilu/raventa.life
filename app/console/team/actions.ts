@@ -17,7 +17,7 @@ import { PAY_TYPES, type PayType } from '@/lib/console/pay-cycle'
 
 export type RoleResult = { ok: true } | { ok: false; error: string }
 
-const ROLES: Role[] = ['customer', 'staff', 'admin']
+const ROLES: Role[] = ['customer', 'staff', 'admin', 'accountant']
 const UUID = /^[0-9a-f-]{36}$/i
 
 // Exact look-up: member no., full email or full phone (v0.27.1).

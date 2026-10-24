@@ -1,6 +1,7 @@
 // Roles in profiles.role (see supabase/schema.sql §13). Everyone is a
-// member first; staff and admin add back-office access on top.
-export type Role = 'customer' | 'staff' | 'admin'
+// member first; staff and admin add back-office access on top. `accountant`
+// is a back-office role that can reach the Reports page only (v0.38.22).
+export type Role = 'customer' | 'staff' | 'admin' | 'accountant'
 
 // Front desk: /console/desk (sell + check in).
 export function canUseDesk(role: string | null | undefined): boolean {
@@ -10,6 +11,22 @@ export function canUseDesk(role: string | null | undefined): boolean {
 // Everything else in the Back Office console.
 export function isAdmin(role: string | null | undefined): boolean {
   return role === 'admin'
+}
+
+// Accounts-only user: Reports page, nothing else.
+export function isAccountant(role: string | null | undefined): boolean {
+  return role === 'accountant'
+}
+
+// Anyone allowed through the Back Office shell (each page still gates itself).
+export function canUseConsole(role: string | null | undefined): boolean {
+  return role === 'staff' || role === 'admin' || role === 'accountant'
+}
+
+// Reports page (sales + packages). Admins see every tab; accountants only
+// the sales tab (time / commission are payroll — admin only).
+export function canViewReports(role: string | null | undefined): boolean {
+  return role === 'admin' || role === 'accountant'
 }
 
 // Back Office console (v0.13). The old /admin URLs redirect here
@@ -33,3 +50,10 @@ export const CHECKLIST_PATH = '/console/checklist' // admin: set up + log (v0.29
 export const MY_CHECKLIST_PATH = '/account/checklist' // staff phone: today's rounds + scan
 // Pairing screen for a new counter tablet (outside the console's login gate).
 export const TABLET_SETUP_PATH = '/tablet'
+
+// Where a back-office user belongs when they land on /console or are turned
+// away from a page they can't use: accountants → Reports, everyone else →
+// the front desk. Non-console roles should never reach these call sites.
+export function consoleHome(role: string | null | undefined): string {
+  return role === 'accountant' ? REPORTS_PATH : DESK_PATH
+}

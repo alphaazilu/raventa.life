@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react"
 import Image from "next/image"
-import { ArrowLeft, ArrowRight, Calendar, Check, ChevronDown, Phone, RotateCcw, Share2, UserPlus } from "lucide-react"
+import { ArrowLeft, ArrowRight, Calendar, Check, ChevronDown, MessageCircle, Phone, RotateCcw, Share2, UserPlus } from "lucide-react"
 import { useLanguage } from "@/components/language-provider"
 import { benefits, zones } from "@/lib/i18n"
 import { cn } from "@/lib/utils"
@@ -20,6 +20,7 @@ const STEP_ORDER: Step[] = ["goal", "time", "experience", "activity", "health", 
 const BOOK_HREF = "/account/bookings"
 const SIGNUP_HREF = "/login"
 const PHONE_TEL = "+66804294264"
+const LINE_HREF = "https://line.me/R/ti/p/@630xxrfx"
 
 const initialAnswers: QuizAnswers = {
   goals: [],
@@ -455,6 +456,16 @@ export function WellnessQuiz() {
               <Calendar className="h-4 w-4" />
               {tr(quizCopy.nav.book)}
               <ArrowRight className="h-4 w-4" />
+            </a>
+            <a
+              href={LINE_HREF}
+              target="_blank"
+              rel="noreferrer"
+              className="mt-3 inline-flex w-full items-center justify-center gap-2 rounded-full px-7 py-3 text-sm font-semibold text-white transition-opacity hover:opacity-90"
+              style={{ backgroundColor: "#06C755" }}
+            >
+              <MessageCircle className="h-4 w-4" />
+              {tr(quizCopy.nav.line)}
             </a>
             <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-3">
               <a

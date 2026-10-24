@@ -84,7 +84,7 @@ async function payTypeOf(id: string): Promise<PayType | null> {
 
 // Admins first, then staff.
 export async function listTeam(history: RoleChange[], pay: Map<string, PayType> | null = null): Promise<Person[]> {
-  const { data } = await createAdminClient().from('profiles').select(COLS).in('role', ['admin', 'staff']).order('first_name')
+  const { data } = await createAdminClient().from('profiles').select(COLS).in('role', ['admin', 'staff', 'accountant']).order('first_name')
   const since = new Map<string, string>()
   for (const h of history) if (h.whomId && !since.has(h.whomId)) since.set(h.whomId, h.at)
   return ((data ?? []) as ProfileRow[])
