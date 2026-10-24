@@ -9,7 +9,7 @@ import { t } from '@/lib/i18n'
 import { cn } from '@/lib/utils'
 import { useSupabaseUser } from '@/lib/supabase/use-user'
 import { getBrowserClient } from '@/lib/supabase/client'
-import { CONSOLE_PATH, isAdmin } from '@/lib/auth/roles'
+import { canViewReports, CONSOLE_PATH, isAccountant, REPORTS_PATH } from '@/lib/auth/roles'
 import { consoleCopy } from '@/lib/console/copy'
 
 const links = [
@@ -31,19 +31,22 @@ export function SiteHeader() {
   const authHref = user ? '/account' : '/login'
   const authLabel = user ? tr(t.nav.account) : tr(t.nav.login)
 
-  // Back Office button: admins only (staff reach the desk from their
-  // account page until the counter tablet takes over — Vault R2).
-  const [admin, setAdmin] = useState(false)
+  // Back Office button: admins (→ dashboard) and accountants (→ reports only).
+  // Staff reach the desk from their account page until the counter tablet
+  // takes over — Vault R2.
+  const [consoleHref, setConsoleHref] = useState<string | null>(null)
   useEffect(() => {
     if (!user) {
-      setAdmin(false)
+      setConsoleHref(null)
       return
     }
     let cancelled = false
     getBrowserClient()
       .then((sb) => sb.from('profiles').select('role').eq('id', user.id).maybeSingle())
       .then(({ data }) => {
-        if (!cancelled) setAdmin(isAdmin(data?.role))
+        if (cancelled) return
+        const role = data?.role
+        setConsoleHref(canViewReports(role) ? (isAccountant(role) ? REPORTS_PATH : CONSOLE_PATH) : null)
       })
     return () => {
       cancelled = true
@@ -142,9 +145,9 @@ export function SiteHeader() {
             {authLabel}
           </a>
 
-          {admin && (
+          {consoleHref && (
             <a
-              href={CONSOLE_PATH}
+              href={consoleHref}
               className="hidden items-center gap-1.5 whitespace-nowrap rounded-full border-[1.5px] border-accent px-3.5 py-1.5 text-sm font-bold text-accent transition-colors hover:bg-secondary md:inline-flex"
             >
               <LayoutGrid className="h-4 w-4" aria-hidden="true" />
@@ -209,9 +212,9 @@ export function SiteHeader() {
             >
               {authLabel}
             </a>
-            {admin && (
+            {consoleHref && (
               <a
-                href={CONSOLE_PATH}
+                href={consoleHref}
                 onClick={() => setOpen(false)}
                 className="flex items-center gap-2 border-b border-border/60 py-3 text-sm font-bold text-accent md:hidden"
               >

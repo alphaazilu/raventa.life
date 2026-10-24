@@ -179,7 +179,7 @@ export function AccountSettingsView({
         {nationality && <InfoRow label={tr(authCopy.nationalityFieldLabel)}>{nationality}</InfoRow>}
         {joined && <InfoRow label={tr(authCopy.joinedFieldLabel)}>{joined}</InfoRow>}
         <InfoRow label={tr(authCopy.roleFieldLabel)} last>
-          {tr(role === 'admin' ? authCopy.roleAdmin : role === 'staff' ? authCopy.roleStaff : authCopy.roleCustomer)}
+          {tr(role === 'admin' ? authCopy.roleAdmin : role === 'staff' ? authCopy.roleStaff : role === 'accountant' ? authCopy.roleAccountant : authCopy.roleCustomer)}
         </InfoRow>
       </section>
 

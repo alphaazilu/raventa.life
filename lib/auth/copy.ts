@@ -256,6 +256,7 @@ export const authCopy: Record<string, Bilingual> = {
   roleAdmin: { th: 'สมาชิก · แอดมิน', en: 'Member · Admin' },
   roleCustomer: { th: 'สมาชิก', en: 'Member' },
   roleStaff: { th: 'สมาชิก · พนักงาน', en: 'Member · Staff' },
+  roleAccountant: { th: 'สมาชิก · บัญชี', en: 'Member · Accountant' },
   deskLinkLabel: { th: 'หน้าเช็คอินหน้าร้าน', en: 'Front desk check-in' },
   stampCardHeading: { th: 'บัตรสะสม', en: 'Stamp card' },
   stampCardHint: { th: 'มาครบ 10 ครั้ง รับ Day Pass วันธรรมดาฟรี 1 ครั้ง', en: 'Visit 10 times, get a free weekday Day Pass' },
