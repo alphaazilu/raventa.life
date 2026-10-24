@@ -975,17 +975,28 @@ function MemberInfo({
                 </div>
               </div>
             ) : (
-              <div className="mt-3 flex flex-wrap gap-2">
+              <div className="mt-3 flex flex-col gap-2">
                 {visit.checkedOutAt && (
                   <button
                     type="button"
                     disabled={busy}
                     onClick={() => onReEnter(visit.id)}
                     title={tr(deskCopy.reEnterHint)}
-                    className="inline-flex h-11 flex-1 items-center justify-center gap-2 rounded-full bg-accent px-4 text-sm font-semibold text-white disabled:opacity-40"
+                    className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-full bg-accent px-4 text-sm font-semibold text-white disabled:opacity-40"
                   >
                     <LogIn className="h-4 w-4" aria-hidden="true" />
                     {tr(deskCopy.reEnter)}
+                  </button>
+                )}
+                {!visit.checkedOutAt && floorVisit && (
+                  <button
+                    type="button"
+                    disabled={busy}
+                    onClick={() => onCheckOut(floorVisit)}
+                    className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-full bg-foreground px-4 text-sm font-semibold text-background disabled:opacity-40"
+                  >
+                    <LogOut className="h-4 w-4" aria-hidden="true" />
+                    {tr(visit.loans?.length ? deskCopy.returnAndOut : deskCopy.checkOut)}
                   </button>
                 )}
                 {!visit.checkedOutAt && canLend && floorVisit && (
@@ -994,27 +1005,16 @@ function MemberInfo({
                     disabled={busy}
                     onClick={() => onLend(floorVisit)}
                     title={tr(deskCopy.lendHint)}
-                    className="inline-flex h-11 flex-1 items-center justify-center gap-2 rounded-full border border-accent/40 px-4 text-sm font-semibold text-accent disabled:opacity-40"
+                    className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-full border border-accent/40 px-4 text-sm font-semibold text-accent disabled:opacity-40"
                   >
                     <HandHelping className="h-4 w-4" aria-hidden="true" />
                     {tr(deskCopy.lend)}
                   </button>
                 )}
-                {!visit.checkedOutAt && floorVisit && (
-                  <button
-                    type="button"
-                    disabled={busy}
-                    onClick={() => onCheckOut(floorVisit)}
-                    className="inline-flex h-11 flex-1 items-center justify-center gap-2 rounded-full bg-foreground px-4 text-sm font-semibold text-background disabled:opacity-40"
-                  >
-                    <LogOut className="h-4 w-4" aria-hidden="true" />
-                    {tr(visit.loans?.length ? deskCopy.returnAndOut : deskCopy.checkOut)}
-                  </button>
-                )}
                 <button
                   type="button"
                   onClick={() => setCancelling(true)}
-                  className="inline-flex h-11 flex-1 items-center justify-center gap-2 rounded-full border border-border px-4 text-sm font-semibold text-muted-foreground hover:text-destructive"
+                  className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-full border border-border px-4 text-sm font-semibold text-muted-foreground hover:text-destructive"
                 >
                   <Undo2 className="h-4 w-4" aria-hidden="true" />
                   {tr(visit.saleId ? deskCopy.voidBill : deskCopy.cancelVisit)}
