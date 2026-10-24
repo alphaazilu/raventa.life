@@ -2,16 +2,24 @@
 
 import { useMemo, useState } from "react"
 import Image from "next/image"
-import { ArrowLeft, ArrowRight, Check, RotateCcw } from "lucide-react"
+import { ArrowLeft, ArrowRight, Calendar, Check, ChevronDown, Phone, RotateCcw, Share2, UserPlus } from "lucide-react"
 import { useLanguage } from "@/components/language-provider"
 import { benefits, zones } from "@/lib/i18n"
 import { cn } from "@/lib/utils"
 import { goalEmoji, quizCopy, timeOptions, whyItWorks } from "@/lib/wellness-quiz/copy"
 import { matchJourney } from "@/lib/wellness-quiz/match"
-import type { Experience, Goal, QuizAnswers, SafetyFlag, ZoneId } from "@/lib/wellness-quiz/types"
+import { submitQuizLead } from "@/app/quiz/actions"
+import type { MatchResult } from "@/lib/wellness-quiz/types"
+import type { AgeBand, Experience, Fitness, Goal, Hydration, QuizAnswers, Rested, SafetyFlag, ZoneId } from "@/lib/wellness-quiz/types"
 
-type Step = "goal" | "time" | "experience" | "activity" | "safety" | "preferences" | "result"
-const STEP_ORDER: Step[] = ["goal", "time", "experience", "activity", "safety", "preferences", "result"]
+type Step = "goal" | "time" | "experience" | "activity" | "health" | "safety" | "preferences" | "result"
+const STEP_ORDER: Step[] = ["goal", "time", "experience", "activity", "health", "safety", "preferences", "result"]
+
+// Conversion links (phase 2). Booking needs an account, so it routes through
+// login when the visitor isn't signed in yet.
+const BOOK_HREF = "/account/bookings"
+const SIGNUP_HREF = "/login"
+const PHONE_TEL = "+66804294264"
 
 const initialAnswers: QuizAnswers = {
   goals: [],
@@ -20,6 +28,10 @@ const initialAnswers: QuizAnswers = {
   justExercised: false,
   safety: [],
   gentleToday: false,
+  ageBand: "adult",
+  fitness: "moderate",
+  hydration: "good",
+  rested: "rested",
   preferences: { avoidZones: [], preferredZone: null },
 }
 
@@ -152,6 +164,29 @@ export function WellnessQuiz() {
   const isForcedGentle = answers.safety.includes("pregnant") || answers.safety.includes("heart")
   const primaryGoal: Goal = answers.goals[0] ?? "stress"
 
+  const [copied, setCopied] = useState(false)
+  const onShare = async () => {
+    if (!result) return
+    const url = typeof window !== "undefined" ? `${window.location.origin}/quiz` : "/quiz"
+    const zoneNames = result.journey.rounds.map((r) => tr(zones.find((z) => z.id === r.zone)!.name)).join(" · ")
+    const text = `${tr(quizCopy.result.shareTitle)} (~${result.totalMinutes} ${tr(quizCopy.result.minutesShort)}): ${zoneNames}`
+    try {
+      if (typeof navigator !== "undefined" && navigator.share) {
+        await navigator.share({ title: tr(quizCopy.title), text, url })
+        return
+      }
+    } catch {
+      return // user cancelled the share sheet
+    }
+    try {
+      await navigator.clipboard.writeText(`${text}\n${url}`)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    } catch {
+      /* clipboard blocked — nothing to do */
+    }
+  }
+
   return (
     <div className="mx-auto w-full max-w-2xl px-4 py-8">
       {step === "goal" && (
@@ -238,6 +273,53 @@ export function WellnessQuiz() {
               {tr(quizCopy.steps.activity.no)}
             </OptionPill>
           </div>
+          <NavRow onBack={goBack} onNext={goNext} nextLabel={tr(quizCopy.nav.next)} />
+        </section>
+      )}
+
+      {step === "health" && (
+        <section>
+          <h2 className="text-balance font-display text-2xl font-bold text-foreground md:text-3xl">
+            {tr(quizCopy.steps.health.heading)}
+          </h2>
+          <p className="mt-2 text-sm text-muted-foreground">{tr(quizCopy.steps.health.sub)}</p>
+
+          <p className="mt-7 text-sm font-semibold text-foreground">{tr(quizCopy.steps.health.ageLabel)}</p>
+          <div className="mt-3 flex flex-wrap gap-3">
+            {(["teen", "adult", "mid", "senior"] as AgeBand[]).map((v) => (
+              <OptionPill key={v} selected={answers.ageBand === v} onClick={() => setAnswers((a) => ({ ...a, ageBand: v }))}>
+                {tr(quizCopy.steps.health.age[v])}
+              </OptionPill>
+            ))}
+          </div>
+
+          <p className="mt-6 text-sm font-semibold text-foreground">{tr(quizCopy.steps.health.fitnessLabel)}</p>
+          <div className="mt-3 flex flex-wrap gap-3">
+            {(["low", "moderate", "high"] as Fitness[]).map((v) => (
+              <OptionPill key={v} selected={answers.fitness === v} onClick={() => setAnswers((a) => ({ ...a, fitness: v }))}>
+                {tr(quizCopy.steps.health.fitness[v])}
+              </OptionPill>
+            ))}
+          </div>
+
+          <p className="mt-6 text-sm font-semibold text-foreground">{tr(quizCopy.steps.health.hydrationLabel)}</p>
+          <div className="mt-3 flex flex-wrap gap-3">
+            {(["good", "low"] as Hydration[]).map((v) => (
+              <OptionPill key={v} selected={answers.hydration === v} onClick={() => setAnswers((a) => ({ ...a, hydration: v }))}>
+                {tr(quizCopy.steps.health.hydration[v])}
+              </OptionPill>
+            ))}
+          </div>
+
+          <p className="mt-6 text-sm font-semibold text-foreground">{tr(quizCopy.steps.health.restedLabel)}</p>
+          <div className="mt-3 flex flex-wrap gap-3">
+            {(["rested", "tired"] as Rested[]).map((v) => (
+              <OptionPill key={v} selected={answers.rested === v} onClick={() => setAnswers((a) => ({ ...a, rested: v }))}>
+                {tr(quizCopy.steps.health.rested[v])}
+              </OptionPill>
+            ))}
+          </div>
+
           <NavRow onBack={goBack} onNext={goNext} nextLabel={tr(quizCopy.nav.next)} />
         </section>
       )}
@@ -346,7 +428,63 @@ export function WellnessQuiz() {
             </ul>
           </div>
 
-          <div className="mt-9 flex flex-col items-center gap-3 sm:flex-row sm:justify-between">
+          {!isForcedGentle && result.adjustments.length > 0 && (
+            <div className="mt-4 rounded-2xl border border-border bg-card p-5">
+              <p className="text-sm font-semibold text-foreground">{tr(quizCopy.result.adjustHeading)}</p>
+              <ul className="mt-2 space-y-1.5 text-sm text-muted-foreground">
+                {result.adjustments.map((k) => (
+                  <li key={k} className="flex items-start gap-2">
+                    <Check className="mt-0.5 h-4 w-4 shrink-0 text-primary" aria-hidden="true" />
+                    {tr(quizCopy.adjust[k])}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          <p className="mt-4 rounded-xl bg-secondary px-4 py-3 text-sm text-secondary-foreground">{tr(quizCopy.result.hydrationTip)}</p>
+
+          <p className="mt-4 text-xs leading-relaxed text-muted-foreground">{tr(quizCopy.result.notMedical)}</p>
+
+          <div className="mt-9 rounded-2xl border border-border bg-card p-5">
+            <p className="text-center font-display text-base font-bold text-foreground">{tr(quizCopy.result.ctaHeading)}</p>
+            <a
+              href={BOOK_HREF}
+              className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-full bg-primary px-7 py-3.5 text-sm font-semibold text-primary-foreground transition-opacity hover:opacity-90"
+            >
+              <Calendar className="h-4 w-4" />
+              {tr(quizCopy.nav.book)}
+              <ArrowRight className="h-4 w-4" />
+            </a>
+            <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-3">
+              <a
+                href={SIGNUP_HREF}
+                className="inline-flex items-center justify-center gap-2 rounded-full border border-border px-4 py-2.5 text-sm font-semibold text-foreground transition-colors hover:border-primary/40"
+              >
+                <UserPlus className="h-4 w-4" />
+                {tr(quizCopy.nav.signUp)}
+              </a>
+              <a
+                href={`tel:${PHONE_TEL}`}
+                className="inline-flex items-center justify-center gap-2 rounded-full border border-border px-4 py-2.5 text-sm font-semibold text-foreground transition-colors hover:border-primary/40"
+              >
+                <Phone className="h-4 w-4" />
+                {tr(quizCopy.nav.call)}
+              </a>
+              <button
+                type="button"
+                onClick={onShare}
+                className="inline-flex items-center justify-center gap-2 rounded-full border border-border px-4 py-2.5 text-sm font-semibold text-foreground transition-colors hover:border-primary/40"
+              >
+                {copied ? <Check className="h-4 w-4 text-primary" /> : <Share2 className="h-4 w-4" />}
+                {copied ? tr(quizCopy.nav.shareCopied) : tr(quizCopy.nav.share)}
+              </button>
+            </div>
+          </div>
+
+          <LeadForm result={result} goals={answers.goals} />
+
+          <div className="mt-6 text-center">
             <button
               type="button"
               onClick={restart}
@@ -355,15 +493,124 @@ export function WellnessQuiz() {
               <RotateCcw className="h-4 w-4" />
               {tr(quizCopy.nav.retake)}
             </button>
-            <a
-              href="/#contact"
-              className="inline-flex items-center gap-2 rounded-full bg-primary px-7 py-3.5 text-sm font-semibold text-primary-foreground transition-opacity hover:opacity-90"
-            >
-              {tr(quizCopy.nav.book)}
-              <ArrowRight className="h-4 w-4" />
-            </a>
           </div>
         </section>
+      )}
+    </div>
+  )
+}
+
+// Optional "contact me" form on the result (§52, v0.38.19). Submits to a
+// public RPC; a signed-in guest's lead is tagged with their member id server-side.
+function LeadForm({ result, goals }: { result: MatchResult; goals: Goal[] }) {
+  const { tr } = useLanguage()
+  const [open, setOpen] = useState(false)
+  const [name, setName] = useState("")
+  const [contactType, setContactType] = useState<"phone" | "email" | "line">("phone")
+  const [contact, setContact] = useState("")
+  const [consent, setConsent] = useState(false)
+  const [busy, setBusy] = useState(false)
+  const [done, setDone] = useState(false)
+  const [err, setErr] = useState(false)
+
+  const canSubmit = contact.trim().length > 0 && consent && !busy
+
+  const submit = async () => {
+    if (!canSubmit) return
+    setBusy(true)
+    setErr(false)
+    const summary = result.journey.rounds.map((r) => `${tr(zones.find((z) => z.id === r.zone)!.name)} ${r.durationMin}m`).join(" · ")
+    const res = await submitQuizLead({
+      name,
+      contact,
+      contactType,
+      goals: goals as string[],
+      journeyId: result.journey.id,
+      journeySummary: summary,
+      totalMinutes: result.totalMinutes,
+      adjustments: result.adjustments as string[],
+    })
+    setBusy(false)
+    if (res.ok) setDone(true)
+    else setErr(true)
+  }
+
+  if (done) {
+    return (
+      <div className="mt-4 rounded-2xl border border-primary/30 bg-primary/5 p-5 text-center text-sm font-semibold text-foreground">
+        {tr(quizCopy.lead.sent)}
+      </div>
+    )
+  }
+
+  const channels: ("phone" | "email" | "line")[] = ["phone", "email", "line"]
+  const placeholder =
+    contactType === "phone" ? quizCopy.lead.phonePh : contactType === "email" ? quizCopy.lead.emailPh : quizCopy.lead.linePh
+
+  return (
+    <div className="mt-4">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="flex w-full items-center justify-between rounded-2xl border border-border bg-card px-5 py-3.5 text-sm font-semibold text-foreground transition-colors hover:border-primary/40"
+      >
+        {tr(quizCopy.lead.toggle)}
+        <ChevronDown className={cn("h-4 w-4 transition-transform", open && "rotate-180")} aria-hidden="true" />
+      </button>
+      {open && (
+        <div className="mt-2 rounded-2xl border border-border bg-card p-5">
+          <p className="text-sm text-muted-foreground">{tr(quizCopy.lead.sub)}</p>
+          <input
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder={tr(quizCopy.lead.name)}
+            maxLength={120}
+            className="mt-4 h-11 w-full rounded-full border border-border bg-background px-4 text-sm outline-none focus:border-primary"
+          />
+          <div className="mt-3 flex flex-wrap gap-2" role="radiogroup" aria-label={tr(quizCopy.lead.channel)}>
+            {channels.map((c) => (
+              <button
+                key={c}
+                type="button"
+                role="radio"
+                aria-checked={contactType === c}
+                onClick={() => setContactType(c)}
+                className={cn(
+                  "rounded-full border px-4 py-1.5 text-sm font-semibold",
+                  contactType === c ? "border-primary bg-primary text-primary-foreground" : "border-border bg-background text-foreground",
+                )}
+              >
+                {tr(quizCopy.lead[c])}
+              </button>
+            ))}
+          </div>
+          <input
+            value={contact}
+            onChange={(e) => setContact(e.target.value)}
+            placeholder={tr(placeholder)}
+            inputMode={contactType === "phone" ? "tel" : contactType === "email" ? "email" : "text"}
+            maxLength={200}
+            className="mt-3 h-11 w-full rounded-full border border-border bg-background px-4 text-sm outline-none focus:border-primary"
+          />
+          <label className="mt-3 flex cursor-pointer items-start gap-2.5 text-xs leading-relaxed text-muted-foreground">
+            <input type="checkbox" checked={consent} onChange={(e) => setConsent(e.target.checked)} className="mt-0.5 h-4 w-4 shrink-0" />
+            <span>
+              {tr(quizCopy.lead.consent)}{" "}
+              <a href="/privacy" target="_blank" rel="noreferrer" className="text-primary underline underline-offset-2">
+                {tr(quizCopy.lead.privacyLink)}
+              </a>
+            </span>
+          </label>
+          {err && <p className="mt-3 text-sm font-semibold text-destructive">{tr(quizCopy.lead.error)}</p>}
+          <button
+            type="button"
+            disabled={!canSubmit}
+            onClick={submit}
+            className="mt-4 inline-flex h-11 w-full items-center justify-center rounded-full bg-primary text-sm font-semibold text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-40"
+          >
+            {busy ? tr(quizCopy.lead.sending) : tr(quizCopy.lead.submit)}
+          </button>
+        </div>
       )}
     </div>
   )

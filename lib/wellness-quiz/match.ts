@@ -1,5 +1,5 @@
 import { journeys as defaultLibrary } from './journeys'
-import type { Journey, MatchResult, MatchTuning, QuizAnswers, Round, ZoneId } from './types'
+import type { AdjustKey, Journey, MatchResult, MatchTuning, QuizAnswers, Round, ZoneId } from './types'
 
 /**
  * Matching engine for the "Find My Journey" quiz.
@@ -13,14 +13,64 @@ import type { Journey, MatchResult, MatchTuning, QuizAnswers, Round, ZoneId } fr
  * not copied from their code or data.
  */
 
+/**
+ * Evidence-based duration ceilings (not invented for this app):
+ * - Sauna/steam per contrast round ≈ 10–15 min, so dry heat / steam cap at 15.
+ * - Cold plunge per round ≈ 1–3 min; colder water → shorter, so the 5°C
+ *   Winter Ring caps at 2 min and the 10°C Living Sap at 3 min for everyone.
+ * Sources (see docs): Bieuzen 2013 PLoS One (contrast water therapy meta);
+ * Versey 2013 Sports Med (immersion recovery review); general sauna/cold-plunge
+ * protocol guidance (10–15 min heat, 1–3 min cold, 3–4 rounds, ~3:1 ratio).
+ * The per-person health factors below are deliberately set GENTLER than these
+ * minimums — a conservative safety margin for a spa, not a clinical dose.
+ */
 /** Zones capped individually when a session runs long (dry heat / steam). */
 const HEAT_CAP_ZONES = new Set<ZoneId>(['sunlight', 'forest-mist'])
+
+/** Hard per-round cold ceilings by zone (minutes), applied to everyone. */
+const COLD_CAP_MIN: Partial<Record<ZoneId, number>> = { 'winter-ring': 2, 'living-sap': 3 }
 
 /** Broader "warm" set scaled down when a journey needs to be trimmed to fit. */
 const TIME_TRIM_HEAT_ZONES = new Set<ZoneId>(['sunlight', 'forest-mist', 'heartwood'])
 
 /** The two cold-plunge zones — capped for first-timers and on gentle days. */
 const COLD_ZONES = new Set<ZoneId>(['winter-ring', 'living-sap'])
+
+/** Pure rest — never scaled by heat/cold tolerance. */
+const REST_ZONES = new Set<ZoneId>(['the-canopy'])
+
+/**
+ * Light, non-diagnostic health intake → per-person tolerance scales.
+ * Every factor can only REDUCE time (scales clamp at 1.0), so the health
+ * answers never push a session longer or hotter than the authored journey.
+ * Returns the warm/cold multipliers, a hard cap for cold minutes, and the
+ * reason keys that actually bit (for the "we adjusted this for you" note).
+ */
+function healthAdjust(answers: QuizAnswers): { heat: number; cold: number; coldCapMin: number | null; keys: AdjustKey[] } {
+  let heat = 1
+  let cold = 1
+  let coldCapMin: number | null = null
+  const keys: AdjustKey[] = []
+  const capCold = (m: number) => (coldCapMin = coldCapMin === null ? m : Math.min(coldCapMin, m))
+
+  if (answers.ageBand === 'senior') {
+    heat *= 0.8; cold *= 0.7; capCold(2); keys.push('senior')
+  } else if (answers.ageBand === 'teen') {
+    heat *= 0.85; cold *= 0.7; capCold(1); keys.push('teen')
+  } else if (answers.ageBand === 'mid') {
+    heat *= 0.95
+  }
+  if (answers.fitness === 'low') {
+    heat *= 0.9; cold *= 0.85; capCold(2); keys.push('lowFitness')
+  }
+  if (answers.hydration === 'low') {
+    heat *= 0.8; keys.push('lowHydration')
+  }
+  if (answers.rested === 'tired') {
+    heat *= 0.9; cold *= 0.9; keys.push('tired')
+  }
+  return { heat: Math.max(0.5, Math.min(1, heat)), cold: Math.max(0.5, Math.min(1, cold)), coldCapMin, keys }
+}
 
 /**
  * Fallback chain used only if an avoided zone survives filtering (e.g. the
@@ -107,7 +157,7 @@ export function matchJourney(
     const fallback = library.find((j) => j.id === defaultJourneyId)
     if (!fallback) throw new Error(`No candidates and no "${defaultJourneyId}" fallback in the library`)
     const journey = cloneJourney(fallback)
-    return { journey, ending: classifyEnding(journey), totalMinutes: totalMinutes(journey.rounds) }
+    return { journey, ending: classifyEnding(journey), totalMinutes: totalMinutes(journey.rounds), adjustments: [] }
   }
 
   // 2. Filter cascade: goal -> time -> just-exercised exclusion -> gentle-today preference -> avoid-zones.
@@ -149,7 +199,10 @@ export function matchJourney(
   let journey = cloneJourney(candidates[index])
 
   // 5. Post-processing adjustments — reshape the chosen journey, never swap it out.
+  const adjustments: AdjustKey[] = []
+
   if (answers.experience === 'first') {
+    adjustments.push('firstTimer')
     journey.rounds = journey.rounds.map((r) => {
       if (r.durationMin === 0) return r
       let scaled = Math.round(r.durationMin * firstTimerScaleFactor)
@@ -157,6 +210,22 @@ export function matchJourney(
       return { ...r, durationMin: Math.max(scaled, 1) }
     })
   }
+
+  // 5b. Light health intake → trim warm/cold minutes to the guest's tolerance.
+  //     Only ever shortens; rest zones (the-canopy) are left untouched.
+  const health = healthAdjust(answers)
+  if (health.heat < 1 || health.cold < 1 || health.coldCapMin !== null) {
+    journey.rounds = journey.rounds.map((r) => {
+      if (r.durationMin === 0 || REST_ZONES.has(r.zone)) return r
+      if (COLD_ZONES.has(r.zone)) {
+        let m = Math.round(r.durationMin * health.cold)
+        if (health.coldCapMin !== null) m = Math.min(m, health.coldCapMin)
+        return { ...r, durationMin: Math.max(1, m) }
+      }
+      return { ...r, durationMin: Math.max(1, Math.round(r.durationMin * health.heat)) }
+    })
+  }
+  adjustments.push(...health.keys)
 
   if (answers.safety.includes('recentInjury')) {
     journey.rounds = journey.rounds.map((r) => (r.zone === 'winter-ring' ? { ...r, zone: 'living-sap' } : r))
@@ -173,6 +242,12 @@ export function matchJourney(
   journey.rounds = journey.rounds.map((r) =>
     HEAT_CAP_ZONES.has(r.zone) && r.durationMin > maxHeatZoneMin ? { ...r, durationMin: maxHeatZoneMin } : r,
   )
+
+  // Evidence-based cold ceilings — never exceed, whatever the budget asked for.
+  journey.rounds = journey.rounds.map((r) => {
+    const cap = COLD_CAP_MIN[r.zone]
+    return cap !== undefined && r.durationMin > cap ? { ...r, durationMin: cap } : r
+  })
 
   let overage = totalMinutes(journey.rounds) - answers.time
   if (overage > 0) {
@@ -224,7 +299,7 @@ export function matchJourney(
 
   journey.rounds = journey.rounds.filter((r) => r.durationMin > 0)
 
-  return { journey, ending: classifyEnding(journey), totalMinutes: totalMinutes(journey.rounds) }
+  return { journey, ending: classifyEnding(journey), totalMinutes: totalMinutes(journey.rounds), adjustments }
 }
 
 function classifyEnding(journey: Journey): 'warm' | 'cold' {

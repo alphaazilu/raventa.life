@@ -4428,3 +4428,72 @@ end;
 $$;
 revoke execute on function public.staff_lend_items(uuid, jsonb) from public, anon;
 grant execute on function public.staff_lend_items(uuid, jsonb) to authenticated;
+
+
+-- 52. Quiz leads (v0.38.19). The public "Find My Journey" quiz can offer an
+-- optional "contact me" form. Anonymous visitors submit through a
+-- security-definer RPC (they hold only the anon key); staff read the leads in
+-- the Back Office. A logged-in guest's lead is tagged with their member id.
+create table if not exists public.quiz_leads (
+  id uuid primary key default gen_random_uuid(),
+  member_id uuid references auth.users(id) on delete set null,
+  name text,
+  contact text not null,
+  contact_type text check (contact_type in ('phone', 'email', 'line', 'other')),
+  goals text[],
+  journey_id text,
+  journey_summary text,
+  total_minutes integer,
+  adjustments text[],
+  created_at timestamptz not null default now(),
+  handled_at timestamptz,
+  handled_by uuid references auth.users(id) on delete set null
+);
+create index if not exists quiz_leads_open_idx on public.quiz_leads (created_at desc) where handled_at is null;
+alter table public.quiz_leads enable row level security;
+-- anon never touches the table directly (only the RPC below); authenticated may
+-- read, but the RLS policy narrows that to staff. No one writes directly.
+revoke all on public.quiz_leads from anon;
+revoke insert, update, delete on public.quiz_leads from authenticated;
+grant select on public.quiz_leads to authenticated;
+drop policy if exists "Staff read leads" on public.quiz_leads;
+create policy "Staff read leads" on public.quiz_leads for select to authenticated using (public.is_staff());
+
+create or replace function public.submit_quiz_lead(
+  p_name text,
+  p_contact text,
+  p_contact_type text,
+  p_goals text[],
+  p_journey_id text,
+  p_journey_summary text,
+  p_total_minutes integer,
+  p_adjustments text[]
+)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $fn$
+begin
+  if p_contact is null or length(trim(p_contact)) = 0 then
+    raise exception 'contact_required';
+  end if;
+  if length(p_contact) > 200 then
+    raise exception 'contact_too_long';
+  end if;
+  insert into public.quiz_leads (member_id, name, contact, contact_type, goals, journey_id, journey_summary, total_minutes, adjustments)
+  values (
+    auth.uid(),
+    nullif(left(trim(coalesce(p_name, '')), 120), ''),
+    left(trim(p_contact), 200),
+    case when p_contact_type in ('phone', 'email', 'line') then p_contact_type else 'other' end,
+    p_goals,
+    left(coalesce(p_journey_id, ''), 80),
+    left(coalesce(p_journey_summary, ''), 400),
+    p_total_minutes,
+    p_adjustments
+  );
+end;
+$fn$;
+revoke execute on function public.submit_quiz_lead(text, text, text, text[], text, text, integer, text[]) from public;
+grant execute on function public.submit_quiz_lead(text, text, text, text[], text, text, integer, text[]) to anon, authenticated;

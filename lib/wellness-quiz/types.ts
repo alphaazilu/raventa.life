@@ -39,6 +39,15 @@ export type Experience = 'first' | 'regular'
 
 export type SafetyFlag = 'pregnant' | 'heart' | 'recentInjury'
 
+/** Light, non-diagnostic health intake used to personalise durations (§quiz v2). */
+export type AgeBand = 'teen' | 'adult' | 'mid' | 'senior' // <18 / 18–39 / 40–59 / 60+
+export type Fitness = 'low' | 'moderate' | 'high'
+export type Hydration = 'good' | 'low'
+export type Rested = 'rested' | 'tired'
+
+/** Why a journey's times were trimmed — shown back to the guest on the result. */
+export type AdjustKey = 'senior' | 'teen' | 'lowHydration' | 'tired' | 'lowFitness' | 'firstTimer'
+
 export type QuizAnswers = {
   /** primary goal first — also used as the tie-break hash seed */
   goals: Goal[]
@@ -51,6 +60,11 @@ export type QuizAnswers = {
   safety: SafetyFlag[]
   /** asks for extra gentleness today (e.g. menstrual comfort) without being a hard exclusion */
   gentleToday: boolean
+  /** light health intake (non-diagnostic) — tunes per-zone durations */
+  ageBand: AgeBand
+  fitness: Fitness
+  hydration: Hydration
+  rested: Rested
   preferences: {
     avoidZones: ZoneId[]
     preferredZone: ZoneId | null
@@ -70,4 +84,6 @@ export type MatchResult = {
   journey: Journey
   ending: 'warm' | 'cold'
   totalMinutes: number
+  /** Health-based trims applied, for the "we adjusted this for you" note. */
+  adjustments: AdjustKey[]
 }
