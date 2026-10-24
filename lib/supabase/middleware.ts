@@ -1,7 +1,7 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 import { isProfileComplete, PROFILE_COMPLETENESS_COLUMNS } from '@/lib/supabase/profile'
-import { canUseDesk, CONSOLE_PATH, DESK_PATH, isAdmin, MEMBERS_PATH, TIME_PATH } from '@/lib/auth/roles'
+import { canUseDesk, canViewReports, CONSOLE_PATH, DESK_PATH, isAdmin, MEMBERS_PATH, REPORTS_PATH, TIME_PATH } from '@/lib/auth/roles'
 import { DEVICE_COOKIE } from '@/lib/console/device-cookie'
 
 /**
@@ -97,16 +97,22 @@ export async function updateSession(request: NextRequest) {
     }
 
     // Back Office: admins get everything; staff get the front desk only
-    // (for now — phase 2 moves staff onto the registered tablet, see R2).
+    // (for now — phase 2 moves staff onto the registered tablet, see R2);
+    // accountants get the Reports page only (v0.38.23).
     if (isConsoleRoute && !isAdmin(profile?.role)) {
+      const role = profile?.role
       const isDeskRoute = path === DESK_PATH || path.startsWith(`${DESK_PATH}/`)
       // The member list (view only) on a counter tablet; the page itself
       // checks the device key is valid. Editing (/members/[id]) stays admin.
       const onTabletCookie = Boolean(request.cookies.get(DEVICE_COOKIE)?.value)
       const isStaffMembersRoute = (path === MEMBERS_PATH || path === TIME_PATH) && onTabletCookie
-      if (!(isDeskRoute || isStaffMembersRoute) || !canUseDesk(profile?.role)) {
+      const isReportsRoute = path === REPORTS_PATH || path.startsWith(`${REPORTS_PATH}/`)
+      const allow =
+        ((isDeskRoute || isStaffMembersRoute) && canUseDesk(role)) || (isReportsRoute && canViewReports(role))
+      if (!allow) {
         const url = request.nextUrl.clone()
-        url.pathname = canUseDesk(profile?.role) ? DESK_PATH : '/account'
+        // Send each role to the one place it belongs, not a dead end.
+        url.pathname = canViewReports(role) ? REPORTS_PATH : canUseDesk(role) ? DESK_PATH : '/account'
         url.search = ''
         return redirectKeepingSession(url)
       }

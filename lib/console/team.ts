@@ -123,9 +123,19 @@ export async function findExact(raw: string): Promise<Person | null> {
     const { data } = await db.from('profiles').select(COLS).ilike('email', q.replace(/[%_\\]/g, '')).limit(2)
     rows = (data ?? []) as ProfileRow[]
   } else if (/^[+\d\s()-]+$/.test(q) && phoneKey(q).length >= 9) {
+    // An all-digit query is ambiguous: a member number and a Thai phone are
+    // both ~10 digits. Try the member number (exact) and the phone together,
+    // and keep whichever gives a single, unambiguous match — member number
+    // first, since that's what staff type here.
     const key = phoneKey(q)
-    const { data } = await db.from('profiles').select(COLS).ilike('phone', `%${key.slice(-4)}%`).limit(50)
-    rows = ((data ?? []) as ProfileRow[]).filter((r) => r.phone && phoneKey(r.phone) === key)
+    const digits = q.replace(/\D/g, '')
+    const [byMember, byPhone] = await Promise.all([
+      db.from('profiles').select(COLS).ilike('member_no', digits).limit(2),
+      db.from('profiles').select(COLS).ilike('phone', `%${key.slice(-4)}%`).limit(50),
+    ])
+    const memberRows = (byMember.data ?? []) as ProfileRow[]
+    const phoneRows = ((byPhone.data ?? []) as ProfileRow[]).filter((r) => r.phone && phoneKey(r.phone) === key)
+    rows = memberRows.length === 1 ? memberRows : phoneRows
   } else {
     const { data } = await db.from('profiles').select(COLS).ilike('member_no', q.replace(/[%_\\]/g, '')).limit(2)
     rows = (data ?? []) as ProfileRow[]
