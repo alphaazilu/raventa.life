@@ -431,6 +431,7 @@ export const catalogCopy = {
   pkgValid: { th: 'ใช้ได้นาน', en: 'Valid for' },
   pkgDays: { th: 'วัน', en: 'days' },
   pkgMonths: { th: 'เดือน (× 30 วัน)', en: 'months (× 30 days)' },
+  pkgValidWarn: { th: 'นานผิดปกติ แน่ใจไหม?', en: 'unusually long — are you sure?' },
   pkgStart: { th: 'เริ่มนับวันหมดอายุ', en: 'Starts counting' },
   pkgStartPurchase: { th: 'วันที่ซื้อ', en: 'On purchase' },
   pkgStartFirstUse: { th: 'วันที่ใช้ครั้งแรก', en: 'On first visit' },

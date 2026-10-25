@@ -826,6 +826,19 @@ function ProductForm({
                 <button type="button" onClick={() => setPkgUnit('months')} className={chipCls(pkgUnit === 'months')}>{tr(c.pkgMonths)}</button>
               </div>
             </div>
+            {/* Live preview of the computed days — catches "30 months" typed for
+                "30 days" (×30 = 900) before it is saved (v0.38.26). */}
+            {(() => {
+              const totalDays = Number(pkgLen || 0) * (pkgUnit === 'months' ? 30 : 1)
+              if (totalDays <= 0) return null
+              const long = totalDays > 730 // over ~2 years is almost always a slip
+              return (
+                <p className={cn('-mt-1 text-xs', long ? 'font-semibold text-destructive' : 'text-muted-foreground')}>
+                  = {totalDays.toLocaleString()} {tr(c.pkgDays)}
+                  {long && ` · ${tr(c.pkgValidWarn)}`}
+                </p>
+              )
+            })()}
             <div>
               <span className={label}>{tr(c.pkgStart)}</span>
               <div className="mt-1 flex flex-wrap items-center gap-1.5">
