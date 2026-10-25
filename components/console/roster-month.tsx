@@ -7,6 +7,7 @@ import { useRouter } from 'next/navigation'
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, useTransition } from 'react'
 import { Briefcase, Check, ChevronLeft, ChevronRight, Copy, Palmtree, Printer, Thermometer, X } from 'lucide-react'
 import { useLanguage } from '@/components/language-provider'
+import { toast } from '@/components/ui/toast'
 import { Spinner } from '@/components/ui/spinner'
 import { shiftErrors, timeCopy } from '@/lib/console/copy'
 import { fill } from '@/lib/check-in/copy'
@@ -58,6 +59,10 @@ export function RosterMonth({
   const [busyCell, setBusyCell] = useState<string | null>(null)
   const [menu, setMenu] = useState<{ staffId: string; name: string; date: string; x: number; y: number } | null>(null)
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null)
+  // Results float as a toast (v0.38.32) so the grid below doesn't jump.
+  useEffect(() => {
+    if (msg) toast({ id: 'roster-msg', kind: msg.ok ? 'success' : 'error', text: msg.text })
+  }, [msg])
 
   const locale = lang === 'th' ? 'th-TH' : 'en-GB'
   useEffect(() => {
@@ -475,7 +480,6 @@ export function RosterMonth({
         </span>
       </div>
       <p className="mt-1 text-xs text-muted-foreground print:hidden">{tr(timeCopy.monthHint)}</p>
-      {msg && <p className={cn('mt-2 text-sm font-semibold print:hidden', msg.ok ? 'text-accent' : 'text-destructive')}>{msg.text}</p>}
 
       {/* The grid */}
       <div className="mt-3 overflow-x-auto print:overflow-visible">

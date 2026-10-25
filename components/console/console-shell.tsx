@@ -17,6 +17,7 @@ import {
   CalendarCheck,
   FileClock,
   Globe,
+  Inbox,
   LayoutDashboard,
   ListChecks,
   Lock,
@@ -50,6 +51,7 @@ import {
   DEVICES_PATH,
   BRANCHES_PATH,
   FEEDBACK_PATH,
+  LEADS_PATH,
   MEMBERS_PATH,
   REPORTS_PATH,
   BOOKINGS_PATH,
@@ -59,6 +61,10 @@ import {
 } from '@/lib/auth/roles'
 import { AppVersion } from '@/components/console/app-version'
 import type { ConsoleAlerts } from '@/lib/console/alerts'
+import type { LeadPreview } from '@/lib/console/leads'
+import { AlertBell } from '@/components/console/alert-bell'
+import { Toaster } from '@/components/ui/toast'
+import { refreshAlerts } from '@/app/console/alerts-actions'
 import { cn } from '@/lib/utils'
 
 // Back Office frame (v0.30): a side menu on the left instead of the old top
@@ -103,6 +109,7 @@ const t = {
   feedback: { th: 'ความเห็นลูกค้า', en: 'Feedback' },
   fbList: { th: 'ความเห็น', en: 'Answers' },
   fbTopics: { th: 'หัวข้อคะแนน + QR', en: 'Topics + QR' },
+  leads: { th: 'ผู้สนใจจาก Quiz', en: 'Quiz leads' },
   drawer: { th: 'ลิ้นชักเงินสด', en: 'Cash drawer' },
   cashHistory: { th: 'ประวัติปิดกะ', en: 'History' },
   time: { th: 'ลงเวลาและกะ', en: 'Time & shifts' },
@@ -121,6 +128,7 @@ const t = {
   expand: { th: 'ขยายเมนู', en: 'Expand menu' },
   openMenu: { th: 'เปิดเมนู', en: 'Open menu' },
   closeMenu: { th: 'ปิดเมนู', en: 'Close menu' },
+  closeToast: { th: 'ปิดข้อความ', en: 'Dismiss' },
   showSubs: { th: 'แสดงเมนูย่อย', en: 'Show sub-menu' },
   hideSubs: { th: 'ซ่อนเมนูย่อย', en: 'Hide sub-menu' },
   // sub-menus = the tabs inside each page
@@ -206,6 +214,7 @@ const GROUPS: Group[] = [
           { key: 'topics', label: t.fbTopics, tab: 'topics' },
         ],
       },
+      { key: 'leads', label: t.leads, icon: Inbox, href: LEADS_PATH, adminOnly: true, notOnTablet: true, badge: (a) => a.quizLeads },
     ],
   },
   {
@@ -311,7 +320,8 @@ export function ConsoleShell({
   staffMembers = true,
   accountant = false,
   idleMinutes = 5,
-  alerts,
+  alerts: initialAlerts,
+  leads: initialLeads = [],
   children,
 }: {
   name: string
@@ -323,6 +333,7 @@ export function ConsoleShell({
   staffMembers?: boolean // Settings › staff see the member list on the tablet
   idleMinutes?: number
   alerts: ConsoleAlerts
+  leads?: LeadPreview[]
   children: React.ReactNode
 }) {
   const { tr, lang, toggle } = useLanguage()
@@ -331,6 +342,37 @@ export function ConsoleShell({
   const tab = search.get('tab') ?? (search.get('r') === 'time' ? 'time' : null)
   const onTablet = Boolean(deviceName)
   const railOnly = onTablet && !admin // staff at the counter: icons only, always
+
+  // Alerts: what the layout rendered, then refreshed every minute while the
+  // page is open (the layout itself doesn't re-run on client navigation).
+  // Admins only — staff and accountants get no alerts.
+  const [alerts, setAlerts] = useState(initialAlerts)
+  const [leads, setLeads] = useState(initialLeads)
+  useEffect(() => setAlerts(initialAlerts), [initialAlerts])
+  useEffect(() => setLeads(initialLeads), [initialLeads])
+  const withBell = admin && !accountant
+  useEffect(() => {
+    if (!withBell) return
+    let alive = true
+    const pull = () => {
+      if (document.visibilityState !== 'visible') return
+      refreshAlerts()
+        .then((r) => {
+          if (alive && r) {
+            setAlerts(r.alerts)
+            setLeads(r.leads)
+          }
+        })
+        .catch(() => {})
+    }
+    const id = setInterval(pull, 60_000)
+    document.addEventListener('visibilitychange', pull)
+    return () => {
+      alive = false
+      clearInterval(id)
+      document.removeEventListener('visibilitychange', pull)
+    }
+  }, [withBell])
 
   const allowed = (i: Item) =>
     accountant
@@ -597,6 +639,7 @@ export function ConsoleShell({
                 {isFullscreen ? <Shrink className="h-4 w-4" aria-hidden="true" /> : <Expand className="h-4 w-4" aria-hidden="true" />}
               </button>
             )}
+            {withBell && <AlertBell alerts={alerts} leads={leads} />}
             <button
               type="button"
               onClick={toggle}
@@ -627,6 +670,7 @@ export function ConsoleShell({
         </header>
         <div className="min-w-0 flex-1">{children}</div>
       </div>
+      <Toaster closeLabel={tr(t.closeToast)} />
     </div>
   )
 }

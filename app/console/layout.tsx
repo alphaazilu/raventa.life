@@ -3,7 +3,8 @@ import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
 import { Suspense } from 'react'
 import { ConsoleShell } from '@/components/console/console-shell'
-import { loadAlerts, type ConsoleAlerts } from '@/lib/console/alerts'
+import { loadAlerts, noAlerts, type ConsoleAlerts } from '@/lib/console/alerts'
+import { recentOpenLeads } from '@/lib/console/leads'
 import { TabletLock } from '@/components/console/tablet-lock'
 import { IdleLock } from '@/components/console/idle-lock'
 import { BusyOverlay } from '@/components/console/busy-overlay'
@@ -67,9 +68,9 @@ export default async function ConsoleLayout({ children }: { children: React.Reac
   const settings = await getAppSettings()
 
   // Numbers beside the side menu (admins only; staff see none).
-  const alerts: ConsoleAlerts = isAdmin(me?.role)
-    ? await loadAlerts()
-    : { pendingLeave: 0, forgotClockOut: 0, checklistIssues: 0, checklistMissed: 0, unsetPay: 0, cashReview: 0, cashOpenLong: 0, calendarSoon: 0, feedbackFollow: 0, bookingsToday: 0, bookingLate: 0 }
+  const [alerts, leads]: [ConsoleAlerts, Awaited<ReturnType<typeof recentOpenLeads>>] = isAdmin(me?.role)
+    ? await Promise.all([loadAlerts(), recentOpenLeads().catch(() => [])])
+    : [noAlerts, []]
 
   return (
     <div className="min-h-dvh overflow-x-clip bg-background">
@@ -83,6 +84,7 @@ export default async function ConsoleLayout({ children }: { children: React.Reac
           staffMembers={settings.staffMembersOnTablet}
           idleMinutes={isAdmin(me?.role) ? settings.adminIdleMinutes : settings.staffIdleMinutes}
           alerts={alerts}
+          leads={leads}
         >
           {children}
         </ConsoleShell>

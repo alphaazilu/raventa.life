@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { useState, useTransition } from 'react'
 import { AlertTriangle, Banknote, Check, Download, Lock, Minus, Plus, Wallet } from 'lucide-react'
 import { useLanguage } from '@/components/language-provider'
+import { toast } from '@/components/ui/toast'
 import { Spinner } from '@/components/ui/spinner'
 import { CASH_PATH } from '@/lib/auth/roles'
 import { DENOMS, cashCopy as c, cashErrors, countedTotal, needsReview, type CashRules, type CashSession, type Counted } from '@/lib/cash'
@@ -103,11 +104,6 @@ function Drawer({ current, rules, admin }: { current: CashSession | null; rules:
   if (!current) {
     return (
       <section className={cn(card, 'max-w-xl')}>
-        {justClosed && (
-          <p role="status" className="mb-4 flex items-center gap-2 rounded-xl bg-accent/15 px-3 py-2 text-sm font-semibold text-accent">
-            <Check className="h-4 w-4" aria-hidden="true" /> {tr(c.closedDone)}
-          </p>
-        )}
         <div className="flex items-start gap-3">
           <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-secondary">
             <Lock className="h-5 w-5" aria-hidden="true" />
@@ -146,7 +142,10 @@ function Drawer({ current, rules, admin }: { current: CashSession | null; rules:
     </p>
   )
   if (current.status === 'open') return <CountForm session={current} since={since} />
-  return <Result session={current} since={since} admin={admin} onClosed={() => setJustClosed(true)} />
+  return <Result session={current} since={since} admin={admin} onClosed={() => {
+        setJustClosed(true)
+        toast({ text: tr(c.closedDone) })
+      }} />
 }
 
 function CountForm({ session, since }: { session: CashSession; since: React.ReactNode }) {

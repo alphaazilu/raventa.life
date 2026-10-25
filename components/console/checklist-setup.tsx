@@ -1,9 +1,10 @@
 'use client'
 
-import { useState, useTransition } from 'react'
+import { useEffect, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { ArrowDown, ArrowUp, MapPin, Pencil, Plus, Printer, RefreshCw, Trash2, X } from 'lucide-react'
 import { useLanguage } from '@/components/language-provider'
+import { toast } from '@/components/ui/toast'
 import { Spinner } from '@/components/ui/spinner'
 import { CHECKLIST_PATH } from '@/lib/auth/roles'
 import { deletePoint, deleteRound, reissuePoint, savePoint, saveRound } from '@/app/console/checklist/actions'
@@ -79,6 +80,11 @@ export function ChecklistSetup({ points, rounds }: { points: CheckPoint[]; round
   const router = useRouter()
   const [pending, start] = useTransition()
   const [error, setError] = useState<string | null>(null)
+  // Errors float as a toast (v0.38.32) instead of a bar above the setup.
+  useEffect(() => {
+    if (error) toast({ id: 'checklist-error', kind: 'error', text: tr(checklistErrors[error] ?? checklistErrors.failed) })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [error])
   const [editPoint, setEditPoint] = useState<CheckPoint | 'new' | null>(null)
   const [editRound, setEditRound] = useState<CheckRound | 'new' | null>(null)
   const pmap = new Map(points.map((p) => [p.id, p]))
@@ -103,11 +109,6 @@ export function ChecklistSetup({ points, rounds }: { points: CheckPoint[]; round
 
   return (
     <>
-      {error && (
-        <p role="alert" className="rounded-2xl bg-destructive/10 px-4 py-3 text-sm font-semibold text-destructive">
-          {tr(checklistErrors[error] ?? checklistErrors.failed)}
-        </p>
-      )}
 
       <section className={card}>
         <div className="flex flex-wrap items-start justify-between gap-3">

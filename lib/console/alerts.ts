@@ -8,6 +8,7 @@ import { slotsOn, slotState, withLivePoints } from '@/lib/checklist'
 import { getCashRules } from './cash'
 import { listItems, visibleOccurrences } from './calendar'
 import { countFollowUp } from './feedback'
+import { countOpenLeads } from './leads'
 import { OPEN_TOO_LONG_HOURS } from '@/lib/cash'
 import { getRules, todayCounts } from './booking'
 
@@ -27,9 +28,10 @@ export type ConsoleAlerts = {
   feedbackFollow: number // member answers with 1–2 stars or "contact me", not handled (§32)
   bookingsToday: number // bookings today, booked or arrived (§34) — information
   bookingLate: number // booked today, late and not checked in yet (§34)
+  quizLeads: number // quiz "contact me" leads not handled yet (§52)
 }
 
-const zero: ConsoleAlerts = { pendingLeave: 0, forgotClockOut: 0, checklistIssues: 0, checklistMissed: 0, unsetPay: 0, cashReview: 0, cashOpenLong: 0, calendarSoon: 0, feedbackFollow: 0, bookingsToday: 0, bookingLate: 0 }
+export const noAlerts: ConsoleAlerts = { pendingLeave: 0, forgotClockOut: 0, checklistIssues: 0, checklistMissed: 0, unsetPay: 0, cashReview: 0, cashOpenLong: 0, calendarSoon: 0, feedbackFollow: 0, bookingsToday: 0, bookingLate: 0, quizLeads: 0 }
 
 async function checklistToday(): Promise<{ issues: number; missed: number }> {
   const today = bangkokToday()
@@ -81,7 +83,7 @@ async function calendarSoon(): Promise<number> {
 }
 
 export const loadAlerts = cache(async (): Promise<ConsoleAlerts> => {
-  const [pendingLeave, open, checklist, pay, cash, soon, fb, bk] = await Promise.all([
+  const [pendingLeave, open, checklist, pay, cash, soon, fb, bk, leads] = await Promise.all([
     countPendingLeave().catch(() => 0),
     listOpenEntries().catch(() => []),
     checklistToday().catch(() => ({ issues: 0, missed: 0 })),
@@ -92,9 +94,10 @@ export const loadAlerts = cache(async (): Promise<ConsoleAlerts> => {
     getRules()
       .then((r) => todayCounts(r.lateMin))
       .catch(() => null),
+    countOpenLeads().catch(() => 0),
   ])
   return {
-    ...zero,
+    ...noAlerts,
     pendingLeave,
     forgotClockOut: open.filter((e) => isForgotten(e)).length,
     checklistIssues: checklist.issues,
@@ -106,5 +109,6 @@ export const loadAlerts = cache(async (): Promise<ConsoleAlerts> => {
     feedbackFollow: fb,
     bookingsToday: bk?.total ?? 0,
     bookingLate: bk?.late ?? 0,
+    quizLeads: leads,
   }
 })

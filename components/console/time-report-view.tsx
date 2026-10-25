@@ -4,7 +4,7 @@ import { Fragment, useState } from 'react'
 import { AlertTriangle, ChevronDown, ChevronRight, Download } from 'lucide-react'
 import { useLanguage } from '@/components/language-provider'
 import { formatMemberDate } from '@/lib/format-date'
-import { REPORTS_PATH, TEAM_PATH, TIME_PATH } from '@/lib/auth/roles'
+import { REPORTS_PATH, TIME_PATH } from '@/lib/auth/roles'
 import { leaveCopy, LEAVE_KINDS, type LeaveKind } from '@/lib/leave'
 import type { PayTab, TimePeriod, TimePreset } from '@/lib/console/time-period'
 import { leaveTotal, needsCheck, type DayRow, type PersonTime, type TimeReport } from '@/lib/console/time-report-calc'
@@ -191,15 +191,6 @@ export function TimeReportView({ period, report, paySetUp }: { period: TimePerio
       </div>
 
       {!paySetUp && <p className="rounded-2xl bg-amber-500/15 p-4 text-sm font-semibold text-amber-800 dark:text-amber-300">{tr(t.notSetUp)}</p>}
-      {paySetUp && groups.none.length > 0 && (
-        <p className="flex flex-wrap items-center gap-2 rounded-2xl bg-amber-500/15 px-4 py-3 text-sm font-semibold text-amber-800 dark:text-amber-300">
-          <AlertTriangle className="h-4 w-4" aria-hidden="true" />
-          {tr(t.unset).replace('{n}', String(groups.none.length))}
-          <a href={TEAM_PATH} className="underline">
-            {tr(t.setThem)}
-          </a>
-        </p>
-      )}
 
       {!report ? (
         <p role="alert" className="rounded-2xl bg-destructive/10 px-4 py-3 text-sm font-semibold text-destructive">

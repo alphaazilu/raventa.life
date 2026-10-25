@@ -3,10 +3,11 @@
 import Link, { useLinkStatus } from 'next/link'
 import { useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { AlertTriangle, BarChart3, CheckCircle2, ChevronRight, Clock, ListChecks, Package, Receipt, Settings, UserCog, Users, type LucideIcon } from 'lucide-react'
+import { Bell, BarChart3, CheckCircle2, ChevronRight, Clock, ListChecks, Package, Receipt, Settings, UserCog, Users, type LucideIcon } from 'lucide-react'
 import { useLanguage } from '@/components/language-provider'
-import { consoleCopy } from '@/lib/console/copy'
-import { BOOKINGS_PATH, CALENDAR_PATH, CASH_PATH, FEEDBACK_PATH, CATALOG_PATH, CHECKLIST_PATH, DESK_PATH, MEMBERS_PATH, REPORTS_PATH, SETTINGS_PATH, TEAM_PATH, TIME_PATH } from '@/lib/auth/roles'
+import { bellCopy, consoleCopy } from '@/lib/console/copy'
+import { actionCount, OPEN_BELL_EVENT } from '@/components/console/alert-bell'
+import { CATALOG_PATH, CHECKLIST_PATH, DESK_PATH, MEMBERS_PATH, REPORTS_PATH, SETTINGS_PATH, TEAM_PATH, TIME_PATH } from '@/lib/auth/roles'
 import type { ConsoleAlerts } from '@/lib/console/alerts'
 import { bangkokTime, FLOOR_CAPACITY } from '@/lib/check-in/day'
 import { formatMemberNo } from '@/lib/format-date'
@@ -132,22 +133,12 @@ export function ConsoleDashboard({ firstName, data, alerts, capacity = FLOOR_CAP
 }
 
 // What needs doing (v0.30): each line goes straight to where it's handled.
+// One line instead of the old "To do" box (v0.38.31): the details live in the
+// bell in the top bar, grouped by topic.
 function ToDo({ alerts }: { alerts: ConsoleAlerts }) {
   const { tr } = useLanguage()
-  const rows = [
-    { n: alerts.pendingLeave, text: consoleCopy.todoLeave, href: `${TIME_PATH}?tab=leave` },
-    { n: alerts.checklistIssues, text: consoleCopy.todoIssues, href: CHECKLIST_PATH, red: true },
-    { n: alerts.checklistMissed, text: consoleCopy.todoMissed, href: CHECKLIST_PATH },
-    { n: alerts.forgotClockOut, text: consoleCopy.todoForgot, href: TIME_PATH },
-    { n: alerts.cashReview, text: consoleCopy.todoCashReview, href: `${CASH_PATH}?tab=history`, red: true },
-    { n: alerts.cashOpenLong, text: consoleCopy.todoCashOpen, href: CASH_PATH, red: true },
-    { n: alerts.unsetPay, text: consoleCopy.todoPay, href: TEAM_PATH },
-    { n: alerts.feedbackFollow, text: consoleCopy.todoFeedback, href: `${FEEDBACK_PATH}?f=follow`, red: true },
-    { n: alerts.bookingLate, text: consoleCopy.todoBookingLate, href: `${BOOKINGS_PATH}?tab=day`, red: true },
-    { n: alerts.bookingsToday, text: consoleCopy.todoBookings, href: `${BOOKINGS_PATH}?tab=day` },
-    { n: alerts.calendarSoon, text: consoleCopy.todoCalendar, href: CALENDAR_PATH },
-  ].filter((r) => r.n > 0)
-  if (rows.length === 0) {
+  const n = actionCount(alerts)
+  if (n === 0) {
     return (
       <p className="flex items-center gap-2 text-sm text-muted-foreground">
         <CheckCircle2 className="h-4 w-4 text-accent" aria-hidden="true" />
@@ -156,28 +147,16 @@ function ToDo({ alerts }: { alerts: ConsoleAlerts }) {
     )
   }
   return (
-    <section className="rounded-2xl border border-amber-500/40 bg-amber-500/10 p-4">
-      <h2 className="flex items-center gap-2 text-sm font-bold text-amber-900 dark:text-amber-200">
-        <AlertTriangle className="h-4 w-4" aria-hidden="true" />
-        {tr(consoleCopy.todoHeading)}
-      </h2>
-      <ul className="mt-2 grid gap-1.5 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-5">
-        {rows.map((r) => (
-          <li key={r.text.en}>
-            <Link
-              href={r.href}
-              className={cn(
-                'flex items-center justify-between gap-3 rounded-xl bg-background px-3 py-2.5 text-sm font-semibold hover:bg-background/70',
-                r.red && 'text-destructive',
-              )}
-            >
-              <span className="min-w-0">{tr(r.text).replace('{n}', String(r.n))}</span>
-              <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
-            </Link>
-          </li>
-        ))}
-      </ul>
-    </section>
+    <button
+      type="button"
+      onClick={() => window.dispatchEvent(new Event(OPEN_BELL_EVENT))}
+      aria-label={tr(bellCopy.openBell)}
+      className="flex w-fit items-center gap-2 rounded-full border border-border bg-card px-3.5 py-1.5 text-sm font-semibold text-foreground hover:border-primary/40"
+    >
+      <Bell className="h-4 w-4 text-primary" aria-hidden="true" />
+      {tr(bellCopy.summary).replace('{n}', String(n))}
+      <ChevronRight className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
+    </button>
   )
 }
 

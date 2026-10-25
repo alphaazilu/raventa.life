@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
 import { Gift, HandHelping, LogIn, Lock, LogOut, RotateCcw, Search, ShoppingBag, Undo2, X } from 'lucide-react'
 import { useLanguage } from '@/components/language-provider'
+import { dismissToast, toast } from '@/components/ui/toast'
 import { AvatarCircle } from '@/components/account/avatar-circle'
 import { QrScanner } from '@/components/admin/qr-scanner'
 import { BillBuilder } from '@/components/admin/bill-builder'
@@ -238,6 +239,39 @@ export function CheckInDesk({
       },
     )
 
+  // "Done" messages and errors float as toasts (v0.38.32) so the sell screen
+  // never shifts. A package hand-out keeps its Undo for 60 s.
+  useEffect(() => {
+    if (!notice) return
+    const u = lastUse
+    toast({
+      id: 'desk-notice',
+      text: notice,
+      duration: u ? 60_000 : 3500,
+      action: u
+        ? {
+            label: tr(deskCopy.undo),
+            onClick: () => {
+              dismissToast('desk-notice')
+              run(
+                () => undoPackageItem(u.useId),
+                () => {
+                  setLastUse(null)
+                  setNotice(tr(deskCopy.doneUndo))
+                  reloadMember(u.memberId)
+                },
+              )
+            },
+          }
+        : undefined,
+    })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [notice, lastUse])
+  useEffect(() => {
+    if (error) toast({ id: 'desk-error', kind: 'error', text: errText(error) })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [error])
+
   const member = panel.kind === 'member' ? panel.member : null
   const inside = floor?.visits.filter((v) => !v.checkedOutAt).length ?? 0
   // Right side: the member's bill (Day Pass + items) when they can check in;
@@ -275,36 +309,6 @@ export function CheckInDesk({
         </div>
       )}
 
-      {(notice || lastUse) && (
-        <div role="status" className="mb-3 flex items-center gap-3 rounded-2xl bg-accent/15 px-4 py-3 text-sm font-semibold text-accent">
-          <span className="min-w-0 flex-1">{notice}</span>
-          {lastUse && (
-            <button
-              type="button"
-              disabled={busy}
-              onClick={() => {
-                const u = lastUse
-                run(
-                  () => undoPackageItem(u.useId),
-                  () => {
-                    setLastUse(null)
-                    setNotice(tr(deskCopy.doneUndo))
-                    reloadMember(u.memberId)
-                  },
-                )
-              }}
-              className="shrink-0 rounded-full border border-accent/50 px-3 py-1 text-xs font-bold hover:bg-accent/10 disabled:opacity-40"
-            >
-              {tr(deskCopy.undo)}
-            </button>
-          )}
-        </div>
-      )}
-      {error && (
-        <div role="alert" className="mb-3 rounded-2xl bg-destructive/10 px-4 py-3 text-sm font-semibold text-destructive">
-          {errText(error)}
-        </div>
-      )}
 
       {view === 'floor' ? (
         <FloorPanel
