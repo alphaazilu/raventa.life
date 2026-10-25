@@ -110,7 +110,10 @@ const t = {
   exDaily: { th: 'รายวัน', en: 'Daily' },
   exPackages: { th: 'แพ็กเกจรายตัว', en: 'Packages' },
   // package list (§2b)
-  pkgListHeading: { th: 'แพ็กเกจรายตัว (ซื้อในงวดนี้)', en: 'Packages bought this period' },
+  pkgListHeading: { th: 'แพ็กเกจรายตัว', en: 'Packages' },
+  pkgViewPeriod: { th: 'ซื้อในงวดนี้', en: 'Bought this period' },
+  pkgViewActive: { th: 'ยังใช้ได้ทั้งหมด', en: 'All still usable' },
+  plNoneActive: { th: 'ไม่มีแพ็กเกจที่ยังใช้ได้', en: 'No packages still usable' },
   pkgListHint: { th: 'วันที่ซื้อ · จ่ายครั้งแรก · ใช้ไป/คงเหลือ · หมดอายุ — สำหรับตรวจสอบรายตัว', en: 'Bought · first payment · used/left · expiry — per package' },
   plDate: { th: 'วันที่ซื้อ', en: 'Bought' },
   plName: { th: 'แพ็กเกจ', en: 'Package' },
@@ -233,6 +236,9 @@ function Body({ report: r, date }: { report: SalesReport; date: (d: string) => s
   const k = r.packages
   const packageNet = r.categories.find((c) => c.kind === 'package')?.net ?? 0
   const kindLabel = (kind: string) => tr((catalogCopy as Record<string, L>)[`kind_${kind}`] ?? { th: kind, en: kind })
+  // Package list view: this period's sales, or every package still usable.
+  const [pkgView, setPkgView] = useState<'period' | 'active'>('period')
+  const pkgRows = r.packageList.filter((p) => (pkgView === 'period' ? p.boughtInPeriod : p.status === 'active' || p.status === 'pending'))
 
   return (
     <>
@@ -373,8 +379,22 @@ function Body({ report: r, date }: { report: SalesReport; date: (d: string) => s
       {/* 4b. Packages — one row each (§2b, for the accountant) */}
       <section className={card}>
         <Heading title={tr(t.pkgListHeading)} hint={tr(t.pkgListHint)} />
-        {r.packageList.length === 0 ? (
-          <p className="mt-2 text-sm text-muted-foreground">{tr(t.plNone)}</p>
+        <div className="mt-2 inline-flex rounded-full bg-secondary p-1 text-xs font-semibold" role="radiogroup">
+          {(['period', 'active'] as const).map((v) => (
+            <button
+              key={v}
+              type="button"
+              role="radio"
+              aria-checked={pkgView === v}
+              onClick={() => setPkgView(v)}
+              className={cn('rounded-full px-3 py-1.5', pkgView === v ? 'bg-background shadow-sm' : 'text-muted-foreground hover:text-foreground')}
+            >
+              {tr(v === 'period' ? t.pkgViewPeriod : t.pkgViewActive)}
+            </button>
+          ))}
+        </div>
+        {pkgRows.length === 0 ? (
+          <p className="mt-2 text-sm text-muted-foreground">{tr(pkgView === 'period' ? t.plNone : t.plNoneActive)}</p>
         ) : (
           <div className="mt-2 max-h-[28rem] overflow-auto rounded-xl border border-border">
             <table className="w-full min-w-[46rem] text-sm">
@@ -391,7 +411,7 @@ function Body({ report: r, date }: { report: SalesReport; date: (d: string) => s
                 </tr>
               </thead>
               <tbody>
-                {r.packageList.map((p) => {
+                {pkgRows.map((p) => {
                   const stLabel = { active: t.stActive, pending: t.stPending, depleted: t.stDepleted, expired: t.stExpired }[p.status]
                   const stClass = {
                     active: 'text-accent',

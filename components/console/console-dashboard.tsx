@@ -100,7 +100,9 @@ export function ConsoleDashboard({ firstName, data, alerts, capacity = FLOOR_CAP
           {data.recent.length === 0 ? (
             <p className="py-8 text-center text-sm text-muted-foreground">{tr(consoleCopy.nobodyYet)}</p>
           ) : (
-            <ul className="mt-2 divide-y divide-border">
+            // The header above stays put; a long list scrolls inside its card
+            // instead of stretching the row (v0.38.29).
+            <ul className="mt-2 max-h-[22rem] divide-y divide-border overflow-y-auto overscroll-contain">
               {data.recent.map((v) => (
                 <li key={v.id} className="flex items-center gap-3 py-2.5 text-sm">
                   <span className="w-11 shrink-0 font-mono text-xs text-muted-foreground">{bangkokTime(v.checkedInAt)}</span>

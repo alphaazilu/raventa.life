@@ -55,7 +55,7 @@ function build(type: string, r: SalesReport): (string | number | null)[][] {
   if (type === 'packages') {
     const st: Record<string, string> = { active: 'ใช้งานได้', pending: 'ยังไม่เริ่ม', depleted: 'ใช้ครบแล้ว', expired: 'หมดอายุ' }
     return [
-      ['วันที่ซื้อ', 'แพ็กเกจ', 'เลขสมาชิก', 'จ่ายครั้งแรก', 'สิทธิ์ทั้งหมด', 'ใช้ไป', 'คงเหลือ', 'อายุ (วัน)', 'เริ่มใช้', 'หมดอายุ', 'สถานะ'],
+      ['วันที่ซื้อ', 'แพ็กเกจ', 'เลขสมาชิก', 'จ่ายครั้งแรก', 'สิทธิ์ทั้งหมด', 'ใช้ไป', 'คงเหลือ', 'อายุ (วัน)', 'เริ่มใช้', 'หมดอายุ', 'สถานะ', 'ซื้อในงวด'],
       ...r.packageList.map((p) => [
         p.saleDate,
         p.name,
@@ -68,6 +68,7 @@ function build(type: string, r: SalesReport): (string | number | null)[][] {
         p.startsOn ?? '—',
         p.expiresOn ?? '—',
         st[p.status] ?? p.status,
+        p.boughtInPeriod ? 'ใช่' : 'ไม่',
       ]),
     ]
   }

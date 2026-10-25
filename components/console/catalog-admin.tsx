@@ -169,8 +169,10 @@ function Products({ catalog, rules, saleTypes }: { catalog: Catalog; rules: Comm
   const entryIdSet = new Set(catalog.products.filter((p) => p.kind === 'day_pass').map((p) => p.id))
 
   return (
-    <div className="mt-5 grid gap-5 lg:grid-cols-[minmax(0,1fr)_440px]">
-      <section className="min-w-0 overflow-hidden rounded-2xl border border-border">
+    <div className="mt-5 grid items-start gap-5 lg:grid-cols-[minmax(0,1fr)_440px]">
+      {/* Pinned on desktop so its header + list stay in view while the (often
+          taller) edit panel on the right scrolls the page (v0.38.28). */}
+      <section className="min-w-0 overflow-hidden rounded-2xl border border-border lg:sticky lg:top-[57px] lg:self-start xl:top-[65px]">
         <div className="flex flex-wrap items-center justify-between gap-3 bg-secondary px-4 py-2.5">
           <span className="text-xs font-semibold text-muted-foreground">{tr(c.colName)}</span>
           <span className="flex items-center gap-4">

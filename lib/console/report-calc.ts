@@ -100,6 +100,7 @@ export type PackageDetail = {
   startsOn: string | null
   expiresOn: string | null
   status: 'active' | 'pending' | 'depleted' | 'expired'
+  boughtInPeriod: boolean // sold within the report's date range
 }
 
 export type SalesReport = {
@@ -339,10 +340,13 @@ export function buildReport(input: ReportInput): SalesReport {
     if (daily.length > 400) break
   }
 
-  // Packages bought in this period — one row each, for the accountant.
+  // Per-package list for the accountant, in two views (the UI toggles):
+  //   • bought in this period (sales of the period), and
+  //   • every package still usable now (outstanding liability), whenever bought.
+  // Each row carries its status + whether it was bought in the period; rows
+  // that are neither bought-in-period nor still active are dropped as noise.
   const todayStr = input.today ?? to
   const packageList: PackageDetail[] = input.packages
-    .filter((p) => p.saleDate >= from && p.saleDate <= to)
     .map((p) => {
       const remaining = p.visitsTotal === null ? null : Math.max(0, p.visitsTotal - p.visitsUsed)
       const status: PackageDetail['status'] = p.expiresOn && p.expiresOn < todayStr
@@ -365,8 +369,10 @@ export function buildReport(input: ReportInput): SalesReport {
         startsOn: p.startsOn,
         expiresOn: p.expiresOn,
         status,
+        boughtInPeriod: p.saleDate >= from && p.saleDate <= to,
       }
     })
+    .filter((d) => d.boughtInPeriod || d.status === 'active' || d.status === 'pending')
     .sort((a, b) => (a.saleDate < b.saleDate ? 1 : a.saleDate > b.saleDate ? -1 : 0))
 
   const bills: BillRow[] = input.sales
