@@ -6,6 +6,10 @@
 
 @theme inline {
   --animate-fade-in: fade-in 150ms ease-out;
+  /* Wellness Quiz step transitions (/quiz, v0.38.30) */
+  --animate-quiz-next: quiz-enter-next 360ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  --animate-quiz-back: quiz-enter-back 360ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  --animate-quiz-rise: quiz-rise 520ms cubic-bezier(0.22, 1, 0.36, 1) both;
   --font-sans: var(--font-noto), ui-sans-serif, system-ui, sans-serif;
   --font-display: var(--font-sora), var(--font-noto), ui-sans-serif, sans-serif;
 
@@ -141,6 +145,17 @@
   from {
     opacity: 0;
   }
+}
+
+/* Wellness Quiz: a step slides in from the side it was reached from. */
+@keyframes quiz-enter-next {
+  from { opacity: 0; transform: translateX(28px); }
+}
+@keyframes quiz-enter-back {
+  from { opacity: 0; transform: translateX(-28px); }
+}
+@keyframes quiz-rise {
+  from { opacity: 0; transform: translateY(14px); }
 }
 
 /* Printing the monthly roster (Back Office › Time › Roster › Print). */
