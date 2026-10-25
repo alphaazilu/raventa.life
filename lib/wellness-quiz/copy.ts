@@ -88,6 +88,19 @@ export const quizCopy = {
       avoidLabel: { th: 'อยากเลี่ยง', en: 'Avoid' },
     },
   },
+  progress: {
+    step: { th: 'ขั้นที่', en: 'Step' },
+    of: { th: 'จาก', en: 'of' },
+    names: {
+      goal: { th: 'เป้าหมาย', en: 'Goal' },
+      time: { th: 'เวลา', en: 'Time' },
+      experience: { th: 'ประสบการณ์', en: 'Experience' },
+      activity: { th: 'กิจกรรม', en: 'Activity' },
+      health: { th: 'เกี่ยวกับคุณ', en: 'About you' },
+      safety: { th: 'ข้อควรระวัง', en: 'Safety' },
+      preferences: { th: 'โซนที่ชอบ', en: 'Zones' },
+    },
+  },
   nav: {
     back: { th: 'ย้อนกลับ', en: 'Back' },
     next: { th: 'ถัดไป', en: 'Next' },
@@ -104,6 +117,18 @@ export const quizCopy = {
     eyebrow: { th: 'เส้นทางของคุณวันนี้', en: 'Your Journey Today' },
     totalLabel: { th: 'รวมเวลาโดยประมาณ', en: 'Total time' },
     minutesShort: { th: 'นาที', en: 'min' },
+    zonesLabel: { th: 'โซน', en: 'Zones' },
+    endingLabel: { th: 'จบด้วย', en: 'Ends' },
+    ending: {
+      warm: { th: 'ความอุ่น', en: 'Warm' },
+      cold: { th: 'ความเย็น', en: 'Cold' },
+    },
+    sequenceHeading: { th: 'ลำดับเส้นทาง', en: 'Your sequence' },
+    kind: {
+      heat: { th: 'ร้อน', en: 'Heat' },
+      cold: { th: 'เย็น', en: 'Cold' },
+      rest: { th: 'พัก', en: 'Rest' },
+    },
     whyHeading: { th: 'ทำไมเส้นทางนี้ถึงเหมาะกับคุณ', en: 'Why this journey fits you' },
     gentleNotice: {
       th: 'จากข้อมูลที่ให้มา เราแนะนำเส้นทางที่อ่อนโยนที่สุดของเรา และแนะนำให้ปรึกษาแพทย์ก่อนทำ Contrast Therapy',
