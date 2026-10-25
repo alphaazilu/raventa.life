@@ -741,3 +741,53 @@ export const settingsErrors: Record<string, { th: string; en: string }> = {
   not_set_up: { th: 'รัน supabase/schema.sql (§19) ก่อน', en: 'Run supabase/schema.sql (§19) first' },
   failed: { th: 'บันทึกไม่สำเร็จ ลองอีกครั้ง', en: 'Couldn’t save — try again' },
 }
+
+// The bell in the top bar (v0.38.31): every alert in one place, grouped.
+export const bellCopy = {
+  open: { th: 'การแจ้งเตือน', en: 'Notifications' },
+  close: { th: 'ปิด', en: 'Close' },
+  none: { th: 'ไม่มีเรื่องค้าง 🎉', en: 'Nothing waiting 🎉' },
+  groups: {
+    customers: { th: 'ลูกค้า', en: 'Customers' },
+    bookings: { th: 'การจอง & ปฏิทิน', en: 'Bookings & calendar' },
+    cash: { th: 'การเงิน', en: 'Cash' },
+    team: { th: 'เวลา & ทีม', en: 'Time & team' },
+    checklist: { th: 'เช็คลิสต์', en: 'Checklists' },
+  },
+  leads: { th: 'ผู้สนใจจาก Quiz รอติดต่อ {n} คน', en: 'Quiz leads to contact: {n}' },
+  justNow: { th: 'เมื่อสักครู่', en: 'just now' },
+  minAgo: { th: '{n} นาทีที่แล้ว', en: '{n} min ago' },
+  hourAgo: { th: '{n} ชม.ที่แล้ว', en: '{n} h ago' },
+  dayAgo: { th: '{n} วันที่แล้ว', en: '{n} d ago' },
+  noName: { th: 'ไม่ระบุชื่อ', en: 'No name' },
+  summary: { th: 'มี {n} เรื่องรอจัดการ', en: '{n} things waiting' },
+  openBell: { th: 'เปิดการแจ้งเตือน', en: 'Open notifications' },
+}
+
+// Back Office › Quiz leads (§52, v0.38.31).
+export const leadsCopy = {
+  title: { th: 'ผู้สนใจจาก Quiz', en: 'Quiz leads' },
+  sub: { th: 'คนที่ทำแบบทดสอบ "ค้นหาเส้นทางของคุณ" แล้วฝากให้ติดต่อกลับ', en: 'People who took “Find My Journey” and asked us to reach out' },
+  open: { th: 'รอติดต่อ', en: 'To contact' },
+  done: { th: 'ติดต่อแล้ว', en: 'Contacted' },
+  markDone: { th: 'ติดต่อแล้ว', en: 'Mark contacted' },
+  reopen: { th: 'ย้ายกลับไปรอติดต่อ', en: 'Move back' },
+  empty: { th: 'ยังไม่มีรายการ', en: 'Nothing here yet' },
+  member: { th: 'สมาชิก', en: 'Member' },
+  journey: { th: 'เส้นทาง', en: 'Journey' },
+  minutes: { th: 'นาที', en: 'min' },
+  adjusted: { th: 'ปรับเวลาเพราะ', en: 'Tuned for' },
+  handledBy: { th: 'ติดต่อโดย {who} · {when}', en: 'By {who} · {when}' },
+  copy: { th: 'คัดลอก', en: 'Copy' },
+  copied: { th: 'คัดลอกแล้ว', en: 'Copied' },
+  notSetUp: { th: 'ยังไม่ได้ตั้งค่า — รัน supabase/schema.sql (§52) ก่อน', en: 'Not set up — run supabase/schema.sql (§52) first' },
+  failed: { th: 'บันทึกไม่สำเร็จ ลองอีกครั้ง', en: 'Couldn’t save — try again' },
+  adjust: {
+    senior: { th: 'อายุ 60+', en: 'age 60+' },
+    teen: { th: 'อายุต่ำกว่า 18', en: 'under 18' },
+    lowHydration: { th: 'ดื่มน้ำน้อย', en: 'low hydration' },
+    tired: { th: 'พักผ่อนน้อย', en: 'tired' },
+    lowFitness: { th: 'ไม่ค่อยออกกำลังกาย', en: 'rarely active' },
+    firstTimer: { th: 'ครั้งแรก', en: 'first time' },
+  } as Record<string, { th: string; en: string }>,
+}

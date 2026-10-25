@@ -332,7 +332,6 @@ export function TeamView({ team, history, meId, paySetUp = true }: { team: Perso
   // The team in tabs by role (v0.27.1); staff first — the longer list.
   const [tab, setTab] = useState<Role>('staff')
   const shown = team.filter((p) => p.role === tab)
-  const unsetPay = team.filter((p) => !p.payType).length
 
   return (
     <div className="flex w-full flex-col gap-5 px-4 py-6 md:px-6 md:py-8 xl:px-8">
@@ -341,11 +340,6 @@ export function TeamView({ team, history, meId, paySetUp = true }: { team: Perso
         <p className="mt-1 text-sm text-muted-foreground">{tr(t.intro)}</p>
       </div>
       {!paySetUp && <p className="rounded-2xl bg-amber-500/15 px-4 py-3 text-sm font-semibold text-amber-800 dark:text-amber-300">{tr(t.payNotSetUp)}</p>}
-      {paySetUp && unsetPay > 0 && (
-        <p className="rounded-2xl bg-amber-500/15 px-4 py-3 text-sm font-semibold text-amber-800 dark:text-amber-300">
-          {tr(t.payUnsetCount).replace('{n}', String(unsetPay))}
-        </p>
-      )}
 
       <AddPeople meId={meId} paySetUp={paySetUp}>
         <section className="rounded-2xl border border-border bg-card p-4 md:p-5">
