@@ -63,6 +63,7 @@ import { AppVersion } from '@/components/console/app-version'
 import type { ConsoleAlerts } from '@/lib/console/alerts'
 import type { LeadPreview } from '@/lib/console/leads'
 import { AlertBell } from '@/components/console/alert-bell'
+import { Toaster } from '@/components/ui/toast'
 import { refreshAlerts } from '@/app/console/alerts-actions'
 import { cn } from '@/lib/utils'
 
@@ -127,6 +128,7 @@ const t = {
   expand: { th: 'ขยายเมนู', en: 'Expand menu' },
   openMenu: { th: 'เปิดเมนู', en: 'Open menu' },
   closeMenu: { th: 'ปิดเมนู', en: 'Close menu' },
+  closeToast: { th: 'ปิดข้อความ', en: 'Dismiss' },
   showSubs: { th: 'แสดงเมนูย่อย', en: 'Show sub-menu' },
   hideSubs: { th: 'ซ่อนเมนูย่อย', en: 'Hide sub-menu' },
   // sub-menus = the tabs inside each page
@@ -668,6 +670,7 @@ export function ConsoleShell({
         </header>
         <div className="min-w-0 flex-1">{children}</div>
       </div>
+      <Toaster closeLabel={tr(t.closeToast)} />
     </div>
   )
 }

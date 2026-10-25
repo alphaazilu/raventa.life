@@ -4,6 +4,7 @@ import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { Check, Pencil, Plus, ScanLine, Tablet, X } from 'lucide-react'
 import { useLanguage } from '@/components/language-provider'
+import { toast } from '@/components/ui/toast'
 import { consoleCopy, deviceErrors } from '@/lib/console/copy'
 import { QrScanner } from '@/components/admin/qr-scanner'
 import { Spinner } from '@/components/ui/spinner'
@@ -49,7 +50,6 @@ export function DevicesView({
   const [name, setName] = useState(() => tr(consoleCopy.defaultName))
   const [scan, setScan] = useState(false)
   const [error, setError] = useState<string | null>(loadError)
-  const [done, setDone] = useState<string | null>(null)
   const [busy, start] = useTransition()
 
   const errText = (c: string) => tr(deviceErrors[c] ?? deviceErrors.failed)
@@ -58,10 +58,9 @@ export function DevicesView({
     e.preventDefault()
     start(async () => {
       setError(null)
-      setDone(null)
       const res = await approveDevice(code, name)
       if (!res.ok) return setError(res.error)
-      setDone(res.data.name)
+      toast({ text: `${tr(consoleCopy.registered)} ${res.data.name}`, sub: tr(consoleCopy.registeredHint), duration: 8000 })
       setCode('')
       setScan(false)
       router.replace('/console/devices')
@@ -81,14 +80,6 @@ export function DevicesView({
         </h1>
         <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{tr(consoleCopy.addDeviceIntro)}</p>
 
-        {done && (
-          <div role="status" className="mt-4 rounded-xl border border-border bg-secondary px-4 py-3 text-sm text-secondary-foreground">
-            <p className="flex items-center gap-2 font-semibold">
-              <Check className="h-4 w-4" aria-hidden="true" /> {tr(consoleCopy.registered)} {done}
-            </p>
-            <p className="mt-1 text-xs text-muted-foreground">{tr(consoleCopy.registeredHint)}</p>
-          </div>
-        )}
 
         <div className="mt-4">
           {scan ? (

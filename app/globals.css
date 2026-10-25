@@ -10,6 +10,8 @@
   --animate-quiz-next: quiz-enter-next 360ms cubic-bezier(0.22, 1, 0.36, 1) both;
   --animate-quiz-back: quiz-enter-back 360ms cubic-bezier(0.22, 1, 0.36, 1) both;
   --animate-quiz-rise: quiz-rise 520ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  /* Toasts (components/ui/toast.tsx, v0.38.32) */
+  --animate-toast-in: toast-in 240ms cubic-bezier(0.22, 1, 0.36, 1) both;
   --font-sans: var(--font-noto), ui-sans-serif, system-ui, sans-serif;
   --font-display: var(--font-sora), var(--font-noto), ui-sans-serif, sans-serif;
 
@@ -156,6 +158,9 @@
 }
 @keyframes quiz-rise {
   from { opacity: 0; transform: translateY(14px); }
+}
+@keyframes toast-in {
+  from { opacity: 0; transform: translateY(-8px) scale(0.98); }
 }
 
 /* Printing the monthly roster (Back Office › Time › Roster › Print). */

@@ -6,6 +6,7 @@ import { useEffect, useState, useTransition } from 'react'
 import { Building2, CalendarOff, ChevronRight, Clock, Lock, Receipt, Smartphone, Star, Users, Wallet } from 'lucide-react'
 import { LEAVE_KINDS, leaveCopy } from '@/lib/leave'
 import { useLanguage } from '@/components/language-provider'
+import { toast } from '@/components/ui/toast'
 import { Spinner } from '@/components/ui/spinner'
 import { settingsCopy as c, settingsErrors } from '@/lib/console/copy'
 import { CATALOG_PATH, DEVICES_PATH, SETTINGS_PATH, TIME_PATH } from '@/lib/auth/roles'
@@ -122,6 +123,12 @@ export function SettingsView({
   const [error, setError] = useState<string | null>(null)
   const [saved, setSaved] = useState(false)
   const [busyId, setBusyId] = useState<string | null>(null)
+  // Errors float as a toast (v0.38.32) instead of a bar above the tabs.
+  useEffect(() => {
+    if (!error) return
+    toast({ id: 'settings-error', kind: 'error', text: error.startsWith('rules:') ? tr(shiftErrors[error.slice(6)] ?? shiftErrors.failed) : tr(settingsErrors[error] ?? settingsErrors.failed) })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [error])
   useEffect(() => {
     if (!saved) return
     const id = setTimeout(() => setSaved(false), 2500)
@@ -219,11 +226,6 @@ export function SettingsView({
       </div>
 
       {!setUp && <p className="rounded-2xl bg-amber-500/15 p-4 text-sm font-semibold text-amber-800 dark:text-amber-300">{tr(c.notSetUp)}</p>}
-      {error && (
-        <p role="alert" className="rounded-2xl bg-destructive/10 px-4 py-3 text-sm font-semibold text-destructive">
-          {error.startsWith('rules:') ? tr(shiftErrors[error.slice(6)] ?? shiftErrors.failed) : tr(settingsErrors[error] ?? settingsErrors.failed)}
-        </p>
-      )}
 
       {tab === 'team' && (
         <div className="grid items-start gap-5 xl:grid-cols-2">
