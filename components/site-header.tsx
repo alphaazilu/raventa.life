@@ -12,6 +12,7 @@ import { getBrowserClient } from '@/lib/supabase/client'
 import { canViewReports, CONSOLE_PATH, isAccountant, REPORTS_PATH } from '@/lib/auth/roles'
 import { consoleCopy } from '@/lib/console/copy'
 import { BRAND } from '@/lib/brand/config'
+import { useBrand } from '@/components/brand-provider'
 
 const links = [
   { href: '#about', key: 'about' as const },
@@ -23,6 +24,7 @@ const links = [
 
 export function SiteHeader() {
   const { tr, lang, toggle } = useLanguage()
+  const brand = useBrand()
   const pathname = usePathname()
   const isHome = pathname === '/'
   const [open, setOpen] = useState(false)
@@ -110,7 +112,7 @@ export function SiteHeader() {
           />
           <Image
             src={BRAND.logos.wordmark.src}
-            alt={BRAND.fullName}
+            alt={brand.fullName}
             width={BRAND.logos.wordmark.width}
             height={BRAND.logos.wordmark.height}
             className="h-[17px] w-auto md:h-5"

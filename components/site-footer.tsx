@@ -1,10 +1,10 @@
 'use client'
 
-import Image from 'next/image'
 import { usePathname } from 'next/navigation'
 import { useLanguage } from '@/components/language-provider'
 import { t } from '@/lib/i18n'
-import { BRAND } from '@/lib/brand/config'
+import { useBrand } from '@/components/brand-provider'
+import { BrandFullLogo } from '@/components/brand-logo'
 
 const links = [
   { href: '#about', key: 'about' as const },
@@ -15,6 +15,7 @@ const links = [
 
 export function SiteFooter() {
   const { tr } = useLanguage()
+  const brand = useBrand()
   const pathname = usePathname()
   const isHome = pathname === '/'
 
@@ -30,13 +31,7 @@ export function SiteFooter() {
         <div className="flex flex-col items-center gap-8 text-center">
           {/* The logo keeps its own red, so it sits on a white tile here. */}
           <div className="rounded-2xl bg-white px-7 py-5">
-            <Image
-              src={BRAND.logos.full.src}
-              alt={BRAND.fullName}
-              width={BRAND.logos.full.width}
-              height={BRAND.logos.full.height}
-              className="h-auto w-40"
-            />
+            <BrandFullLogo alt={brand.fullName} className="h-auto w-40" />
           </div>
           <p className="text-xs font-medium tracking-brand uppercase text-sand/80">{tr(t.footer.tagline)}</p>
 
@@ -65,7 +60,7 @@ export function SiteFooter() {
             </a>
           </nav>
           <p>
-            &copy; {new Date().getFullYear()}{` ${BRAND.fullName}, Rayong. `}{tr(t.footer.rights)}
+            &copy; {new Date().getFullYear()}{` ${brand.fullName}, Rayong. `}{tr(t.footer.rights)}
           </p>
           {/* Set in next.config.mjs from package.json + the Vercel commit. */}
           <p className="font-mono text-[10px] text-accent-foreground/40">

@@ -4503,3 +4503,140 @@ end;
 $fn$;
 revoke execute on function public.submit_quiz_lead(text, text, text, text[], text, text, integer, text[]) from public;
 grant execute on function public.submit_quiz_lead(text, text, text, text[], text, text, integer, text[]) to anon, authenticated;
+
+
+-- 53. Brand settings (v0.39.0). The shop's name, colour, logo and contact
+-- details move from code (lib/brand/config.ts) into the database so an admin
+-- can change them in Back Office › Settings › Brand without a deploy. The
+-- seed row is exactly the values in lib/brand/config.ts, so nothing on the
+-- site changes when this runs; the app falls back to that file if the row
+-- can't be read.
+--
+-- Designed with multi-tenant in mind: today it's a singleton (one row,
+-- id = 1). Later add org_id, make it the key (one row per org), and scope
+-- the read policy and update_brand_settings() by org.
+--
+-- Everyone may read it (the public site needs the name, colour and logo);
+-- no one writes it directly — only update_brand_settings(), which checks
+-- for an admin itself.
+create table if not exists public.brand_settings (
+  id smallint primary key default 1 check (id = 1),
+  brand_name text not null check (char_length(btrim(brand_name)) between 1 and 80),        -- Thai name: ราเวนต้า
+  brand_name_en text not null check (char_length(btrim(brand_name_en)) between 1 and 80),  -- RAVENTA
+  brand_color text not null check (brand_color ~ '^#[0-9A-Fa-f]{6}$'),
+  logo_url text check (logo_url is null or logo_url ~ '^(/|https://)'),
+  phone text check (phone is null or char_length(phone) <= 40),
+  line_url text check (line_url is null or line_url ~ '^https://'),
+  address text check (address is null or char_length(address) <= 300),
+  address_en text check (address_en is null or char_length(address_en) <= 300),
+  contact_email text check (contact_email is null or contact_email ~ '^[^@\s]+@[^@\s]+\.[^@\s]+$'),
+  updated_at timestamptz not null default now(),
+  updated_by uuid references auth.users(id) on delete set null
+);
+
+insert into public.brand_settings (id, brand_name, brand_name_en, brand_color, logo_url, phone, line_url, address, address_en, contact_email)
+values (
+  1,
+  'ราเวนต้า',
+  'RAVENTA',
+  '#8b1e2d',
+  '/images/logo-full.png',
+  '080-429-4264',
+  'https://line.me/R/ti/p/@630xxrfx',
+  'ราเวนต้า 18 ถนนเลียบชายหาดสุชาดา ต.เนินพระ อ.เมืองระยอง จ.ระยอง 21150',
+  'RAVENTA, 18 Liab Chai Hat Suchada Road, Noen Phra, Mueang Rayong, Rayong 21150, Thailand',
+  'raventa.wellness@gmail.com'
+)
+on conflict (id) do nothing;
+
+alter table public.brand_settings enable row level security;
+revoke all on public.brand_settings from anon, authenticated;
+grant select on public.brand_settings to anon, authenticated;
+drop policy if exists "Brand: everyone reads" on public.brand_settings;
+create policy "Brand: everyone reads" on public.brand_settings for select to anon, authenticated using (true);
+
+create or replace function public.update_brand_settings(
+  p_brand_name text,
+  p_brand_name_en text,
+  p_brand_color text,
+  p_logo_url text,
+  p_phone text,
+  p_line_url text,
+  p_address text,
+  p_address_en text,
+  p_contact_email text
+)
+returns public.brand_settings
+language plpgsql
+security definer
+set search_path = public
+as $fn$
+declare
+  r public.brand_settings;
+begin
+  if not public.is_admin() then
+    raise exception 'not_admin' using errcode = '42501';
+  end if;
+  if p_brand_color is null or p_brand_color !~ '^#[0-9A-Fa-f]{6}$' then
+    raise exception 'bad_color' using errcode = '22023';
+  end if;
+  insert into public.brand_settings as b (id, brand_name, brand_name_en, brand_color, logo_url, phone, line_url, address, address_en, contact_email, updated_at, updated_by)
+  values (
+    1,
+    btrim(p_brand_name),
+    btrim(p_brand_name_en),
+    lower(p_brand_color),
+    nullif(btrim(coalesce(p_logo_url, '')), ''),
+    nullif(btrim(coalesce(p_phone, '')), ''),
+    nullif(btrim(coalesce(p_line_url, '')), ''),
+    nullif(btrim(coalesce(p_address, '')), ''),
+    nullif(btrim(coalesce(p_address_en, '')), ''),
+    nullif(btrim(coalesce(p_contact_email, '')), ''),
+    now(),
+    auth.uid()
+  )
+  on conflict (id) do update set
+    brand_name = excluded.brand_name,
+    brand_name_en = excluded.brand_name_en,
+    brand_color = excluded.brand_color,
+    logo_url = excluded.logo_url,
+    phone = excluded.phone,
+    line_url = excluded.line_url,
+    address = excluded.address,
+    address_en = excluded.address_en,
+    contact_email = excluded.contact_email,
+    updated_at = excluded.updated_at,
+    updated_by = excluded.updated_by
+  returning * into r;
+  return r;
+end;
+$fn$;
+revoke execute on function public.update_brand_settings(text, text, text, text, text, text, text, text, text) from public, anon;
+grant execute on function public.update_brand_settings(text, text, text, text, text, text, text, text, text) to authenticated;
+
+-- Logo files: a public bucket (the site shows the logo to everyone). Only
+-- admins may upload, replace or delete. If this insert is refused on your
+-- project, create the bucket by hand (Storage › New bucket › "brand",
+-- Public) — the policies below still apply.
+insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+values ('brand', 'brand', true, 2097152, array['image/png', 'image/jpeg', 'image/webp'])
+on conflict (id) do update set
+  public = excluded.public,
+  file_size_limit = excluded.file_size_limit,
+  allowed_mime_types = excluded.allowed_mime_types;
+
+drop policy if exists "Brand: admin uploads" on storage.objects;
+create policy "Brand: admin uploads"
+  on storage.objects for insert to authenticated
+  with check (bucket_id = 'brand' and public.is_admin());
+
+drop policy if exists "Brand: admin updates" on storage.objects;
+create policy "Brand: admin updates"
+  on storage.objects for update to authenticated
+  using (bucket_id = 'brand' and public.is_admin())
+  with check (bucket_id = 'brand' and public.is_admin());
+
+drop policy if exists "Brand: admin deletes" on storage.objects;
+create policy "Brand: admin deletes"
+  on storage.objects for delete to authenticated
+  using (bucket_id = 'brand' and public.is_admin());

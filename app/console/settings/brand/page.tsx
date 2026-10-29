@@ -1,0 +1,31 @@
+import type { Metadata } from 'next'
+import { redirect } from 'next/navigation'
+import { getConsoleSession } from '@/lib/console/session'
+import { BRAND_SETTINGS_PATH, DESK_PATH, isAdmin } from '@/lib/auth/roles'
+import { BRAND } from '@/lib/brand/config'
+import { readBrandRow } from '@/lib/brand/settings'
+import { brandFromRow } from '@/lib/brand/info'
+import { BrandSettingsView } from '@/components/console/brand-settings-view'
+
+export const metadata: Metadata = {
+  title: `ตั้งค่าแบรนด์ | ${BRAND.backOfficeName}`,
+}
+
+export const dynamic = 'force-dynamic'
+
+// Back Office › Settings › Brand (schema.sql §53, v0.39.0). Admins only —
+// also gated in lib/supabase/middleware.ts and app/console/layout.tsx.
+export default async function BrandSettingsPage() {
+  const { user, role } = await getConsoleSession()
+  if (!user) redirect(`/login?next=${BRAND_SETTINGS_PATH}`)
+  if (!isAdmin(role)) redirect(DESK_PATH)
+
+  // Straight from the table (not the site's cache), so the form shows what
+  // is saved right now. null = §53 not run yet: the form shows the defaults.
+  const row = await readBrandRow()
+  return (
+    <main>
+      <BrandSettingsView setUp={row !== null} initial={brandFromRow(row)} updatedAt={row?.updated_at ?? null} />
+    </main>
+  )
+}

@@ -793,3 +793,55 @@ export const leadsCopy = {
     firstTimer: { th: 'ครั้งแรก', en: 'first time' },
   } as Record<string, { th: string; en: string }>,
 }
+
+// Back Office › Settings › Brand (§53, v0.39.0).
+export const brandCopy = {
+  title: { th: 'ตั้งค่าแบรนด์', en: 'Brand settings' },
+  intro: {
+    th: 'ชื่อร้าน สีแบรนด์ โลโก้ และช่องทางติดต่อที่แสดงบนเว็บ แก้แล้วมีผลทันทีโดยไม่ต้อง deploy',
+    en: 'The shop name, brand colour, logo and contact details shown on the site. Changes go live at once — no deploy.',
+  },
+  identity: { th: 'ชื่อและสี', en: 'Name & colour' },
+  nameTh: { th: 'ชื่อร้าน (ไทย)', en: 'Shop name (Thai)' },
+  nameEn: { th: 'ชื่อร้าน (อังกฤษ)', en: 'Shop name (English)' },
+  nameEnHint: { th: 'ใช้ในหัวเว็บ footer และข้อความต่างๆ', en: 'Used in the header, footer and messages' },
+  color: { th: 'สีแบรนด์', en: 'Brand colour' },
+  colorHint: { th: 'ปุ่ม ลิงก์ และไฮไลต์ทั้งเว็บ · ตัวอักษรบนปุ่มเป็นสีครีม เลือกสีเข้มพอให้อ่านออก', en: 'Buttons, links and highlights site-wide · button text is cream, so pick a colour dark enough to read' },
+  logo: { th: 'โลโก้', en: 'Logo' },
+  logoHint: { th: 'PNG / JPG / WebP ไม่เกิน 2 MB · ใช้ที่ footer หน้าโหลด และหน้าเข้าสู่ระบบ LINE', en: 'PNG / JPG / WebP up to 2 MB · used in the footer, loading screen and LINE sign-in' },
+  logoPick: { th: 'เลือกไฟล์', en: 'Choose file' },
+  logoReset: { th: 'ใช้โลโก้เดิม', en: 'Use the default logo' },
+  logoNew: { th: 'ไฟล์ใหม่ (ยังไม่บันทึก)', en: 'New file (not saved yet)' },
+  contact: { th: 'ช่องทางติดต่อ', en: 'Contact' },
+  phone: { th: 'เบอร์โทร', en: 'Phone' },
+  line: { th: 'ลิงก์ LINE OA', en: 'LINE OA link' },
+  email: { th: 'อีเมล', en: 'Email' },
+  addressTh: { th: 'ที่อยู่ (ไทย)', en: 'Address (Thai)' },
+  addressEn: { th: 'ที่อยู่ (อังกฤษ)', en: 'Address (English)' },
+  preview: { th: 'ตัวอย่าง', en: 'Preview' },
+  previewButton: { th: 'จองเวลาเข้าใช้', en: 'Book your visit' },
+  previewLink: { th: 'ลิงก์ตัวอย่าง', en: 'A sample link' },
+  save: { th: 'บันทึก', en: 'Save' },
+  saving: { th: 'กำลังบันทึก…', en: 'Saving…' },
+  saved: { th: 'บันทึกแล้ว — เว็บใช้ค่าใหม่แล้ว', en: 'Saved — the site now uses the new values' },
+  unsaved: { th: 'มีการแก้ไขที่ยังไม่บันทึก', en: 'Unsaved changes' },
+  lastSaved: { th: 'บันทึกล่าสุด', en: 'Last saved' },
+  notSetUp: { th: 'ยังไม่ได้ตั้งค่า — รัน supabase/schema.sql (§53) ก่อน ระหว่างนี้เว็บใช้ค่าเริ่มต้นในโค้ด', en: 'Not set up — run supabase/schema.sql (§53) first. Until then the site uses the defaults in code.' },
+  stillCode: {
+    th: 'ข้อความอื่นที่มีชื่อร้าน (เช่น หัวข้อหน้า, ข้อกำหนด, อีเมลแจ้งเตือน) ยังใช้ค่าในโค้ด (lib/brand/config.ts)',
+    en: 'Other text mentioning the shop name (page titles, terms, notification emails) still uses the values in code (lib/brand/config.ts)',
+  },
+}
+
+export const brandErrors: Record<string, { th: string; en: string }> = {
+  not_admin: { th: 'เฉพาะผู้ดูแลระบบ', en: 'Admins only' },
+  not_set_up: { th: 'ยังไม่ได้รัน supabase/schema.sql (§53)', en: 'Run supabase/schema.sql (§53) first' },
+  bad_name: { th: 'กรอกชื่อร้านทั้งไทยและอังกฤษ (ไม่เกิน 80 ตัวอักษร)', en: 'Enter the shop name in Thai and English (up to 80 characters)' },
+  bad_color: { th: 'สีต้องเป็นรหัส #RRGGBB', en: 'The colour must be a #RRGGBB code' },
+  bad_line: { th: 'ลิงก์ LINE ต้องขึ้นต้นด้วย https://', en: 'The LINE link must start with https://' },
+  bad_email: { th: 'อีเมลไม่ถูกต้อง', en: 'Invalid email' },
+  bad_input: { th: 'ข้อมูลยาวเกินไปหรือไม่ถูกต้อง', en: 'Some values are too long or invalid' },
+  bad_image: { th: 'โลโก้ต้องเป็น PNG / JPG / WebP ไม่เกิน 2 MB', en: 'The logo must be PNG / JPG / WebP, 2 MB at most' },
+  upload_failed: { th: 'อัปโหลดโลโก้ไม่สำเร็จ — ตรวจว่ามี Storage bucket "brand" แล้ว', en: 'Logo upload failed — check the "brand" Storage bucket exists' },
+  failed: { th: 'บันทึกไม่สำเร็จ ลองอีกครั้ง', en: 'Couldn’t save — try again' },
+}
