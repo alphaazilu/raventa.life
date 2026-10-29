@@ -72,7 +72,12 @@
   --card-foreground: #2b2521;
   --popover: #ffffff;
   --popover-foreground: #2b2521;
-  --primary: #8b1e2d; /* RAVENTA RED */
+  /* Brand colours — the only place they're written in CSS (v0.38.33).
+     Keep in step with BRAND.colors in lib/brand/config.ts. */
+  --brand: #8b1e2d; /* RAVENTA RED */
+  --brand-checkpoint: #8D1821; /* printed check-point QR sheets */
+
+  --primary: var(--brand);
   --primary-foreground: #f6f1e7;
   --loading: #06c755; /* every bar: loading lines, QR countdown, capacity */
   --secondary: #eef4ec; /* SAGE */
@@ -84,14 +89,14 @@
   --destructive: oklch(0.577 0.245 27.325);
   --border: #d7dfd6; /* sage outline */
   --input: #d7dfd6;
-  --ring: #8b1e2d;
+  --ring: var(--brand);
 
   --wood: #8a6440; /* WOOD, darkened so small labels read on white */
   --forest: #2e4636; /* FOREST */
   --sand: #e7dcc7; /* SAND */
   --stone: #c7c4bc; /* STONE */
 
-  --chart-1: #8b1e2d;
+  --chart-1: var(--brand);
   --chart-2: #b98c5e;
   --chart-3: #2e4636;
   --chart-4: #c7c4bc;
@@ -99,12 +104,12 @@
   --radius: 0.5rem;
   --sidebar: #ffffff;
   --sidebar-foreground: #2b2521;
-  --sidebar-primary: #8b1e2d;
+  --sidebar-primary: var(--brand);
   --sidebar-primary-foreground: #f6f1e7;
   --sidebar-accent: #eef4ec;
   --sidebar-accent-foreground: #2e4636;
   --sidebar-border: #d7dfd6;
-  --sidebar-ring: #8b1e2d;
+  --sidebar-ring: var(--brand);
 }
 
 @layer base {

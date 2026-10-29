@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { requireAdmin } from '@/lib/console/guard'
 import { listFeedback, listTopics } from '@/lib/console/feedback'
+import { BRAND } from '@/lib/brand/config'
 
 // Member feedback as CSV (§32, v0.33). UTF-8 with BOM so Excel shows Thai.
 
@@ -42,7 +43,7 @@ export async function GET(request: Request) {
   return new NextResponse(csv(out), {
     headers: {
       'Content-Type': 'text/csv; charset=utf-8',
-      'Content-Disposition': `attachment; filename="raventa-feedback-${from}_${to}.csv"`,
+      'Content-Disposition': `attachment; filename="${BRAND.slug}-feedback-${from}_${to}.csv"`,
       'Cache-Control': 'no-store',
     },
   })

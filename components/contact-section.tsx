@@ -3,13 +3,13 @@
 import { MapPin, Clock, Phone, Mail, ArrowRight, ExternalLink } from 'lucide-react'
 import { useLanguage } from '@/components/language-provider'
 import { t } from '@/lib/i18n'
+import { BRAND } from '@/lib/brand/config'
 
-const PHONE_DISPLAY = '080-429-4264'
-const PHONE_TEL = '+66804294264'
-const EMAIL = 'raventa.wellness@gmail.com'
-const GOOGLE_MAPS_URL =
-  'https://www.google.com/maps/place/RAVENTA+WELLNESS+RETREAT/@12.6700258,101.189248,17z/data=!3m1!4b1!4m6!3m5!1s0x3102fb006e69d6a5:0xe047a17c77b8c405!8m2!3d12.6700258!4d101.189248!16s%2Fg%2F11nr4ft5_l'
-const GOOGLE_MAPS_EMBED_URL = 'https://www.google.com/maps?q=12.6700258,101.189248&z=17&output=embed'
+const PHONE_DISPLAY = BRAND.contact.phoneDisplay
+const PHONE_TEL = BRAND.contact.phoneTel
+const EMAIL = BRAND.contact.email
+const GOOGLE_MAPS_URL = BRAND.contact.googleMapsUrl
+const GOOGLE_MAPS_EMBED_URL = BRAND.contact.googleMapsEmbedUrl
 
 export function ContactSection() {
   const { tr } = useLanguage()

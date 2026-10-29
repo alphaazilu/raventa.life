@@ -6,9 +6,10 @@ import { DESK_PATH, FEEDBACK_PATH, isAdmin } from '@/lib/auth/roles'
 import { bangkokToday } from '@/lib/check-in/day'
 import { listFeedback, listTopics } from '@/lib/console/feedback'
 import { FeedbackAdmin } from '@/components/console/feedback-admin'
+import { BRAND } from '@/lib/brand/config'
 
 export const metadata: Metadata = {
-  title: 'ความเห็นลูกค้า | RAVENTA Back Office',
+  title: `ความเห็นลูกค้า | ${BRAND.backOfficeName}`,
 }
 
 export const dynamic = 'force-dynamic'
@@ -32,7 +33,7 @@ export default async function FeedbackPage({ searchParams }: { searchParams: Pro
   const filter = q.f === 'follow' || q.f === 'comment' || q.f === 'low' ? q.f : 'all'
 
   const [topics, rows] = await Promise.all([listTopics(true).catch(() => null), tab === 'list' ? listFeedback(from, to).catch(() => null) : Promise.resolve([])])
-  const site = (process.env.SITE_URL ?? 'https://www.raventawellness.com').replace(/\/$/, '')
+  const site = (process.env.SITE_URL ?? BRAND.siteUrl).replace(/\/$/, '')
 
   return (
     <main>

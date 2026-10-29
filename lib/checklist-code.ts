@@ -1,5 +1,6 @@
 // Server-only: signs with a secret. Never import from a client component.
 import { createHash, createHmac, timingSafeEqual } from 'node:crypto'
+import { BRAND } from '@/lib/brand/config'
 
 // The code on a check point's QR sticker (§29, v0.29):
 //
@@ -32,7 +33,7 @@ function pointCode(pointId: string, version: number): string {
 }
 
 export function pointUrl(pointId: string, version: number): string {
-  const site = (process.env.SITE_URL ?? 'https://www.raventawellness.com').replace(/\/$/, '')
+  const site = (process.env.SITE_URL ?? BRAND.siteUrl).replace(/\/$/, '')
   return `${site}/cp/${pointCode(pointId, version)}`
 }
 

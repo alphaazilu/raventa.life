@@ -9,9 +9,10 @@ import { lineUserIdOf } from '@/lib/supabase/line'
 import { resolveAvatarUrl } from '@/lib/supabase/avatar'
 import type { LinkProvider, LinkResult } from '@/components/account/link-line'
 import { headers } from 'next/headers'
+import { BRAND } from '@/lib/brand/config'
 
 export const metadata: Metadata = {
-  title: 'Settings | RAVENTA Wellness Retreat',
+  title: `Settings | ${BRAND.fullName}`,
 }
 
 export default async function AccountSettingsPage({

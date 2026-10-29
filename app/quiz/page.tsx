@@ -2,10 +2,11 @@ import type { Metadata } from 'next'
 import { SiteHeader } from '@/components/site-header'
 import { SiteFooter } from '@/components/site-footer'
 import { WellnessQuiz } from '@/components/wellness-quiz/wellness-quiz'
+import { BRAND } from '@/lib/brand/config'
 
 export const metadata: Metadata = {
-  title: 'Find My Journey | RAVENTA Wellness Retreat',
-  description: 'Answer a few questions and get a personalized contrast-therapy journey through the RAVENTA zones.',
+  title: `Find My Journey | ${BRAND.fullName}`,
+  description: `Answer a few questions and get a personalized contrast-therapy journey through the ${BRAND.name} zones.`,
 }
 
 export default function QuizPage() {

@@ -13,6 +13,7 @@ import { AppVersion } from '@/components/console/app-version'
 import { signInWithCard } from '@/app/console/lock-actions'
 import { clockByCard, type ClockResult } from '@/app/console/clock-actions'
 import { cn } from '@/lib/utils'
+import { BRAND } from '@/lib/brand/config'
 
 // A registered counter tablet with nobody working on it (v0.21):
 //   [Clock in/out]  scan your card → in, or (if in) confirm → out. The
@@ -138,8 +139,8 @@ export function TabletLock({
     <main className="flex min-h-dvh flex-col bg-background px-5 py-5 md:px-8">
       <header className="flex items-center justify-between gap-3">
         <div className="flex items-center gap-3">
-          <Image src="/images/logo-emblem.png" alt="" width={405} height={404} className="h-9 w-9" priority />
-          <Image src="/images/logo-wordmark.png" alt="RAVENTA" width={1166} height={157} className="hidden h-[17px] w-auto sm:block" priority />
+          <Image src={BRAND.logos.emblem.src} alt="" width={BRAND.logos.emblem.width} height={BRAND.logos.emblem.height} className="h-9 w-9" priority />
+          <Image src={BRAND.logos.wordmark.src} alt={BRAND.name} width={BRAND.logos.wordmark.width} height={BRAND.logos.wordmark.height} className="hidden h-[17px] w-auto sm:block" priority />
           <span className="rounded-full border border-border bg-secondary px-2.5 py-0.5 font-display text-[10px] font-bold tracking-[0.14em] text-secondary-foreground uppercase">
             {tr(c.backOffice)}
           </span>

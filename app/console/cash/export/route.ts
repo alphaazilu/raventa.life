@@ -3,6 +3,7 @@ import { requireAdmin } from '@/lib/console/guard'
 import { listSessions } from '@/lib/console/cash'
 import { dayBounds } from '@/lib/console/checklist'
 import { DENOMS } from '@/lib/cash'
+import { BRAND } from '@/lib/brand/config'
 
 // Front desk › Shift close › History as CSV (§30, v0.31). UTF-8 with BOM so
 // Excel shows Thai. One row per drawer, oldest first.
@@ -71,7 +72,7 @@ export async function GET(request: Request) {
   return new NextResponse(csv(rows), {
     headers: {
       'Content-Type': 'text/csv; charset=utf-8',
-      'Content-Disposition': `attachment; filename="raventa-shift-close-${from}_${to}.csv"`,
+      'Content-Disposition': `attachment; filename="${BRAND.slug}-shift-close-${from}_${to}.csv"`,
       'Cache-Control': 'no-store',
     },
   })

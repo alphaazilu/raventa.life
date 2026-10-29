@@ -4,9 +4,10 @@ import { SiteHeader } from '@/components/site-header'
 import { SiteFooter } from '@/components/site-footer'
 import { ResetPasswordForm } from '@/components/auth/reset-password-form'
 import { createClient } from '@/lib/supabase/server'
+import { BRAND } from '@/lib/brand/config'
 
 export const metadata: Metadata = {
-  title: 'Set New Password | RAVENTA Wellness Retreat',
+  title: `Set New Password | ${BRAND.fullName}`,
 }
 
 export default async function ResetPasswordPage() {

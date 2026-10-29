@@ -3,6 +3,7 @@ import { requireReports } from '@/lib/console/guard'
 import { loadSalesReport } from '@/lib/console/reports'
 import { resolvePeriod } from '@/lib/console/report-period'
 import type { SalesReport } from '@/lib/console/report-calc'
+import { BRAND } from '@/lib/brand/config'
 
 // Back Office › Reports › Export: the same period as CSV for the
 // accountant (UTF-8 with BOM so Excel shows Thai). ?type=bills (one row per
@@ -84,7 +85,7 @@ function build(type: string, r: SalesReport): (string | number | null)[][] {
   const s = r.summary
   const k = r.packages
   return [
-    ['รายงานการขาย RAVENTA', `${r.from} ถึง ${r.to}`],
+    [`รายงานการขาย ${BRAND.name}`, `${r.from} ถึง ${r.to}`],
     [],
     ['ยอดขายก่อนส่วนลด', s.gross],
     ['ส่วนลด', s.discount],
@@ -121,7 +122,7 @@ export async function GET(request: Request) {
   const type = ['bills', 'lines', 'daily', 'summary', 'packages'].includes(q.type) ? q.type : 'summary'
   const period = resolvePeriod(q)
   const report = await loadSalesReport(period.from, period.to)
-  const name = `raventa-${type}-${period.from}_${period.to}.csv`
+  const name = `${BRAND.slug}-${type}-${period.from}_${period.to}.csv`
   return new NextResponse(csv(build(type, report)), {
     headers: {
       'Content-Type': 'text/csv; charset=utf-8',

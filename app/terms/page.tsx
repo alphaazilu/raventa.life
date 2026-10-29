@@ -3,10 +3,11 @@ import { SiteHeader } from '@/components/site-header'
 import { SiteFooter } from '@/components/site-footer'
 import { LegalPage } from '@/components/legal/legal-page'
 import { termsUpdated, termsSections } from '@/lib/legal/content'
+import { BRAND } from '@/lib/brand/config'
 
 export const metadata: Metadata = {
-  title: 'ข้อกำหนดการใช้งาน | RAVENTA Wellness Retreat',
-  description: 'ข้อกำหนดการใช้งานของ RAVENTA Wellness Retreat — Terms of Service for RAVENTA Wellness Retreat.',
+  title: `ข้อกำหนดการใช้งาน | ${BRAND.fullName}`,
+  description: `ข้อกำหนดการใช้งานของ ${BRAND.fullName} — Terms of Service for ${BRAND.fullName}.`,
 }
 
 export default function TermsOfServicePage() {

@@ -10,10 +10,11 @@ import { TabletSetupHint } from '@/components/console/tablet-setup-hint'
 import { googleLinkAccount } from '@/lib/auth/google-link-ticket'
 import { maskEmail } from '@/lib/email-verification'
 import { extractRefCode } from '@/lib/referral'
+import { BRAND } from '@/lib/brand/config'
 
 export const metadata: Metadata = {
-  title: 'Log In | RAVENTA Wellness Retreat',
-  description: 'Log in or create a RAVENTA account.',
+  title: `Log In | ${BRAND.fullName}`,
+  description: `Log in or create a ${BRAND.name} account.`,
 }
 
 export default async function LoginPage({

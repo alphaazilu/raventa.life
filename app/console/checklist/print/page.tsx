@@ -5,9 +5,10 @@ import { CHECKLIST_PATH, DESK_PATH, isAdmin } from '@/lib/auth/roles'
 import { listPoints } from '@/lib/console/checklist'
 import { pointUrl } from '@/lib/checklist-code'
 import { PrintStickers } from '@/components/console/checklist-print'
+import { BRAND } from '@/lib/brand/config'
 
 export const metadata: Metadata = {
-  title: 'พิมพ์ QR จุดตรวจ | RAVENTA Back Office',
+  title: `พิมพ์ QR จุดตรวจ | ${BRAND.backOfficeName}`,
 }
 
 export const dynamic = 'force-dynamic'

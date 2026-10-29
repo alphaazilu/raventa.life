@@ -7,9 +7,10 @@ import { bookingStats, getRules, listBookings, listCategories, listTemplates, li
 import { addDays, gridStart, sortByCategory } from '@/lib/booking'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { BookingsView, type BookingsTab } from '@/components/console/bookings-view'
+import { BRAND } from '@/lib/brand/config'
 
 export const metadata: Metadata = {
-  title: 'การจอง | RAVENTA Back Office',
+  title: `การจอง | ${BRAND.backOfficeName}`,
 }
 
 export const dynamic = 'force-dynamic'

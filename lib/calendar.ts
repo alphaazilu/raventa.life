@@ -1,4 +1,5 @@
 import { addDays } from '@/lib/date'
+import { BRAND } from '@/lib/brand/config'
 // Calendar (§31, v0.32) — shared by the server and the screens.
 
 export const KINDS = ['event', 'campaign', 'note', 'closed'] as const
@@ -166,10 +167,10 @@ export const calCopy = {
   outsideHint: L('สมาชิก/สาธารณะเห็นเฉพาะชื่อเรื่อง วันเวลา สถานที่ และรายละเอียด', 'Members / the public see only the title, date, time, place and details'),
   // outside the console
   upcoming: L('กิจกรรมและโปรโมชั่น', 'Events & promotions'),
-  comingSoon: L('เร็วๆ นี้ที่ RAVENTA', 'Coming up at RAVENTA'),
+  comingSoon: L(`เร็วๆ นี้ที่ ${BRAND.name}`, `Coming up at ${BRAND.name}`),
   seeAll: L('ดูทั้งหมด', 'See all'),
   eventsTitle: L('กิจกรรมและข่าวสาร', 'Events & news'),
-  eventsIntro: L('อีเวนต์ แคมเปญ และวันเปิด-ปิดพิเศษของ RAVENTA', 'Events, campaigns and special opening days at RAVENTA'),
+  eventsIntro: L(`อีเวนต์ แคมเปญ และวันเปิด-ปิดพิเศษของ ${BRAND.name}`, `Events, campaigns and special opening days at ${BRAND.name}`),
   teamUpcoming: L('ปฏิทินทีม 7 วันข้างหน้า', 'Team calendar — next 7 days'),
 }
 

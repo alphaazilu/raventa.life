@@ -9,9 +9,10 @@ import { addDays, getOpenEntry, listEntries, listOpenEntries, listStaff, weekSta
 import { bangkokToday } from '@/lib/check-in/day'
 import { DEFAULT_SETTINGS, getTimeSettings, listAssignments, listHolidays, listTemplates } from '@/lib/console/shifts'
 import { canUseDesk, DESK_PATH, isAdmin, TIME_PATH } from '@/lib/auth/roles'
+import { BRAND } from '@/lib/brand/config'
 
 export const metadata: Metadata = {
-  title: 'ลงเวลา | RAVENTA Back Office',
+  title: `ลงเวลา | ${BRAND.backOfficeName}`,
 }
 
 export const dynamic = 'force-dynamic'

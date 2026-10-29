@@ -1,3 +1,5 @@
+import { BRAND } from '@/lib/brand/config'
+
 // Member referrals (§36, v0.36) — shared by the sign-up forms and the server.
 // A team member's code is 6 letters/digits (no 0/O/1/I to misread). Their
 // QR is a sign-up link carrying it: /login?ref=CODE.
@@ -25,7 +27,7 @@ const L = (th: string, en: string) => ({ th, en })
 
 export const refCopy = {
   label: L('รหัสผู้แนะนำ (ไม่บังคับ)', 'Referral code (optional)'),
-  hint: L('ถ้าพนักงาน RAVENTA แนะนำให้สมัคร ใส่รหัสหรือสแกน QR ของพนักงาน', 'If a RAVENTA team member suggested joining, enter or scan their code'),
+  hint: L(`ถ้าพนักงาน ${BRAND.name} แนะนำให้สมัคร ใส่รหัสหรือสแกน QR ของพนักงาน`, `If a ${BRAND.name} team member suggested joining, enter or scan their code`),
   scan: L('สแกน QR', 'Scan QR'),
   scanTitle: L('สแกน QR แนะนำของพนักงาน', 'Scan the team member’s referral QR'),
   close: L('ปิด', 'Close'),

@@ -9,9 +9,10 @@ import { DEFAULT_SETTINGS, getTimeSettings } from '@/lib/console/shifts'
 import { isMissingTable } from '@/lib/console/db-errors'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { DESK_PATH, isAdmin, SETTINGS_PATH } from '@/lib/auth/roles'
+import { BRAND } from '@/lib/brand/config'
 
 export const metadata: Metadata = {
-  title: 'ตั้งค่า | RAVENTA Back Office',
+  title: `ตั้งค่า | ${BRAND.backOfficeName}`,
 }
 
 export const dynamic = 'force-dynamic'

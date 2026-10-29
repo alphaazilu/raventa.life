@@ -5,6 +5,7 @@ import { Gift } from 'lucide-react'
 import { useLanguage } from '@/components/language-provider'
 import { formatMemberDate } from '@/lib/format-date'
 import { cn } from '@/lib/utils'
+import { BRAND } from '@/lib/brand/config'
 
 const t = {
   label: { th: 'GIFT VOUCHER', en: 'GIFT VOUCHER' },
@@ -51,11 +52,11 @@ export function GiftVoucher({
       )}
     >
       <Image
-        src="/images/logo-emblem.png"
+        src={BRAND.logos.emblem.src}
         alt=""
         aria-hidden="true"
-        width={405}
-        height={404}
+        width={BRAND.logos.emblem.width}
+        height={BRAND.logos.emblem.height}
         className="pointer-events-none absolute -bottom-[30%] left-[38%] h-[150%] w-auto opacity-[0.06] select-none"
       />
       <div className="relative min-w-0 flex-1 px-4 py-4">

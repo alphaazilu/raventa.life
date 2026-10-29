@@ -1,3 +1,5 @@
+import { BRAND } from '@/lib/brand/config'
+
 // Staff checklists by QR (schema.sql §29, v0.29). Shared types and the
 // time maths (no database, safe in the browser).
 //
@@ -154,7 +156,7 @@ export const checklistCopy = {
 export const checklistErrors: Record<string, { th: string; en: string }> = {
   not_signed_in: { th: 'กรุณาเข้าสู่ระบบก่อน', en: 'Please sign in first' },
   not_staff: { th: 'เฉพาะพนักงานเท่านั้น', en: 'Staff only' },
-  bad_code: { th: 'ไม่ใช่ QR จุดตรวจของ RAVENTA', en: 'Not a RAVENTA check-point QR' },
+  bad_code: { th: `ไม่ใช่ QR จุดตรวจของ ${BRAND.name}`, en: `Not a ${BRAND.name} check-point QR` },
   old_code: { th: 'QR นี้ถูกเปลี่ยนแล้ว — แจ้งแอดมินให้ติด QR ใหม่', en: 'This QR was replaced — ask an admin for the new sticker' },
   inactive: { th: 'จุดนี้ปิดใช้งานแล้ว', en: 'This point is switched off' },
   not_set_up: { th: 'ระบบเช็คลิสต์ยังไม่พร้อม — รัน supabase/schema.sql (§29) ก่อน', en: 'Checklists aren’t set up — run supabase/schema.sql (§29) first' },

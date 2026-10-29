@@ -1,3 +1,5 @@
+import { BRAND } from '@/lib/brand/config'
+
 // Messages for the 6-digit email-code flows (account settings, Google link).
 
 type Bilingual = { th: string; en: string }
@@ -6,8 +8,8 @@ type Tr = (v: Bilingual) => string
 const ERRORS: Record<string, Bilingual> = {
   invalid_email: { th: 'รูปแบบอีเมลไม่ถูกต้อง', en: 'That email doesn’t look right.' },
   taken: {
-    th: 'อีเมลนี้เป็นของสมาชิก RAVENTA อีกบัญชีหนึ่งอยู่แล้ว หากเป็นของคุณ กรุณาติดต่อเราเพื่อรวมบัญชี',
-    en: 'This email already belongs to another RAVENTA membership. If it’s yours, contact us to merge them.',
+    th: `อีเมลนี้เป็นของสมาชิก ${BRAND.name} อีกบัญชีหนึ่งอยู่แล้ว หากเป็นของคุณ กรุณาติดต่อเราเพื่อรวมบัญชี`,
+    en: `This email already belongs to another ${BRAND.name} membership. If it’s yours, contact us to merge them.`,
   },
   too_soon: { th: 'เพิ่งส่งรหัสไป รอสักครู่แล้วลองใหม่', en: 'A code was just sent — wait a moment and try again.' },
   limit: { th: 'ขอรหัสครบจำนวนต่อวันแล้ว กรุณาลองใหม่พรุ่งนี้', en: 'Daily limit reached. Please try again tomorrow.' },

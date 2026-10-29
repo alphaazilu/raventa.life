@@ -7,9 +7,10 @@ import { bangkokToday } from '@/lib/check-in/day'
 import { dayBounds, listPoints, listRounds, listScans } from '@/lib/console/checklist'
 import { listStaff } from '@/lib/console/time'
 import { ChecklistAdmin, type ChecklistTab } from '@/components/console/checklist-admin'
+import { BRAND } from '@/lib/brand/config'
 
 export const metadata: Metadata = {
-  title: 'เช็คลิสต์ | RAVENTA Back Office',
+  title: `เช็คลิสต์ | ${BRAND.backOfficeName}`,
 }
 
 export const dynamic = 'force-dynamic'

@@ -11,6 +11,7 @@ import { useSupabaseUser } from '@/lib/supabase/use-user'
 import { getBrowserClient } from '@/lib/supabase/client'
 import { canViewReports, CONSOLE_PATH, isAccountant, REPORTS_PATH } from '@/lib/auth/roles'
 import { consoleCopy } from '@/lib/console/copy'
+import { BRAND } from '@/lib/brand/config'
 
 const links = [
   { href: '#about', key: 'about' as const },
@@ -100,18 +101,18 @@ export function SiteHeader() {
       <div className="mx-auto flex h-16 max-w-7xl items-center justify-between gap-4 px-4 md:h-20 md:px-6">
         <a href={homeHref} className="flex shrink-0 items-center gap-3">
           <Image
-            src="/images/logo-emblem.png"
+            src={BRAND.logos.emblem.src}
             alt=""
-            width={405}
-            height={404}
+            width={BRAND.logos.emblem.width}
+            height={BRAND.logos.emblem.height}
             className="h-10 w-10 md:h-11 md:w-11"
             priority
           />
           <Image
-            src="/images/logo-wordmark.png"
-            alt="RAVENTA Wellness Retreat"
-            width={1166}
-            height={157}
+            src={BRAND.logos.wordmark.src}
+            alt={BRAND.fullName}
+            width={BRAND.logos.wordmark.width}
+            height={BRAND.logos.wordmark.height}
             className="h-[17px] w-auto md:h-5"
             priority
           />

@@ -1,3 +1,5 @@
+import { BRAND } from '@/lib/brand/config'
+
 // Member feedback (§32, v0.33) — shared by the server and the screens.
 
 export const FEEDBACK_DAYS = 7 // a visit can be rated this many days after it
@@ -43,7 +45,7 @@ export const fbCopy = {
   thanks: L('ขอบคุณสำหรับความเห็นค่ะ', 'Thank you for your feedback'),
   thanksSub: L('ทีมงานอ่านทุกความเห็น และจะติดต่อกลับถ้าคุณขอไว้', 'We read every answer and will get back to you if you asked'),
   review: L('ช่วยรีวิวบน Google Maps', 'Review us on Google Maps'),
-  reviewSub: L('ถ้าชอบ RAVENTA ช่วยบอกต่อให้คนอื่นรู้จักได้ไหมคะ', 'If you enjoyed RAVENTA, would you tell others?'),
+  reviewSub: L(`ถ้าชอบ ${BRAND.name} ช่วยบอกต่อให้คนอื่นรู้จักได้ไหมคะ`, `If you enjoyed ${BRAND.name}, would you tell others?`),
   none: L('ตอนนี้ยังไม่มีการมาที่รอให้คะแนน', 'There’s no visit waiting for a rating'),
   noneSub: L('ให้คะแนนได้ภายใน 7 วันหลังมาใช้บริการ', 'You can rate a visit within 7 days'),
   backAccount: L('กลับบัญชีของฉัน', 'Back to my account'),

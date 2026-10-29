@@ -10,6 +10,7 @@ import { Spinner } from '@/components/ui/spinner'
 import { cn } from '@/lib/utils'
 import { formatMemberDate, formatMemberNo } from '@/lib/format-date'
 import { QrSvg } from '@/components/ui/qr-svg'
+import { BRAND } from '@/lib/brand/config'
 
 
 type Person = { name: string; memberNo: string | null; avatarUrl: string | null; joinedAt: string | null; role: string }
@@ -27,15 +28,15 @@ function CardFace({ name, memberNo, avatarUrl, joinedAt, role, showQrHint }: Per
   return (
     <>
       <Image
-        src="/images/logo-emblem.png"
+        src={BRAND.logos.emblem.src}
         alt=""
         aria-hidden="true"
-        width={405}
-        height={404}
+        width={BRAND.logos.emblem.width}
+        height={BRAND.logos.emblem.height}
         className="pointer-events-none absolute -top-[14%] -right-[12%] h-[125%] w-auto opacity-[0.07] select-none"
       />
       <span className="relative flex w-full items-center justify-between">
-        <Image src="/images/logo-wordmark.png" alt="RAVENTA" width={1166} height={157} className="h-4 w-auto" />
+        <Image src={BRAND.logos.wordmark.src} alt={BRAND.name} width={BRAND.logos.wordmark.width} height={BRAND.logos.wordmark.height} className="h-4 w-auto" />
         <span
           className={cn(
             'font-display text-[10px] font-semibold tracking-[0.22em]',
@@ -216,8 +217,8 @@ function QrOverlay({ name, memberNo, avatarUrl, joinedAt, role, onClose }: Perso
           <X className="h-5 w-5" />
         </button>
         <span className="flex items-center gap-2 phone-landscape:hidden">
-          <Image src="/images/logo-emblem.png" alt="" width={405} height={404} className="h-8 w-8" />
-          <Image src="/images/logo-wordmark.png" alt="RAVENTA" width={1166} height={157} className="h-[14px] w-auto" />
+          <Image src={BRAND.logos.emblem.src} alt="" width={BRAND.logos.emblem.width} height={BRAND.logos.emblem.height} className="h-8 w-8" />
+          <Image src={BRAND.logos.wordmark.src} alt={BRAND.name} width={BRAND.logos.wordmark.width} height={BRAND.logos.wordmark.height} className="h-[14px] w-auto" />
         </span>
         <span className="w-11 phone-landscape:hidden" />
       </div>

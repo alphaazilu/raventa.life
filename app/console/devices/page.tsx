@@ -6,9 +6,10 @@ import { DESK_PATH, isAdmin } from '@/lib/auth/roles'
 import { getCurrentDevice } from '@/lib/console/device'
 import { listBranches } from '@/lib/console/settings'
 import { listDevices } from './actions'
+import { BRAND } from '@/lib/brand/config'
 
 export const metadata: Metadata = {
-  title: 'อุปกรณ์ | RAVENTA Back Office',
+  title: `อุปกรณ์ | ${BRAND.backOfficeName}`,
 }
 
 // Back Office → Devices. Scanning a tablet's pairing QR with a phone camera

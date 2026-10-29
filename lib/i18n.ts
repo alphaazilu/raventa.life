@@ -1,3 +1,5 @@
+import { BRAND } from '@/lib/brand/config'
+
 export type Lang = 'th' | 'en'
 
 export type Zone = {
@@ -174,7 +176,7 @@ export const t = {
     account: { th: 'บัญชีของฉัน', en: 'My Account' },
   },
   hero: {
-    eyebrow: { th: 'ราเวนต้า เวลเนส รีทรีต · ระยอง', en: 'Raventa Wellness Retreat · Rayong' },
+    eyebrow: { th: `${BRAND.nameTh} เวลเนส รีทรีต · ระยอง`, en: `${BRAND.nameTitle} Wellness Retreat · Rayong` },
     title: { th: 'ฟื้นฟู · ปรับสมดุล · คืนชีวิต', en: 'Recover · Rebalance · Revive' },
     subtitle: {
       th: 'การเดินทางกลับสู่ตัวคุณในเวอร์ชันที่ดีที่สุด ผ่านศาสตร์แห่งความร้อนและความเย็น',
@@ -185,11 +187,11 @@ export const t = {
     ctaSecondary: { th: 'สำรวจโซนบำบัด', en: 'Explore the Zones' },
   },
   about: {
-    eyebrow: { th: 'เกี่ยวกับราเวนต้า', en: 'About Raventa' },
+    eyebrow: { th: `เกี่ยวกับ${BRAND.nameTh}`, en: `About ${BRAND.nameTitle}` },
     heading: { th: 'ต้นไม้แห่งชีวิต', en: 'The Tree of Life' },
     body1: {
-      th: 'ที่ RAVENTA เราเปรียบร่างกายของคุณเหมือนต้นไม้หนึ่งต้น การเดินทางเริ่มจากความอบอุ่นของราก เข้าสู่ความแข็งแรงของแก่นไม้ แล้วปลุกชีวิตด้วยสายน้ำเย็น',
-      en: 'At Raventa, we see your body as a living tree. The journey begins with the warmth of the roots, moves into the strength of the heartwood, then awakens with cool, flowing water.',
+      th: `ที่ ${BRAND.name} เราเปรียบร่างกายของคุณเหมือนต้นไม้หนึ่งต้น การเดินทางเริ่มจากความอบอุ่นของราก เข้าสู่ความแข็งแรงของแก่นไม้ แล้วปลุกชีวิตด้วยสายน้ำเย็น`,
+      en: `At ${BRAND.nameTitle}, we see your body as a living tree. The journey begins with the warmth of the roots, moves into the strength of the heartwood, then awakens with cool, flowing water.`,
     },
     body2: {
       th: 'ทุกโซนจึงไม่ใช่เพียงความร้อนหรือความเย็น แต่เป็นส่วนหนึ่งของการกลับมาดูแลต้นไม้แห่งชีวิตภายในตัวคุณ เพื่อให้คุณกลับไปเป็นตัวเองในเวอร์ชันที่ดีที่สุด',
@@ -223,10 +225,7 @@ export const t = {
     eyebrow: { th: 'มาเยือนเรา', en: 'Visit Us' },
     heading: { th: 'ติดต่อ & เดินทาง', en: 'Contact & Location' },
     addressLabel: { th: 'ที่ตั้ง', en: 'Location' },
-    address: {
-      th: 'ราเวนต้า 18 ถนนเลียบชายหาดสุชาดา ต.เนินพระ อ.เมืองระยอง จ.ระยอง 21150',
-      en: 'RAVENTA, 18 Liab Chai Hat Suchada Road, Noen Phra, Mueang Rayong, Rayong 21150, Thailand',
-    },
+    address: BRAND.contact.address,
     hoursLabel: { th: 'เวลาทำการ', en: 'Opening Hours' },
     hours: { th: 'ทุกวัน 09:00 – 21:00 น.', en: 'Daily 9:00 AM – 9:00 PM' },
     phoneLabel: { th: 'โทรศัพท์', en: 'Phone' },

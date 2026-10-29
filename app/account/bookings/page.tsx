@@ -8,9 +8,10 @@ import { getRules, listCategories, listTypes, memberBookings, memberNoShow } fro
 import { sortByCategory } from '@/lib/booking'
 import { MY_BOOKINGS_PATH } from '@/lib/auth/roles'
 import { MemberBooking, type PublicType } from '@/components/booking/member-booking'
+import { BRAND } from '@/lib/brand/config'
 
 export const metadata: Metadata = {
-  title: 'จองคิว | RAVENTA',
+  title: `จองคิว | ${BRAND.name}`,
 }
 
 export const dynamic = 'force-dynamic'
