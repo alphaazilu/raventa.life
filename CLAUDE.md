@@ -9,7 +9,7 @@
 
 1. **ตอบเป็นภาษาไทย** ทุกครั้ง (โค้ด/คอมเมนต์เป็นอังกฤษได้)
 2. **ห้ามแตะ Supabase โดยตรง** — ผู้ใช้ **commit / push / รัน SQL เอง** ทั้งหมด · Claude ส่งแค่โค้ด+ไฟล์ ไม่ deploy เอง
-3. **ห้ามเปลี่ยนสีแบรนด์ `#8D1821`**
+3. **ห้ามเปลี่ยนสีแบรนด์ `#8b1e2d`** (ค่าเริ่มต้นอยู่ที่ `BRAND.colors.primary` ใน `lib/brand/config.ts`)
 4. **โหมด comment:** ถ้าผู้ใช้รายงานปัญหา/ถาม (ไม่ใช่สั่ง "ทำ" ตรงๆ) → **สำรวจ → เสนอ → รอคำว่า "ทำ"** ก่อนลงมือ · การตอบเลือก option ถือเป็นการยืนยัน
 5. **ห้ามใส่ secret/คีย์** ลงใน chat หรือ commit
 6. **`supabase/schema.sql` = ไฟล์เดียว idempotent แบบ "สถานะปัจจุบัน"** (squash v0.40) — รันซ้ำได้เสมอ (ใช้ `create ... if not exists`, `drop ... if exists`, `create or replace function`) · แบ่ง 7 ส่วน (helpers → tables → functions → triggers → RLS/policies → storage → seeds) · ของใหม่ใส่ในส่วนที่ตรงเรื่อง
@@ -76,9 +76,16 @@
 
 - **"ไม่ล้นจอ = อยู่กับที่, ล้น = scroll ในกรอบแต่หัวคงอยู่"** (sticky header) · 2 คอลัมน์: ฝั่งสั้นปักไว้ ฝั่งยาวเลื่อน
 - มือถือต้องใช้ได้ (responsive) · มี dark mode
+- แพทเทิร์นที่ใช้อยู่ (v0.41.1):
+  - แถบบน console สูง 57px (65px ที่ xl) → ส่วนที่ปักไว้ใช้ `top-[57px] xl:top-[65px]` (ชิดแถบ) หรือ `top-[73px] xl:top-[81px]` (เว้น 16px) · ฝั่งที่ปักยาวได้ใส่ `max-h-[calc(100dvh-89px)] xl:max-h-[calc(100dvh-97px)] overflow-y-auto`
+  - 2 คอลัมน์: `grid … lg:/xl:items-start` + ฝั่งสั้น `lg:sticky`/`xl:sticky` · จอเล็กซ้อนกันปกติ
+  - ตารางยาว: กรอบ `max-h-[28rem] overflow-auto` (หรือ `max-h-[70dvh]` ถ้าแถวกางได้) + `<thead className="sticky top-0 z-10 bg-card">` (ใน card) / `bg-secondary` (หัวตารางสีเขียว)
+  - หัวกลุ่มในรายการยาว (เช่นชื่อวัน): `sticky top-[57px] z-10 bg-card xl:top-[65px]`
+  - ใช้สีจาก token (`bg-card`, `bg-secondary`, `bg-background`) ห้าม hardcode — พื้นหลัง sticky ต้องทึบ
+  - ตารางที่สั้นเสมอ ไม่ต้องใส่กรอบ
 
 ---
 
 ## 6. backlog / งานค้าง
 
-ดู roadmap ใน vault (`25 Roadmap & Releases`) · ที่ค้าง ณ ปัจจุบัน: Wellness Quiz เฟส 3 (UX) · หน้า Back Office ดู quiz leads · sticky-header sweep (ลูกค้า/จอง/รายงาน/ทีมงาน) · หลายสาขาขั้นต่อ · Waiver/PDPA/สิทธิ์ผู้ใช้ (M17–M19)
+ดู roadmap ใน vault (`25 Roadmap & Releases`) · ที่ค้าง ณ ปัจจุบัน: Wellness Quiz เฟส 3 (UX) · หน้า Back Office ดู quiz leads · หลายสาขาขั้นต่อ · Waiver/PDPA/สิทธิ์ผู้ใช้ (M17–M19)
