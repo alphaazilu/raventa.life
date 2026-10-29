@@ -478,6 +478,7 @@ export const bkCopy = {
   pctFull: L('จองแล้ว {p}%', '{p}% booked'),
   openDay: L('ดูรายวัน', 'Open day'),
   bookOn: L('จองวันนี้', 'Book this day'),
+  pickDayHint: L('แตะวันในปฏิทินเพื่อดูรายละเอียด', 'Tap a day to see its details'),
   monthFailed: L('โหลดปฏิทินไม่สำเร็จ ลองรีเฟรช', 'Couldn’t load the calendar — try refreshing'),
   min: L('{n} นาที', '{n} min'),
   // desk

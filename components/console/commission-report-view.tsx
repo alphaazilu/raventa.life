@@ -104,9 +104,9 @@ export function CommissionReportView({ period, people }: { period: TimePeriod; p
               </a>
             </p>
           ) : (
-            <div className="-mx-3 overflow-x-auto">
+            <div className="-mx-3 max-h-[70dvh] overflow-auto">
               <table className="w-full min-w-[34rem] text-sm">
-                <thead>
+                <thead className="sticky top-0 z-10 bg-card">
                   <tr className="border-b border-border">
                     <th className={th}>{tr(t.colName)}</th>
                     <th className={cn(th, 'text-right')}>{tr(t.colBills)}</th>

@@ -264,6 +264,9 @@ function MonthView({
       {load === null ? (
         <p className="rounded-2xl bg-amber-500/15 p-4 text-sm font-semibold text-amber-800 dark:text-amber-300">{tr(c.monthFailed)}</p>
       ) : (
+        // xl: the month on the left, the picked day pinned on the right
+        // (stays in view while the page scrolls); below xl it sits under it.
+        <div className="flex flex-col gap-5 xl:grid xl:grid-cols-[minmax(0,1fr)_20rem] xl:items-start">
         <div className={cn(card, 'p-2 md:p-3')}>
           <div className="grid grid-cols-7 gap-1 text-center md:gap-1.5">
             {MWD.map((w, i) => (
@@ -333,9 +336,8 @@ function MonthView({
             )}
           </div>
         </div>
-      )}
-      {picked && (
-        <section className={card}>
+      {picked ? (
+        <section className={cn(card, 'xl:sticky xl:top-[81px] xl:max-h-[calc(100dvh-97px)] xl:overflow-y-auto')}>
           <div className="flex flex-wrap items-center gap-2">
             <h2 className="mr-auto font-display text-base font-bold">{date(picked)}</h2>
             <Link href={`${BOOKINGS_PATH}?tab=day&d=${picked}`} className="inline-flex h-10 items-center rounded-full border border-border px-4 text-sm font-semibold hover:bg-secondary">
@@ -375,6 +377,10 @@ function MonthView({
               })}
           </ul>
         </section>
+      ) : (
+        <p className="hidden rounded-2xl border border-dashed border-border p-6 text-center text-sm text-muted-foreground xl:sticky xl:top-[81px] xl:block">{tr(c.pickDayHint)}</p>
+      )}
+        </div>
       )}
     </>
   )
@@ -580,9 +586,12 @@ function ListView({
         <div className="flex flex-col gap-4">
           {days.map((d) => (
             <section key={d} className={card}>
-              <Link href={`${BOOKINGS_PATH}?tab=day&d=${d}`} className="font-display text-base font-bold hover:underline">
-                {date(d)}
-              </Link>
+              {/* The day stays under the top bar while its bookings scroll by. */}
+              <div className="sticky top-[57px] z-10 -mx-4 -mt-4 rounded-t-2xl bg-card px-4 pb-1 pt-4 md:-mx-5 md:-mt-5 md:px-5 md:pt-5 xl:top-[65px]">
+                <Link href={`${BOOKINGS_PATH}?tab=day&d=${d}`} className="font-display text-base font-bold hover:underline">
+                  {date(d)}
+                </Link>
+              </div>
               <ul className="mt-2 flex flex-col gap-1.5">
                 {shown
                   .filter((b) => b.day === d)
