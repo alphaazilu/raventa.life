@@ -1345,8 +1345,65 @@ create table if not exists public.brand_settings (
   address_en text check (address_en is null or char_length(address_en) <= 300),
   contact_email text check (contact_email is null or contact_email ~ '^[^@\s]+@[^@\s]+\.[^@\s]+$'),
   updated_at timestamptz not null default now(),
-  updated_by uuid references auth.users(id) on delete set null
+  updated_by uuid references auth.users(id) on delete set null,
+  -- v0.41: the rest of the look (null = the default in lib/brand/config.ts)
+  logo_emblem_url text check (logo_emblem_url is null or logo_emblem_url ~ '^(/|https://)'),
+  logo_wordmark_url text check (logo_wordmark_url is null or logo_wordmark_url ~ '^(/|https://)'),
+  -- favicon / home-screen icon
+  icon_url text check (icon_url is null or icon_url ~ '^(/|https://)'),
+  -- text on brand-coloured buttons
+  brand_fg_color text check (brand_fg_color is null or brand_fg_color ~ '^#[0-9A-Fa-f]{6}$'),
+  -- the dark band colour (footer, info boxes) — FOREST
+  accent_color text check (accent_color is null or accent_color ~ '^#[0-9A-Fa-f]{6}$'),
+  -- tiles and chips — SAGE
+  soft_color text check (soft_color is null or soft_color ~ '^#[0-9A-Fa-f]{6}$'),
+  -- v0.41: where the shop is, when it's open, socials, tagline, SEO
+  city text check (city is null or char_length(city) <= 60),
+  city_en text check (city_en is null or char_length(city_en) <= 60),
+  map_lat double precision check (map_lat is null or map_lat between -90 and 90),
+  map_lng double precision check (map_lng is null or map_lng between -180 and 180),
+  map_url text check (map_url is null or map_url ~ '^https://'),
+  hours text check (hours is null or char_length(hours) <= 120),
+  hours_en text check (hours_en is null or char_length(hours_en) <= 120),
+  visit_note text check (visit_note is null or char_length(visit_note) <= 160),
+  visit_note_en text check (visit_note_en is null or char_length(visit_note_en) <= 160),
+  facebook_url text check (facebook_url is null or facebook_url ~ '^https://'),
+  instagram_url text check (instagram_url is null or instagram_url ~ '^https://'),
+  tiktok_url text check (tiktok_url is null or tiktok_url ~ '^https://'),
+  tagline text check (tagline is null or char_length(tagline) <= 80),
+  tagline_en text check (tagline_en is null or char_length(tagline_en) <= 80),
+  seo_title text check (seo_title is null or char_length(seo_title) <= 120),
+  seo_description text check (seo_description is null or char_length(seo_description) <= 300),
+  -- the picture shown when a link is shared
+  og_image_url text check (og_image_url is null or og_image_url ~ '^https://')
 );
+
+-- Columns added after a table's first release. Each is also in that table's
+-- CREATE TABLE above; these lines give them to databases created earlier.
+-- brand_settings (v0.41.0)
+alter table public.brand_settings add column if not exists logo_emblem_url text check (logo_emblem_url is null or logo_emblem_url ~ '^(/|https://)');
+alter table public.brand_settings add column if not exists logo_wordmark_url text check (logo_wordmark_url is null or logo_wordmark_url ~ '^(/|https://)');
+alter table public.brand_settings add column if not exists icon_url text check (icon_url is null or icon_url ~ '^(/|https://)');
+alter table public.brand_settings add column if not exists brand_fg_color text check (brand_fg_color is null or brand_fg_color ~ '^#[0-9A-Fa-f]{6}$');
+alter table public.brand_settings add column if not exists accent_color text check (accent_color is null or accent_color ~ '^#[0-9A-Fa-f]{6}$');
+alter table public.brand_settings add column if not exists soft_color text check (soft_color is null or soft_color ~ '^#[0-9A-Fa-f]{6}$');
+alter table public.brand_settings add column if not exists city text check (city is null or char_length(city) <= 60);
+alter table public.brand_settings add column if not exists city_en text check (city_en is null or char_length(city_en) <= 60);
+alter table public.brand_settings add column if not exists map_lat double precision check (map_lat is null or map_lat between -90 and 90);
+alter table public.brand_settings add column if not exists map_lng double precision check (map_lng is null or map_lng between -180 and 180);
+alter table public.brand_settings add column if not exists map_url text check (map_url is null or map_url ~ '^https://');
+alter table public.brand_settings add column if not exists hours text check (hours is null or char_length(hours) <= 120);
+alter table public.brand_settings add column if not exists hours_en text check (hours_en is null or char_length(hours_en) <= 120);
+alter table public.brand_settings add column if not exists visit_note text check (visit_note is null or char_length(visit_note) <= 160);
+alter table public.brand_settings add column if not exists visit_note_en text check (visit_note_en is null or char_length(visit_note_en) <= 160);
+alter table public.brand_settings add column if not exists facebook_url text check (facebook_url is null or facebook_url ~ '^https://');
+alter table public.brand_settings add column if not exists instagram_url text check (instagram_url is null or instagram_url ~ '^https://');
+alter table public.brand_settings add column if not exists tiktok_url text check (tiktok_url is null or tiktok_url ~ '^https://');
+alter table public.brand_settings add column if not exists tagline text check (tagline is null or char_length(tagline) <= 80);
+alter table public.brand_settings add column if not exists tagline_en text check (tagline_en is null or char_length(tagline_en) <= 80);
+alter table public.brand_settings add column if not exists seo_title text check (seo_title is null or char_length(seo_title) <= 120);
+alter table public.brand_settings add column if not exists seo_description text check (seo_description is null or char_length(seo_description) <= 300);
+alter table public.brand_settings add column if not exists og_image_url text check (og_image_url is null or og_image_url ~ '^https://');
 
 -- sale_lines ↔ visits point at each other: this link is added once both exist.
 do $$
@@ -3093,17 +3150,13 @@ $fn$;
 revoke execute on function public.submit_quiz_lead(text, text, text, text[], text, text, integer, text[]) from public;
 grant execute on function public.submit_quiz_lead(text, text, text, text[], text, text, integer, text[]) to anon, authenticated;
 
-create or replace function public.update_brand_settings(
-  p_brand_name text,
-  p_brand_name_en text,
-  p_brand_color text,
-  p_logo_url text,
-  p_phone text,
-  p_line_url text,
-  p_address text,
-  p_address_en text,
-  p_contact_email text
-)
+-- Save the brand (Back Office › Settings › Brand). Admins only — checked here,
+-- since the function runs as its owner. Takes one JSON object keyed by column
+-- name (v0.41.0), so adding a setting never changes the signature. Missing or
+-- empty keys store null = "use the default in code".
+-- (The v0.39 version took nine text arguments; it's removed below.)
+drop function if exists public.update_brand_settings(text, text, text, text, text, text, text, text, text);
+create or replace function public.update_brand_settings(p jsonb)
 returns public.brand_settings
 language plpgsql
 security definer
@@ -3111,25 +3164,54 @@ set search_path = public
 as $fn$
 declare
   r public.brand_settings;
+  k text;
 begin
   if not public.is_admin() then
     raise exception 'not_admin' using errcode = '42501';
   end if;
-  if p_brand_color is null or p_brand_color !~ '^#[0-9A-Fa-f]{6}$' then
+  if coalesce(p->>'brand_color', '') !~ '^#[0-9A-Fa-f]{6}$' then
     raise exception 'bad_color' using errcode = '22023';
   end if;
-  insert into public.brand_settings as b (id, brand_name, brand_name_en, brand_color, logo_url, phone, line_url, address, address_en, contact_email, updated_at, updated_by)
+  foreach k in array array['brand_fg_color', 'accent_color', 'soft_color'] loop
+    if nullif(btrim(coalesce(p->>k, '')), '') is not null and btrim(p->>k) !~ '^#[0-9A-Fa-f]{6}$' then
+      raise exception 'bad_color' using errcode = '22023';
+    end if;
+  end loop;
+  insert into public.brand_settings as b (id, brand_name, brand_name_en, brand_color, logo_url, phone, line_url, address, address_en, contact_email, logo_emblem_url, logo_wordmark_url, icon_url, brand_fg_color, accent_color, soft_color, city, city_en, map_lat, map_lng, map_url, hours, hours_en, visit_note, visit_note_en, facebook_url, instagram_url, tiktok_url, tagline, tagline_en, seo_title, seo_description, og_image_url, updated_at, updated_by)
   values (
     1,
-    btrim(p_brand_name),
-    btrim(p_brand_name_en),
-    lower(p_brand_color),
-    nullif(btrim(coalesce(p_logo_url, '')), ''),
-    nullif(btrim(coalesce(p_phone, '')), ''),
-    nullif(btrim(coalesce(p_line_url, '')), ''),
-    nullif(btrim(coalesce(p_address, '')), ''),
-    nullif(btrim(coalesce(p_address_en, '')), ''),
-    nullif(btrim(coalesce(p_contact_email, '')), ''),
+    btrim(p->>'brand_name'),
+    btrim(p->>'brand_name_en'),
+    lower(p->>'brand_color'),
+    nullif(btrim(coalesce(p->>'logo_url', '')), ''),
+    nullif(btrim(coalesce(p->>'phone', '')), ''),
+    nullif(btrim(coalesce(p->>'line_url', '')), ''),
+    nullif(btrim(coalesce(p->>'address', '')), ''),
+    nullif(btrim(coalesce(p->>'address_en', '')), ''),
+    nullif(btrim(coalesce(p->>'contact_email', '')), ''),
+    nullif(btrim(coalesce(p->>'logo_emblem_url', '')), ''),
+    nullif(btrim(coalesce(p->>'logo_wordmark_url', '')), ''),
+    nullif(btrim(coalesce(p->>'icon_url', '')), ''),
+    lower(nullif(btrim(coalesce(p->>'brand_fg_color', '')), '')),
+    lower(nullif(btrim(coalesce(p->>'accent_color', '')), '')),
+    lower(nullif(btrim(coalesce(p->>'soft_color', '')), '')),
+    nullif(btrim(coalesce(p->>'city', '')), ''),
+    nullif(btrim(coalesce(p->>'city_en', '')), ''),
+    nullif(btrim(coalesce(p->>'map_lat', '')), '')::double precision,
+    nullif(btrim(coalesce(p->>'map_lng', '')), '')::double precision,
+    nullif(btrim(coalesce(p->>'map_url', '')), ''),
+    nullif(btrim(coalesce(p->>'hours', '')), ''),
+    nullif(btrim(coalesce(p->>'hours_en', '')), ''),
+    nullif(btrim(coalesce(p->>'visit_note', '')), ''),
+    nullif(btrim(coalesce(p->>'visit_note_en', '')), ''),
+    nullif(btrim(coalesce(p->>'facebook_url', '')), ''),
+    nullif(btrim(coalesce(p->>'instagram_url', '')), ''),
+    nullif(btrim(coalesce(p->>'tiktok_url', '')), ''),
+    nullif(btrim(coalesce(p->>'tagline', '')), ''),
+    nullif(btrim(coalesce(p->>'tagline_en', '')), ''),
+    nullif(btrim(coalesce(p->>'seo_title', '')), ''),
+    nullif(btrim(coalesce(p->>'seo_description', '')), ''),
+    nullif(btrim(coalesce(p->>'og_image_url', '')), ''),
     now(),
     auth.uid()
   )
@@ -3143,14 +3225,37 @@ begin
     address = excluded.address,
     address_en = excluded.address_en,
     contact_email = excluded.contact_email,
+    logo_emblem_url = excluded.logo_emblem_url,
+    logo_wordmark_url = excluded.logo_wordmark_url,
+    icon_url = excluded.icon_url,
+    brand_fg_color = excluded.brand_fg_color,
+    accent_color = excluded.accent_color,
+    soft_color = excluded.soft_color,
+    city = excluded.city,
+    city_en = excluded.city_en,
+    map_lat = excluded.map_lat,
+    map_lng = excluded.map_lng,
+    map_url = excluded.map_url,
+    hours = excluded.hours,
+    hours_en = excluded.hours_en,
+    visit_note = excluded.visit_note,
+    visit_note_en = excluded.visit_note_en,
+    facebook_url = excluded.facebook_url,
+    instagram_url = excluded.instagram_url,
+    tiktok_url = excluded.tiktok_url,
+    tagline = excluded.tagline,
+    tagline_en = excluded.tagline_en,
+    seo_title = excluded.seo_title,
+    seo_description = excluded.seo_description,
+    og_image_url = excluded.og_image_url,
     updated_at = excluded.updated_at,
     updated_by = excluded.updated_by
   returning * into r;
   return r;
 end;
 $fn$;
-revoke execute on function public.update_brand_settings(text, text, text, text, text, text, text, text, text) from public, anon;
-grant execute on function public.update_brand_settings(text, text, text, text, text, text, text, text, text) to authenticated;
+revoke execute on function public.update_brand_settings(jsonb) from public, anon;
+grant execute on function public.update_brand_settings(jsonb) to authenticated;
 
 -- =============================================================================
 -- 4. Triggers

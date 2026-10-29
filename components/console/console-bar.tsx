@@ -1,6 +1,5 @@
 'use client'
 
-import Image from 'next/image'
 import Link, { useLinkStatus } from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useEffect, useRef, useState } from 'react'
@@ -10,7 +9,7 @@ import { consoleCopy } from '@/lib/console/copy'
 import { CATALOG_PATH, CHECKLIST_PATH, SETTINGS_PATH, CONSOLE_PATH, DESK_PATH, DEVICES_PATH, MEMBERS_PATH, REPORTS_PATH, TEAM_PATH, TIME_PATH } from '@/lib/auth/roles'
 import { cn } from '@/lib/utils'
 import { AppVersion } from '@/components/console/app-version'
-import { BRAND } from '@/lib/brand/config'
+import { BrandEmblem, BrandWordmark } from '@/components/brand-logo'
 
 type Tab = {
   key: string
@@ -200,15 +199,8 @@ export function ConsoleBar({
     <header className="sticky top-0 z-40 border-b border-border bg-background/95 backdrop-blur print:hidden">
       <div className="mx-auto flex h-14 max-w-7xl items-center justify-between gap-2 px-3 sm:gap-4 sm:px-4 md:px-6 xl:h-16">
         <Link href={admin ? CONSOLE_PATH : DESK_PATH} className="flex min-w-0 items-center gap-2 sm:gap-2.5">
-          <Image src={BRAND.logos.emblem.src} alt="" width={BRAND.logos.emblem.width} height={BRAND.logos.emblem.height} className="h-8 w-8 shrink-0" priority />
-          <Image
-            src={BRAND.logos.wordmark.src}
-            alt={BRAND.name}
-            width={BRAND.logos.wordmark.width}
-            height={BRAND.logos.wordmark.height}
-            className="hidden h-[15px] w-auto sm:block"
-            priority
-          />
+          <BrandEmblem className="h-8 w-8 shrink-0" priority />
+          <BrandWordmark className="hidden h-[15px] w-auto sm:block" priority />
           <span className="truncate whitespace-nowrap rounded-full border border-border bg-secondary px-2 py-0.5 font-display text-[9px] font-bold tracking-[0.1em] text-secondary-foreground uppercase sm:px-2.5 sm:text-[10px] sm:tracking-[0.14em]">
             {tr(consoleCopy.backOffice)}
           </span>

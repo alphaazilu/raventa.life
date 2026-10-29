@@ -23,9 +23,29 @@ export default async function BrandSettingsPage() {
   // Straight from the table (not the site's cache), so the form shows what
   // is saved right now. null = §53 not run yet: the form shows the defaults.
   const row = await readBrandRow()
+  // The v0.41 columns come back only once the new SQL has been run.
+  const v41 = row !== null && 'city' in row
+  const raw = (v: string | null | undefined) => (v ?? '').trim()
   return (
     <main>
-      <BrandSettingsView setUp={row !== null} initial={brandFromRow(row)} updatedAt={row?.updated_at ?? null} />
+      <BrandSettingsView
+        setUp={row !== null}
+        v41={v41}
+        initial={brandFromRow(row)}
+        // What's actually saved (empty = "use the default"), for the fields
+        // where empty means something: pictures, map link, SEO.
+        saved={{
+          logo: raw(row?.logo_url),
+          emblem: raw(row?.logo_emblem_url),
+          wordmark: raw(row?.logo_wordmark_url),
+          icon: raw(row?.icon_url),
+          og: raw(row?.og_image_url),
+          mapUrl: raw(row?.map_url),
+          seoTitle: raw(row?.seo_title),
+          seoDescription: raw(row?.seo_description),
+        }}
+        updatedAt={row?.updated_at ?? null}
+      />
     </main>
   )
 }

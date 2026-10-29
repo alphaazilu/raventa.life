@@ -1,7 +1,6 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import Image from 'next/image'
 import { usePathname } from 'next/navigation'
 import { Menu, X, Globe, LayoutGrid } from 'lucide-react'
 import { useLanguage } from '@/components/language-provider'
@@ -11,7 +10,7 @@ import { useSupabaseUser } from '@/lib/supabase/use-user'
 import { getBrowserClient } from '@/lib/supabase/client'
 import { canViewReports, CONSOLE_PATH, isAccountant, REPORTS_PATH } from '@/lib/auth/roles'
 import { consoleCopy } from '@/lib/console/copy'
-import { BRAND } from '@/lib/brand/config'
+import { BrandEmblem, BrandWordmark } from '@/components/brand-logo'
 import { useBrand } from '@/components/brand-provider'
 
 const links = [
@@ -102,22 +101,8 @@ export function SiteHeader() {
     >
       <div className="mx-auto flex h-16 max-w-7xl items-center justify-between gap-4 px-4 md:h-20 md:px-6">
         <a href={homeHref} className="flex shrink-0 items-center gap-3">
-          <Image
-            src={BRAND.logos.emblem.src}
-            alt=""
-            width={BRAND.logos.emblem.width}
-            height={BRAND.logos.emblem.height}
-            className="h-10 w-10 md:h-11 md:w-11"
-            priority
-          />
-          <Image
-            src={BRAND.logos.wordmark.src}
-            alt={brand.fullName}
-            width={BRAND.logos.wordmark.width}
-            height={BRAND.logos.wordmark.height}
-            className="h-[17px] w-auto md:h-5"
-            priority
-          />
+          <BrandEmblem className="h-10 w-10 md:h-11 md:w-11" priority />
+          <BrandWordmark alt={brand.fullName} className="h-[17px] w-auto md:h-5" priority />
         </a>
 
         <nav className="hidden items-center gap-7 xl:flex">

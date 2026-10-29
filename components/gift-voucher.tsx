@@ -1,11 +1,10 @@
 'use client'
 
-import Image from 'next/image'
 import { Gift } from 'lucide-react'
 import { useLanguage } from '@/components/language-provider'
 import { formatMemberDate } from '@/lib/format-date'
 import { cn } from '@/lib/utils'
-import { BRAND } from '@/lib/brand/config'
+import { BrandEmblem } from '@/components/brand-logo'
 
 const t = {
   label: { th: 'GIFT VOUCHER', en: 'GIFT VOUCHER' },
@@ -51,14 +50,7 @@ export function GiftVoucher({
         className,
       )}
     >
-      <Image
-        src={BRAND.logos.emblem.src}
-        alt=""
-        aria-hidden="true"
-        width={BRAND.logos.emblem.width}
-        height={BRAND.logos.emblem.height}
-        className="pointer-events-none absolute -bottom-[30%] left-[38%] h-[150%] w-auto opacity-[0.06] select-none"
-      />
+      <BrandEmblem className="pointer-events-none absolute -bottom-[30%] left-[38%] h-[150%] w-auto opacity-[0.06] select-none" />
       <div className="relative min-w-0 flex-1 px-4 py-4">
         <span className="font-display text-[10px] font-semibold tracking-[0.22em] text-primary">{tr(t.label)}</span>
         <p className="mt-1 font-display text-xl font-extrabold leading-tight">Day Pass</p>

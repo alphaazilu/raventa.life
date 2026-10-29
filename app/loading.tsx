@@ -1,4 +1,4 @@
-import { BrandFullLogo } from '@/components/brand-logo'
+import { BrandFullLogo, BrandTagline } from '@/components/brand-logo'
 
 // Shown while a page's data loads (Next.js route loading UI): the full
 // logo on white, breathing gently, with a thin progress line.
@@ -15,7 +15,7 @@ export default function Loading() {
         <div className="h-full w-2/5 rounded-full bg-loading motion-safe:animate-[rv-slide_1.4s_ease-in-out_infinite]" />
       </div>
       <p className="mt-4 text-xs font-medium tracking-brand text-muted-foreground uppercase">
-        Nature meets modern wellness
+        <BrandTagline />
       </p>
     </div>
   )

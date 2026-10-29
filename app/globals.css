@@ -75,16 +75,21 @@
   /* Brand colours — the only place they're written in CSS (v0.38.33).
      Keep in step with BRAND.colors in lib/brand/config.ts. */
   --brand: #8b1e2d; /* RAVENTA RED */
+  --brand-foreground: #f6f1e7; /* text on the red */
+  --brand-accent: #2e4636; /* FOREST: footer, info boxes */
+  --brand-soft: #eef4ec; /* SAGE: tiles, chips */
   --brand-checkpoint: #8D1821; /* printed check-point QR sheets */
+  /* The four above can be changed in Back Office › Settings › Brand
+     (v0.41); the root layout then overrides them on :root. */
 
   --primary: var(--brand);
-  --primary-foreground: #f6f1e7;
+  --primary-foreground: var(--brand-foreground);
   --loading: #06c755; /* every bar: loading lines, QR countdown, capacity */
-  --secondary: #eef4ec; /* SAGE */
-  --secondary-foreground: #2e4636;
-  --muted: #eef4ec;
+  --secondary: var(--brand-soft); /* SAGE */
+  --secondary-foreground: var(--brand-accent);
+  --muted: var(--brand-soft);
   --muted-foreground: #5c635a;
-  --accent: #2e4636; /* FOREST */
+  --accent: var(--brand-accent); /* FOREST */
   --accent-foreground: #f3eee4;
   --destructive: oklch(0.577 0.245 27.325);
   --border: #d7dfd6; /* sage outline */
@@ -92,22 +97,22 @@
   --ring: var(--brand);
 
   --wood: #8a6440; /* WOOD, darkened so small labels read on white */
-  --forest: #2e4636; /* FOREST */
+  --forest: var(--brand-accent); /* FOREST */
   --sand: #e7dcc7; /* SAND */
   --stone: #c7c4bc; /* STONE */
 
   --chart-1: var(--brand);
   --chart-2: #b98c5e;
-  --chart-3: #2e4636;
+  --chart-3: var(--brand-accent);
   --chart-4: #c7c4bc;
   --chart-5: #e7dcc7;
   --radius: 0.5rem;
   --sidebar: #ffffff;
   --sidebar-foreground: #2b2521;
   --sidebar-primary: var(--brand);
-  --sidebar-primary-foreground: #f6f1e7;
-  --sidebar-accent: #eef4ec;
-  --sidebar-accent-foreground: #2e4636;
+  --sidebar-primary-foreground: var(--brand-foreground);
+  --sidebar-accent: var(--brand-soft);
+  --sidebar-accent-foreground: var(--brand-accent);
   --sidebar-border: #d7dfd6;
   --sidebar-ring: var(--brand);
 }

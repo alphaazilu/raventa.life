@@ -4,9 +4,17 @@ import Image from 'next/image'
 import { ArrowRight } from 'lucide-react'
 import { useLanguage } from '@/components/language-provider'
 import { t } from '@/lib/i18n'
+import { useBrand } from '@/components/brand-provider'
+import { BRAND } from '@/lib/brand/config'
 
 export function HeroSection() {
   const { tr } = useLanguage()
+  // Name, city and tagline from Back Office › Settings › Brand (v0.41).
+  const brand = useBrand()
+  const eyebrow = {
+    th: `${brand.nameTh} เวลเนส รีทรีต · ${brand.city.th}`,
+    en: `${brand.name === BRAND.name ? BRAND.nameTitle : brand.name} Wellness Retreat · ${brand.city.en}`,
+  }
 
   return (
     <section id="top" className="relative min-h-screen w-full overflow-hidden">
@@ -22,7 +30,7 @@ export function HeroSection() {
 
       <div className="relative z-10 mx-auto flex min-h-screen max-w-4xl flex-col items-center justify-end px-4 pb-24 pt-32 text-center md:justify-center md:pb-32">
         <p className="mb-5 text-xs font-semibold tracking-brand text-white/85 uppercase md:text-sm">
-          {tr(t.hero.eyebrow)}
+          {tr(eyebrow)}
         </p>
         <h1 className="text-balance font-display text-4xl font-extrabold leading-tight text-white sm:text-5xl md:text-6xl lg:text-7xl">
           {tr(t.hero.title)}
@@ -48,7 +56,7 @@ export function HeroSection() {
         </div>
 
         <p className="mt-12 text-[0.7rem] font-medium tracking-brand text-white/70 uppercase md:text-xs">
-          {tr(t.hero.tagline)}
+          {tr(brand.tagline)}
         </p>
       </div>
     </section>

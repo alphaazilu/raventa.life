@@ -1,6 +1,5 @@
 'use client'
 
-import Image from 'next/image'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { QrCode, Sun, X } from 'lucide-react'
 import { useLanguage } from '@/components/language-provider'
@@ -10,7 +9,7 @@ import { Spinner } from '@/components/ui/spinner'
 import { cn } from '@/lib/utils'
 import { formatMemberDate, formatMemberNo } from '@/lib/format-date'
 import { QrSvg } from '@/components/ui/qr-svg'
-import { BRAND } from '@/lib/brand/config'
+import { BrandEmblem, BrandWordmark } from '@/components/brand-logo'
 
 
 type Person = { name: string; memberNo: string | null; avatarUrl: string | null; joinedAt: string | null; role: string }
@@ -27,16 +26,9 @@ function CardFace({ name, memberNo, avatarUrl, joinedAt, role, showQrHint }: Per
   const since = formatMemberDate(joinedAt, lang, false)
   return (
     <>
-      <Image
-        src={BRAND.logos.emblem.src}
-        alt=""
-        aria-hidden="true"
-        width={BRAND.logos.emblem.width}
-        height={BRAND.logos.emblem.height}
-        className="pointer-events-none absolute -top-[14%] -right-[12%] h-[125%] w-auto opacity-[0.07] select-none"
-      />
+      <BrandEmblem className="pointer-events-none absolute -top-[14%] -right-[12%] h-[125%] w-auto opacity-[0.07] select-none" />
       <span className="relative flex w-full items-center justify-between">
-        <Image src={BRAND.logos.wordmark.src} alt={BRAND.name} width={BRAND.logos.wordmark.width} height={BRAND.logos.wordmark.height} className="h-4 w-auto" />
+        <BrandWordmark className="h-4 w-auto" />
         <span
           className={cn(
             'font-display text-[10px] font-semibold tracking-[0.22em]',
@@ -217,8 +209,8 @@ function QrOverlay({ name, memberNo, avatarUrl, joinedAt, role, onClose }: Perso
           <X className="h-5 w-5" />
         </button>
         <span className="flex items-center gap-2 phone-landscape:hidden">
-          <Image src={BRAND.logos.emblem.src} alt="" width={BRAND.logos.emblem.width} height={BRAND.logos.emblem.height} className="h-8 w-8" />
-          <Image src={BRAND.logos.wordmark.src} alt={BRAND.name} width={BRAND.logos.wordmark.width} height={BRAND.logos.wordmark.height} className="h-[14px] w-auto" />
+          <BrandEmblem className="h-8 w-8" />
+          <BrandWordmark className="h-[14px] w-auto" />
         </span>
         <span className="w-11 phone-landscape:hidden" />
       </div>
