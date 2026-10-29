@@ -4,7 +4,7 @@ import { usePathname } from 'next/navigation'
 import { useLanguage } from '@/components/language-provider'
 import { t } from '@/lib/i18n'
 import { useBrand } from '@/components/brand-provider'
-import { BrandFullLogo } from '@/components/brand-logo'
+import { BrandFullLogo, BrandSocials } from '@/components/brand-logo'
 
 const links = [
   { href: '#about', key: 'about' as const },
@@ -33,7 +33,7 @@ export function SiteFooter() {
           <div className="rounded-2xl bg-white px-7 py-5">
             <BrandFullLogo alt={brand.fullName} className="h-auto w-40" />
           </div>
-          <p className="text-xs font-medium tracking-brand uppercase text-sand/80">{tr(t.footer.tagline)}</p>
+          <p className="text-xs font-medium tracking-brand uppercase text-sand/80">{tr(brand.tagline)}</p>
 
           <nav className="flex flex-wrap items-center justify-center gap-x-8 gap-y-3">
             {links.map((link) => (
@@ -48,6 +48,10 @@ export function SiteFooter() {
           </nav>
 
           <p className="font-display text-lg font-semibold italic text-sand">{tr(t.footer.return)}</p>
+          <BrandSocials
+            className="flex items-center gap-3"
+            linkClassName="flex h-9 w-9 items-center justify-center rounded-full border border-white/20 text-accent-foreground/80 transition-colors hover:border-white/50 hover:text-white"
+          />
         </div>
 
         <div className="mt-12 flex flex-col items-center gap-3 border-t border-white/10 pt-6 text-center text-xs text-accent-foreground/60">
@@ -60,7 +64,7 @@ export function SiteFooter() {
             </a>
           </nav>
           <p>
-            &copy; {new Date().getFullYear()}{` ${brand.fullName}, Rayong. `}{tr(t.footer.rights)}
+            &copy; {new Date().getFullYear()}{` ${brand.fullName}, ${brand.city.en}. `}{tr(t.footer.rights)}
           </p>
           {/* Set in next.config.mjs from package.json + the Vercel commit. */}
           <p className="font-mono text-[10px] text-accent-foreground/40">

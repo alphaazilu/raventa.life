@@ -3,20 +3,18 @@
 import { MapPin, Clock, Phone, Mail, ArrowRight, ExternalLink } from 'lucide-react'
 import { useLanguage } from '@/components/language-provider'
 import { t } from '@/lib/i18n'
-import { BRAND } from '@/lib/brand/config'
 import { useBrand } from '@/components/brand-provider'
-
-const GOOGLE_MAPS_URL = BRAND.contact.googleMapsUrl
-const GOOGLE_MAPS_EMBED_URL = BRAND.contact.googleMapsEmbedUrl
+import { BrandSocials } from '@/components/brand-logo'
 
 export function ContactSection() {
   const { tr } = useLanguage()
-  // Phone, e-mail and address from Back Office › Settings › Brand (v0.39.0).
+  // Phone, e-mail, address (v0.39) and hours, map, socials (v0.41) from
+  // Back Office › Settings › Brand.
   const brand = useBrand()
 
   const info = [
-    { icon: MapPin, label: tr(t.contact.addressLabel), value: tr(brand.address), href: GOOGLE_MAPS_URL, external: true },
-    { icon: Clock, label: tr(t.contact.hoursLabel), value: tr(t.contact.hours) },
+    { icon: MapPin, label: tr(t.contact.addressLabel), value: tr(brand.address), href: brand.map.url, external: true },
+    { icon: Clock, label: tr(t.contact.hoursLabel), value: tr(brand.hours) },
     { icon: Phone, label: tr(t.contact.phoneLabel), value: brand.phoneDisplay, href: `tel:${brand.phoneTel}` },
     { icon: Mail, label: tr(t.contact.emailLabel), value: brand.email, href: `mailto:${brand.email}` },
   ]
@@ -66,20 +64,24 @@ export function ContactSection() {
                 {tr(t.contact.cta)}
                 <ArrowRight className="h-4 w-4" />
               </a>
-              <p className="mt-3 text-center text-xs text-muted-foreground">{tr(t.contact.note)}</p>
+              <p className="mt-3 text-center text-xs text-muted-foreground">{tr(brand.visitNote)}</p>
+              <BrandSocials
+                className="mt-4 flex items-center justify-center gap-3"
+                linkClassName="flex h-9 w-9 items-center justify-center rounded-full bg-secondary text-primary transition-colors hover:bg-primary hover:text-primary-foreground"
+              />
             </div>
           </div>
 
           <div className="relative min-h-[360px] overflow-hidden rounded-2xl border border-border">
             <iframe
-              title={tr(t.contact.address)}
-              src={GOOGLE_MAPS_EMBED_URL}
+              title={tr(brand.address)}
+              src={brand.map.embedUrl}
               className="h-full min-h-[360px] w-full"
               loading="lazy"
               referrerPolicy="no-referrer-when-downgrade"
             />
             <a
-              href={GOOGLE_MAPS_URL}
+              href={brand.map.url}
               target="_blank"
               rel="noopener noreferrer"
               className="absolute bottom-3 right-3 inline-flex items-center gap-1.5 rounded-full bg-card px-4 py-2 text-xs font-semibold text-card-foreground shadow-md transition-colors hover:text-primary"

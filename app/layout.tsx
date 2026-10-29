@@ -5,6 +5,7 @@ import { LanguageProvider } from '@/components/language-provider'
 import { BrandProvider } from '@/components/brand-provider'
 import './globals.css'
 import { getBrandInfo } from '@/lib/brand/settings'
+import { BRAND } from '@/lib/brand/config'
 import { DEFAULT_BRAND, HEX_COLOR } from '@/lib/brand/info'
 
 // Self-hosted variable fonts (Sora, Noto Sans Thai) — avoids a next/font/google
@@ -25,13 +26,22 @@ const notoSansThai = localFont({
   display: 'swap',
 })
 
-// The site name in the default title follows the brand settings (§53).
+// Title, description, share picture and icons follow the brand settings
+// (v0.39 / v0.41); the defaults give exactly the old values.
 export async function generateMetadata(): Promise<Metadata> {
   const brand = await getBrandInfo()
+  const icon = brand.iconUrl
   return {
-    title: `${brand.fullName} | Contrast Therapy · Sauna · Rayong`,
-    description: `${brand.fullName}, Rayong — Contrast therapy, hot pools, cold plunge, sauna, steam room and sun bath. Recover, Rebalance, Revive. Return to your best self.`,
+    title: brand.seoTitle,
+    description: brand.seoDescription,
     generator: 'v0.app',
+    icons: icon
+      ? { icon: [{ url: icon }], apple: [{ url: icon }] }
+      : {
+          icon: [{ url: BRAND.logos.icon.src, sizes: '512x512', type: 'image/png' }],
+          apple: [{ url: BRAND.logos.appleIcon.src, sizes: '180x180', type: 'image/png' }],
+        },
+    ...(brand.ogImageUrl ? { openGraph: { title: brand.seoTitle, description: brand.seoDescription, images: [{ url: brand.ogImageUrl }] } } : {}),
   }
 }
 
@@ -48,9 +58,17 @@ export default async function RootLayout({
   children: React.ReactNode
 }>) {
   const brand = await getBrandInfo()
-  // --brand is set in app/globals.css; override it only when the admin chose
-  // another colour (validated #rrggbb — never raw input into the style tag).
-  const brandCss = brand.color !== DEFAULT_BRAND.color && HEX_COLOR.test(brand.color) ? `:root{--brand:${brand.color}}` : null
+  // The brand colours are set in app/globals.css; override only the ones the
+  // admin changed (each a validated #rrggbb — never raw input in the style tag).
+  const overrides = (
+    [
+      ['--brand', brand.color, DEFAULT_BRAND.color],
+      ['--brand-foreground', brand.fgColor, DEFAULT_BRAND.fgColor],
+      ['--brand-accent', brand.accentColor, DEFAULT_BRAND.accentColor],
+      ['--brand-soft', brand.softColor, DEFAULT_BRAND.softColor],
+    ] as const
+  ).filter(([, v, d]) => v !== d && HEX_COLOR.test(v))
+  const brandCss = overrides.length ? `:root{${overrides.map(([k, v]) => `${k}:${v}`).join(';')}}` : null
   return (
     <html lang="th" className={`light ${sora.variable} ${notoSansThai.variable} bg-background`}>
       <body className="font-sans antialiased">

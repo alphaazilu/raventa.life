@@ -41,13 +41,30 @@ export const BRAND = {
     primaryForeground: '#f6f1e7',
     /** The red on printed check-point QR sheets. CSS: var(--brand-checkpoint). */
     checkpointPrint: '#8D1821',
+    /** The dark band (footer, info boxes) — FOREST. CSS: var(--brand-accent). */
+    accent: '#2e4636',
+    /** Tiles and chips — SAGE. CSS: var(--brand-soft). */
+    soft: '#eef4ec',
+    /** Dark text, the other choice for text on a light brand colour. */
+    ink: '#2b2521',
   },
 
   logos: {
     full: { src: '/images/logo-full.png', width: 1166, height: 620 },
     emblem: { src: '/images/logo-emblem.png', width: 405, height: 404 },
     wordmark: { src: '/images/logo-wordmark.png', width: 1166, height: 157 },
+    /** Favicon + home-screen icon (v0.41: moved from app/icon.png, app/apple-icon.png) */
+    icon: { src: '/images/app-icon.png', width: 512, height: 512 },
+    appleIcon: { src: '/images/app-icon-180.png', width: 180, height: 180 },
   } satisfies Record<string, Logo>,
+
+  /** Where the shop is (hero line, footer ©, page title). */
+  city: { th: 'ระยอง', en: 'Rayong' } satisfies L,
+  tagline: { th: 'NATURE MEETS MODERN WELLNESS', en: 'NATURE MEETS MODERN WELLNESS' } satisfies L,
+  hours: { th: 'ทุกวัน 09:00 – 21:00 น.', en: 'Daily 9:00 AM – 9:00 PM' } satisfies L,
+  visitNote: { th: 'Walk-in ได้ทุกวัน ไม่ต้องจองล่วงหน้า', en: 'Walk in any day, no booking needed.' } satisfies L,
+  /** Map pin for the embedded map on the home page. */
+  map: { lat: 12.6700258, lng: 101.189248 },
 
   contact: {
     phoneDisplay: '080-429-4264',

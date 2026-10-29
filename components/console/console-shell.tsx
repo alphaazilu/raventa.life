@@ -1,6 +1,5 @@
 'use client'
 
-import Image from 'next/image'
 import Link, { useLinkStatus } from 'next/link'
 import { usePathname, useSearchParams } from 'next/navigation'
 import { useEffect, useRef, useState } from 'react'
@@ -69,6 +68,7 @@ import { Toaster } from '@/components/ui/toast'
 import { refreshAlerts } from '@/app/console/alerts-actions'
 import { cn } from '@/lib/utils'
 import { BRAND } from '@/lib/brand/config'
+import { BrandEmblem, BrandWordmark } from '@/components/brand-logo'
 
 // Back Office frame (v0.30): a side menu on the left instead of the old top
 // bar, so long (English) labels never run into each other.
@@ -577,10 +577,10 @@ export function ConsoleShell({
 
   const logo = (wideMenu: boolean) => (
     <Link href={admin ? CONSOLE_PATH : DESK_PATH} className={cn('flex h-14 shrink-0 items-center gap-2 border-b border-border xl:h-16', wideMenu ? 'px-4' : 'justify-center')}>
-      <Image src={BRAND.logos.emblem.src} alt="" width={BRAND.logos.emblem.width} height={BRAND.logos.emblem.height} className="h-8 w-8 shrink-0" priority />
+      <BrandEmblem className="h-8 w-8 shrink-0" priority />
       {wideMenu && (
         <span className="flex min-w-0 flex-col">
-          <Image src={BRAND.logos.wordmark.src} alt={BRAND.name} width={BRAND.logos.wordmark.width} height={BRAND.logos.wordmark.height} className="h-[13px] w-auto self-start" priority />
+          <BrandWordmark className="h-[13px] w-auto self-start" priority />
           <span className="mt-1 text-[9px] font-bold tracking-[0.16em] text-muted-foreground uppercase">{tr(consoleCopy.backOffice)}</span>
         </span>
       )}
@@ -631,7 +631,7 @@ export function ConsoleShell({
               <Menu className="h-5 w-5" aria-hidden="true" />
             </button>
             <Link href={admin ? CONSOLE_PATH : DESK_PATH} className="shrink-0 lg:hidden" aria-label={BRAND.name}>
-              <Image src={BRAND.logos.emblem.src} alt="" width={BRAND.logos.emblem.width} height={BRAND.logos.emblem.height} className="h-7 w-7" />
+              <BrandEmblem className="h-7 w-7" />
             </Link>
             <p className="min-w-0 flex-1 truncate font-display text-base font-extrabold sm:text-lg">{current ? tr(current.label) : ''}</p>
             {deviceName && <span className="hidden shrink-0 text-sm text-muted-foreground md:inline">{deviceName}</span>}
