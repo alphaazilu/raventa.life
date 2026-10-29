@@ -13,7 +13,7 @@ import { cn } from '@/lib/utils'
 type L = { th: string; en: string }
 const t = {
   sales: { th: 'การขาย', en: 'Sales' },
-  time: { th: 'ลงเวลา', en: 'Time' },
+  time: { th: 'เวลาทำงาน', en: 'Hours worked' },
   commission: { th: 'ค่าคอม', en: 'Commission' },
   title: { th: 'รายงานการลงเวลา', en: 'Time report' },
   monthly: { th: 'รายเดือน', en: 'Monthly' },
@@ -219,9 +219,9 @@ function PeopleTable({ people, daily, date }: { people: PersonTime[]; daily: boo
   const cols = daily ? 9 : 11
 
   return (
-    <div className="-mx-3 overflow-x-auto">
+    <div className="-mx-3 max-h-[70dvh] overflow-auto">
       <table className="w-full min-w-[56rem] text-sm">
-        <thead>
+        <thead className="sticky top-0 z-10 bg-card">
           <tr className="border-b border-border">
             <th className={th}>{tr(t.colName)}</th>
             {daily ? (

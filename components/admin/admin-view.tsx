@@ -83,9 +83,10 @@ export function AdminView({
       ) : (
       <>
       {limited && <p className="mt-3 text-xs text-muted-foreground">{tr(consoleCopy.membersLimited)}</p>}
-      <div className="mt-4 overflow-x-auto rounded-2xl border border-border">
+      {/* A long result scrolls inside the frame; the column names stay (md+). */}
+      <div className="mt-4 overflow-x-auto rounded-2xl border border-border md:max-h-[calc(100dvh-14rem)] md:overflow-y-auto xl:max-h-[calc(100dvh-15rem)]">
         <table className="w-full min-w-[720px] text-left text-sm">
-          <thead className="bg-secondary text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+          <thead className="sticky top-0 z-10 bg-secondary text-xs font-semibold uppercase tracking-wide text-muted-foreground">
             <tr>
               <th className="px-4 py-3">{tr(authCopy.memberNoFieldLabel)}</th>
               <th className="px-4 py-3">{tr(authCopy.nameFieldLabel)}</th>

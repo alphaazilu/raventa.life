@@ -501,9 +501,9 @@ function Body({ report: r, date }: { report: SalesReport; date: (d: string) => s
       {r.daily.length > 1 && (
         <section className={card}>
           <Heading title={tr(t.dailyHeading)} />
-          <div className="-mx-3 overflow-x-auto">
+          <div className="-mx-3 max-h-[28rem] overflow-auto">
             <table className="w-full min-w-[40rem] text-sm">
-              <thead>
+              <thead className="sticky top-0 z-10 bg-card">
                 <tr className="border-b border-border">
                   <th className={th}>{tr(t.colDate)}</th>
                   <th className={cn(th, 'text-right')}>{tr(t.colBills)}</th>
@@ -649,9 +649,9 @@ function Bills({ bills, vat, date, multiDay }: { bills: BillRow[]; vat: boolean;
         <p className="py-4 text-center text-sm text-muted-foreground">{tr(t.noBills)}</p>
       ) : (
         <>
-          <div className="-mx-3 overflow-x-auto">
+          <div className="-mx-3 max-h-[28rem] overflow-auto">
             <table className="w-full min-w-[46rem] text-sm">
-              <thead>
+              <thead className="sticky top-0 z-10 bg-card">
                 <tr className="border-b border-border">
                   <th className={th}>{tr(t.colReceipt)}</th>
                   <th className={th}>{tr(t.colTime)}</th>

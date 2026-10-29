@@ -103,6 +103,7 @@ const t = {
   front: { th: 'หน้าร้าน', en: 'Front desk' },
   team: { th: 'ทีมงาน', en: 'Team' },
   ops: { th: 'ดูแลร้าน', en: 'Operations' },
+  catalogGroup: { th: 'แคตตาล็อก', en: 'Catalog' },
   reports: { th: 'รายงาน', en: 'Reports' },
   system: { th: 'ระบบ', en: 'System' },
   overview: { th: 'ภาพรวม', en: 'Overview' },
@@ -122,7 +123,7 @@ const t = {
   maintenance: { th: 'ซ่อมบำรุง', en: 'Maintenance' },
   catalog: { th: 'สินค้าและราคา', en: 'Products & prices' },
   sales: { th: 'การขาย', en: 'Sales' },
-  timeReport: { th: 'ลงเวลา', en: 'Time' },
+  timeReport: { th: 'เวลาทำงาน', en: 'Hours worked' },
   settings: { th: 'ตั้งค่า', en: 'Settings' },
   brand: { th: 'ตั้งค่าแบรนด์', en: 'Brand' },
   devices: { th: 'อุปกรณ์', en: 'Devices' },
@@ -264,6 +265,14 @@ const GROUPS: Group[] = [
         ],
       },
       { key: 'maintenance', label: t.maintenance, icon: Wrench, adminOnly: true, notOnTablet: true },
+    ],
+  },
+  // Catalog (v0.41.1): its own group, out of Operations — prices feed the
+  // sales and commission reports right below.
+  {
+    key: 'catalogGroup',
+    label: t.catalogGroup,
+    items: [
       {
         key: 'catalog',
         label: t.catalog,
