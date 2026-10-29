@@ -10,10 +10,14 @@ import { DeskTabletOnly } from '@/components/console/desk-tablet-only'
 import { getCashRules, getCurrentSession } from '@/lib/console/cash'
 import { loadDeskCommission } from '@/lib/console/commission'
 import { getAppSettings } from '@/lib/console/settings'
-import { BRAND } from '@/lib/brand/config'
+import { getBrandInfo } from '@/lib/brand/settings'
+import { backOfficeName } from '@/lib/brand/info'
 
-export const metadata: Metadata = {
-  title: `ขาย + เช็คอิน | ${BRAND.backOfficeName}`,
+export async function generateMetadata(): Promise<Metadata> {
+  const brand = await getBrandInfo()
+  return {
+    title: `ขาย + เช็คอิน | ${backOfficeName(brand)}`,
+  }
 }
 
 // Sell + check in — the counter tablet's main screen.

@@ -10,11 +10,14 @@ import { TabletSetupHint } from '@/components/console/tablet-setup-hint'
 import { googleLinkAccount } from '@/lib/auth/google-link-ticket'
 import { maskEmail } from '@/lib/email-verification'
 import { extractRefCode } from '@/lib/referral'
-import { BRAND } from '@/lib/brand/config'
+import { getBrandInfo } from '@/lib/brand/settings'
 
-export const metadata: Metadata = {
-  title: `Log In | ${BRAND.fullName}`,
-  description: `Log in or create a ${BRAND.name} account.`,
+export async function generateMetadata(): Promise<Metadata> {
+  const brand = await getBrandInfo()
+  return {
+    title: `Log In | ${brand.fullName}`,
+    description: `Log in or create a ${brand.name} account.`,
+  }
 }
 
 export default async function LoginPage({

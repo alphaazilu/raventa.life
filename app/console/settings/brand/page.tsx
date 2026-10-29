@@ -2,13 +2,17 @@ import type { Metadata } from 'next'
 import { redirect } from 'next/navigation'
 import { getConsoleSession } from '@/lib/console/session'
 import { BRAND_SETTINGS_PATH, DESK_PATH, isAdmin } from '@/lib/auth/roles'
-import { BRAND } from '@/lib/brand/config'
+import { getBrandInfo } from '@/lib/brand/settings'
+import { backOfficeName } from '@/lib/brand/info'
 import { readBrandRow } from '@/lib/brand/settings'
 import { brandFromRow } from '@/lib/brand/info'
 import { BrandSettingsView } from '@/components/console/brand-settings-view'
 
-export const metadata: Metadata = {
-  title: `ตั้งค่าแบรนด์ | ${BRAND.backOfficeName}`,
+export async function generateMetadata(): Promise<Metadata> {
+  const brand = await getBrandInfo()
+  return {
+    title: `ตั้งค่าแบรนด์ | ${backOfficeName(brand)}`,
+  }
 }
 
 export const dynamic = 'force-dynamic'

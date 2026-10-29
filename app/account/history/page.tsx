@@ -6,10 +6,13 @@ import { createClient } from '@/lib/supabase/server'
 import { loadVisitHistory } from '@/lib/visit-history'
 import { VisitHistoryView } from '@/components/visit-history-view'
 import { BackLink } from '@/components/account/account-view'
-import { BRAND } from '@/lib/brand/config'
+import { getBrandInfo } from '@/lib/brand/settings'
 
-export const metadata: Metadata = {
-  title: `My visits | ${BRAND.fullName}`,
+export async function generateMetadata(): Promise<Metadata> {
+  const brand = await getBrandInfo()
+  return {
+    title: `My visits | ${brand.fullName}`,
+  }
 }
 
 // The member's own visits (RLS: own rows only). No prices or staff names.

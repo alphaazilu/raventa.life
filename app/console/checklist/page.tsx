@@ -7,10 +7,14 @@ import { bangkokToday } from '@/lib/check-in/day'
 import { dayBounds, listPoints, listRounds, listScans } from '@/lib/console/checklist'
 import { listStaff } from '@/lib/console/time'
 import { ChecklistAdmin, type ChecklistTab } from '@/components/console/checklist-admin'
-import { BRAND } from '@/lib/brand/config'
+import { getBrandInfo } from '@/lib/brand/settings'
+import { backOfficeName } from '@/lib/brand/info'
 
-export const metadata: Metadata = {
-  title: `เช็คลิสต์ | ${BRAND.backOfficeName}`,
+export async function generateMetadata(): Promise<Metadata> {
+  const brand = await getBrandInfo()
+  return {
+    title: `เช็คลิสต์ | ${backOfficeName(brand)}`,
+  }
 }
 
 export const dynamic = 'force-dynamic'

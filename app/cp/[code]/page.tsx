@@ -4,11 +4,14 @@ import { SiteHeader } from '@/components/site-header'
 import { createClient } from '@/lib/supabase/server'
 import { openPoint } from '@/app/account/checklist-actions'
 import { PointPage } from '@/components/checklist/point-page'
-import { BRAND } from '@/lib/brand/config'
+import { getBrandInfo } from '@/lib/brand/settings'
 
-export const metadata: Metadata = {
-  title: `จุดตรวจ | ${BRAND.name}`,
-  robots: { index: false, follow: false },
+export async function generateMetadata(): Promise<Metadata> {
+  const brand = await getBrandInfo()
+  return {
+    title: `จุดตรวจ | ${brand.name}`,
+    robots: { index: false, follow: false },
+  }
 }
 
 export const dynamic = 'force-dynamic'

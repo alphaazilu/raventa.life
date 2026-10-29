@@ -320,7 +320,7 @@ export async function sendBookingEmail(bookingId: string, kind: 'booked' | 'canc
     const { data: t } = await db().from('booking_types').select('duration_min, cancel_hours').eq('id', b.typeId).maybeSingle()
     const cancelBy = t ? new Date(Date.parse(b.start) - Number(t.cancel_hours) * 3_600_000).toISOString() : null
     const site = process.env.SITE_URL ?? BRAND.siteUrl
-    const { subject, html } = bookingEmail({
+    const { subject, html } = await bookingEmail({
       kind,
       firstName: (p?.first_name as string | null) ?? null,
       what: b.typeName.th,

@@ -205,6 +205,11 @@ export function brandFromRow(row: BrandRow | null): BrandInfo {
   }
 }
 
+// Names built from the brand name (v0.41.3) — page titles and the tablet's
+// home-screen app. The default name gives exactly the lib/brand/config.ts values.
+export const backOfficeName = (b: Pick<BrandInfo, 'name'>) => (b.name === BRAND.name ? BRAND.backOfficeName : `${b.name} Back Office`)
+export const appShortName = (b: Pick<BrandInfo, 'name'>) => (b.name === BRAND.name ? BRAND.appShortName : `${b.name} BO`)
+
 // ---- colour contrast (WCAG) — for "which text colour on this button?" ------
 
 function luminance(hex: string): number {

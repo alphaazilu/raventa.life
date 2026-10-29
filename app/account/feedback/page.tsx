@@ -5,10 +5,13 @@ import { SiteFooter } from '@/components/site-footer'
 import { createClient } from '@/lib/supabase/server'
 import { getReviewUrl, listTopics, pendingVisit } from '@/lib/console/feedback'
 import { FeedbackForm } from '@/components/feedback/feedback-form'
-import { BRAND } from '@/lib/brand/config'
+import { getBrandInfo } from '@/lib/brand/settings'
 
-export const metadata: Metadata = {
-  title: `ให้คะแนน | ${BRAND.name}`,
+export async function generateMetadata(): Promise<Metadata> {
+  const brand = await getBrandInfo()
+  return {
+    title: `ให้คะแนน | ${brand.name}`,
+  }
 }
 
 export const dynamic = 'force-dynamic'

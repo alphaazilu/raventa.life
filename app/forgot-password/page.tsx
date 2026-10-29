@@ -2,10 +2,13 @@ import type { Metadata } from 'next'
 import { SiteHeader } from '@/components/site-header'
 import { SiteFooter } from '@/components/site-footer'
 import { ForgotPasswordForm } from '@/components/auth/forgot-password-form'
-import { BRAND } from '@/lib/brand/config'
+import { getBrandInfo } from '@/lib/brand/settings'
 
-export const metadata: Metadata = {
-  title: `Reset Password | ${BRAND.fullName}`,
+export async function generateMetadata(): Promise<Metadata> {
+  const brand = await getBrandInfo()
+  return {
+    title: `Reset Password | ${brand.fullName}`,
+  }
 }
 
 export default function ForgotPasswordPage() {

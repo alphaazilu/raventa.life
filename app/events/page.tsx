@@ -4,10 +4,13 @@ import { SiteFooter } from '@/components/site-footer'
 import { EventsView } from '@/components/calendar/events-view'
 import { upcomingOutside } from '@/lib/console/calendar'
 import { bangkokToday } from '@/lib/check-in/day'
-import { BRAND } from '@/lib/brand/config'
+import { getBrandInfo } from '@/lib/brand/settings'
 
-export const metadata: Metadata = {
-  title: `กิจกรรมและข่าวสาร | ${BRAND.fullName}`,
+export async function generateMetadata(): Promise<Metadata> {
+  const brand = await getBrandInfo()
+  return {
+    title: `กิจกรรมและข่าวสาร | ${brand.fullName}`,
+  }
 }
 
 // Rebuilt at most every 5 minutes (calendar changes also refresh it).

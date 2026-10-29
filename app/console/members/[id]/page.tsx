@@ -16,10 +16,14 @@ import { getRules, memberBookings, memberNoShow } from '@/lib/console/booking'
 import { MemberReferral } from '@/components/console/member-referral'
 import { referralOf } from '@/lib/console/referral'
 import { listEarners } from '@/lib/console/commission'
-import { BRAND } from '@/lib/brand/config'
+import { getBrandInfo } from '@/lib/brand/settings'
+import { backOfficeName } from '@/lib/brand/info'
 
-export const metadata: Metadata = {
-  title: `ข้อมูลสมาชิก | ${BRAND.backOfficeName}`,
+export async function generateMetadata(): Promise<Metadata> {
+  const brand = await getBrandInfo()
+  return {
+    title: `ข้อมูลสมาชิก | ${backOfficeName(brand)}`,
+  }
 }
 
 export default async function EditMemberPage({ params }: { params: Promise<{ id: string }> }) {

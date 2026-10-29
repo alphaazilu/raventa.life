@@ -7,10 +7,14 @@ import { bookingStats, getRules, listBookings, listCategories, listTemplates, li
 import { addDays, gridStart, sortByCategory } from '@/lib/booking'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { BookingsView, type BookingsTab } from '@/components/console/bookings-view'
-import { BRAND } from '@/lib/brand/config'
+import { getBrandInfo } from '@/lib/brand/settings'
+import { backOfficeName } from '@/lib/brand/info'
 
-export const metadata: Metadata = {
-  title: `การจอง | ${BRAND.backOfficeName}`,
+export async function generateMetadata(): Promise<Metadata> {
+  const brand = await getBrandInfo()
+  return {
+    title: `การจอง | ${backOfficeName(brand)}`,
+  }
 }
 
 export const dynamic = 'force-dynamic'

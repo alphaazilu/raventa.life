@@ -5,10 +5,14 @@ import { CHECKLIST_PATH, DESK_PATH, isAdmin } from '@/lib/auth/roles'
 import { listPoints } from '@/lib/console/checklist'
 import { pointUrl } from '@/lib/checklist-code'
 import { PrintStickers } from '@/components/console/checklist-print'
-import { BRAND } from '@/lib/brand/config'
+import { getBrandInfo } from '@/lib/brand/settings'
+import { backOfficeName } from '@/lib/brand/info'
 
-export const metadata: Metadata = {
-  title: `พิมพ์ QR จุดตรวจ | ${BRAND.backOfficeName}`,
+export async function generateMetadata(): Promise<Metadata> {
+  const brand = await getBrandInfo()
+  return {
+    title: `พิมพ์ QR จุดตรวจ | ${backOfficeName(brand)}`,
+  }
 }
 
 export const dynamic = 'force-dynamic'

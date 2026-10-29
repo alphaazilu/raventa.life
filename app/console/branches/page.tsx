@@ -6,9 +6,14 @@ import { listBranches } from '@/lib/console/settings'
 import { BranchTree } from '@/components/console/branch-tree'
 import { DESK_PATH, isAdmin, BRANCHES_PATH } from '@/lib/auth/roles'
 import { BRAND } from '@/lib/brand/config'
+import { getBrandInfo } from '@/lib/brand/settings'
+import { backOfficeName } from '@/lib/brand/info'
 
-export const metadata: Metadata = {
-  title: `สาขา | ${BRAND.backOfficeName}`,
+export async function generateMetadata(): Promise<Metadata> {
+  const brand = await getBrandInfo()
+  return {
+    title: `สาขา | ${backOfficeName(brand)}`,
+  }
 }
 
 export const dynamic = 'force-dynamic'

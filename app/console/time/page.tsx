@@ -9,10 +9,14 @@ import { addDays, getOpenEntry, listEntries, listOpenEntries, listStaff, weekSta
 import { bangkokToday } from '@/lib/check-in/day'
 import { DEFAULT_SETTINGS, getTimeSettings, listAssignments, listHolidays, listTemplates } from '@/lib/console/shifts'
 import { canUseDesk, DESK_PATH, isAdmin, TIME_PATH } from '@/lib/auth/roles'
-import { BRAND } from '@/lib/brand/config'
+import { getBrandInfo } from '@/lib/brand/settings'
+import { backOfficeName } from '@/lib/brand/info'
 
-export const metadata: Metadata = {
-  title: `ลงเวลา | ${BRAND.backOfficeName}`,
+export async function generateMetadata(): Promise<Metadata> {
+  const brand = await getBrandInfo()
+  return {
+    title: `ลงเวลา | ${backOfficeName(brand)}`,
+  }
 }
 
 export const dynamic = 'force-dynamic'

@@ -9,10 +9,13 @@ import { lineUserIdOf } from '@/lib/supabase/line'
 import { resolveAvatarUrl } from '@/lib/supabase/avatar'
 import type { LinkProvider, LinkResult } from '@/components/account/link-line'
 import { headers } from 'next/headers'
-import { BRAND } from '@/lib/brand/config'
+import { getBrandInfo } from '@/lib/brand/settings'
 
-export const metadata: Metadata = {
-  title: `Settings | ${BRAND.fullName}`,
+export async function generateMetadata(): Promise<Metadata> {
+  const brand = await getBrandInfo()
+  return {
+    title: `Settings | ${brand.fullName}`,
+  }
 }
 
 export default async function AccountSettingsPage({

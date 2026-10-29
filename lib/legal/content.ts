@@ -1,4 +1,10 @@
 import { BRAND } from '@/lib/brand/config'
+import type { BrandInfo } from '@/lib/brand/info'
+
+// The shop's name and contact email come from the brand settings: the pages
+// pass getBrandInfo() in (the defaults give exactly the old text). The
+// domain is the deployment's, so it stays in lib/brand/config.ts.
+type LegalBrand = Pick<BrandInfo, 'name' | 'fullName' | 'email'>
 
 type Bilingual = { th: string; en: string }
 type Section = { heading: Bilingual; paragraphs: Bilingual[] }
@@ -8,13 +14,13 @@ export const privacyPolicyUpdated: Bilingual = {
   en: 'Last updated: September 27, 2026',
 }
 
-export const privacyPolicySections: Section[] = [
+export const privacyPolicySections = (brand: LegalBrand): Section[] => [
   {
     heading: { th: '1. บทนำ', en: '1. Introduction' },
     paragraphs: [
       {
-        th: `${BRAND.fullName} ("เรา") ให้ความสำคัญกับความเป็นส่วนตัวของผู้ใช้บริการเว็บไซต์ ${BRAND.domain} ("เว็บไซต์") นโยบายฉบับนี้อธิบายว่าเราเก็บรวบรวม ใช้ เปิดเผย และคุ้มครองข้อมูลส่วนบุคคลของท่านอย่างไร ตามพระราชบัญญัติคุ้มครองข้อมูลส่วนบุคคล พ.ศ. 2562 (PDPA)`,
-        en: `${BRAND.fullName} ("we," "us," or "our") respects the privacy of everyone who uses ${BRAND.domain} (the "Website"). This policy explains how we collect, use, disclose, and protect your personal data, in line with Thailand’s Personal Data Protection Act B.E. 2562 (PDPA).`,
+        th: `${brand.fullName} ("เรา") ให้ความสำคัญกับความเป็นส่วนตัวของผู้ใช้บริการเว็บไซต์ ${BRAND.domain} ("เว็บไซต์") นโยบายฉบับนี้อธิบายว่าเราเก็บรวบรวม ใช้ เปิดเผย และคุ้มครองข้อมูลส่วนบุคคลของท่านอย่างไร ตามพระราชบัญญัติคุ้มครองข้อมูลส่วนบุคคล พ.ศ. 2562 (PDPA)`,
+        en: `${brand.fullName} ("we," "us," or "our") respects the privacy of everyone who uses ${BRAND.domain} (the "Website"). This policy explains how we collect, use, disclose, and protect your personal data, in line with Thailand’s Personal Data Protection Act B.E. 2562 (PDPA).`,
       },
       {
         th: 'การใช้งานเว็บไซต์ของท่านถือว่าท่านรับทราบและยอมรับแนวปฏิบัติที่ระบุไว้ในนโยบายฉบับนี้',
@@ -64,8 +70,8 @@ export const privacyPolicySections: Section[] = [
         en: 'Our Contact page embeds Google Maps, which may collect data under Google’s own privacy policy.',
       },
       {
-        th: `เราอาจเปิดเผยข้อมูลของท่านหากกฎหมายกำหนด หรือเพื่อคุ้มครองสิทธิ ทรัพย์สิน หรือความปลอดภัยของ ${BRAND.name} ผู้ใช้บริการ หรือบุคคลอื่น`,
-        en: `We may disclose your information where required by law, or to protect the rights, property, or safety of ${BRAND.name}, our users, or others.`,
+        th: `เราอาจเปิดเผยข้อมูลของท่านหากกฎหมายกำหนด หรือเพื่อคุ้มครองสิทธิ ทรัพย์สิน หรือความปลอดภัยของ ${brand.name} ผู้ใช้บริการ หรือบุคคลอื่น`,
+        en: `We may disclose your information where required by law, or to protect the rights, property, or safety of ${brand.name}, our users, or others.`,
       },
     ],
   },
@@ -136,8 +142,8 @@ export const privacyPolicySections: Section[] = [
     heading: { th: '12. ติดต่อเรา', en: '12. Contact Us' },
     paragraphs: [
       {
-        th: `หากท่านมีคำถามเกี่ยวกับนโยบายความเป็นส่วนตัวนี้ หรือต้องการใช้สิทธิของท่านตาม PDPA กรุณาติดต่อเราที่อีเมล ${BRAND.contact.email}`,
-        en: `If you have questions about this privacy policy, or would like to exercise your rights under the PDPA, please contact us at ${BRAND.contact.email}.`,
+        th: `หากท่านมีคำถามเกี่ยวกับนโยบายความเป็นส่วนตัวนี้ หรือต้องการใช้สิทธิของท่านตาม PDPA กรุณาติดต่อเราที่อีเมล ${brand.email}`,
+        en: `If you have questions about this privacy policy, or would like to exercise your rights under the PDPA, please contact us at ${brand.email}.`,
       },
     ],
   },
@@ -148,13 +154,13 @@ export const termsUpdated: Bilingual = {
   en: 'Last updated: September 21, 2026',
 }
 
-export const termsSections: Section[] = [
+export const termsSections = (brand: LegalBrand): Section[] => [
   {
     heading: { th: '1. การยอมรับข้อกำหนด', en: '1. Acceptance of Terms' },
     paragraphs: [
       {
-        th: `ข้อกำหนดและเงื่อนไขฉบับนี้ ("ข้อกำหนด") ใช้บังคับกับการเข้าใช้งานเว็บไซต์ ${BRAND.domain} ("เว็บไซต์") ของ ${BRAND.fullName} ("เรา") การเข้าใช้งานหรือสมัครสมาชิกบนเว็บไซต์ถือว่าท่านตกลงยอมรับข้อกำหนดฉบับนี้ หากท่านไม่เห็นด้วยกับข้อกำหนดใด กรุณางดใช้งานเว็บไซต์`,
-        en: `These Terms of Service ("Terms") govern your access to and use of ${BRAND.domain} (the "Website") operated by ${BRAND.fullName} ("we," "us," or "our"). By accessing the Website or creating an account, you agree to be bound by these Terms. If you do not agree, please do not use the Website.`,
+        th: `ข้อกำหนดและเงื่อนไขฉบับนี้ ("ข้อกำหนด") ใช้บังคับกับการเข้าใช้งานเว็บไซต์ ${BRAND.domain} ("เว็บไซต์") ของ ${brand.fullName} ("เรา") การเข้าใช้งานหรือสมัครสมาชิกบนเว็บไซต์ถือว่าท่านตกลงยอมรับข้อกำหนดฉบับนี้ หากท่านไม่เห็นด้วยกับข้อกำหนดใด กรุณางดใช้งานเว็บไซต์`,
+        en: `These Terms of Service ("Terms") govern your access to and use of ${BRAND.domain} (the "Website") operated by ${brand.fullName} ("we," "us," or "our"). By accessing the Website or creating an account, you agree to be bound by these Terms. If you do not agree, please do not use the Website.`,
       },
     ],
   },
@@ -162,8 +168,8 @@ export const termsSections: Section[] = [
     heading: { th: '2. คำอธิบายบริการ', en: '2. Description of Service' },
     paragraphs: [
       {
-        th: `เว็บไซต์นี้ให้ข้อมูลเกี่ยวกับ ${BRAND.fullName} รวมถึงระบบสมาชิกสำหรับลูกค้าเพื่อจัดการข้อมูลส่วนตัวและรับข่าวสารจากเรา เราอาจเพิ่ม ปรับปรุง หรือหยุดให้บริการฟีเจอร์บางส่วนของเว็บไซต์ได้โดยไม่ต้องแจ้งล่วงหน้า`,
-        en: `The Website provides information about ${BRAND.fullName}, along with a member account system that lets customers manage their personal information and receive updates from us. We may add, modify, or discontinue features of the Website at any time without prior notice.`,
+        th: `เว็บไซต์นี้ให้ข้อมูลเกี่ยวกับ ${brand.fullName} รวมถึงระบบสมาชิกสำหรับลูกค้าเพื่อจัดการข้อมูลส่วนตัวและรับข่าวสารจากเรา เราอาจเพิ่ม ปรับปรุง หรือหยุดให้บริการฟีเจอร์บางส่วนของเว็บไซต์ได้โดยไม่ต้องแจ้งล่วงหน้า`,
+        en: `The Website provides information about ${brand.fullName}, along with a member account system that lets customers manage their personal information and receive updates from us. We may add, modify, or discontinue features of the Website at any time without prior notice.`,
       },
     ],
   },
@@ -189,8 +195,8 @@ export const termsSections: Section[] = [
     heading: { th: '5. ทรัพย์สินทางปัญญา', en: '5. Intellectual Property' },
     paragraphs: [
       {
-        th: `เนื้อหาทั้งหมดบนเว็บไซต์ รวมถึงโลโก้ ข้อความ ภาพถ่าย และงานออกแบบ เป็นทรัพย์สินของ ${BRAND.fullName} หรือผู้อนุญาตให้ใช้สิทธิ ห้ามคัดลอก ทำซ้ำ หรือเผยแพร่โดยไม่ได้รับอนุญาตเป็นลายลักษณ์อักษร`,
-        en: `All content on the Website, including logos, text, photographs, and design, is the property of ${BRAND.fullName} or its licensors. You may not copy, reproduce, or distribute it without our prior written permission.`,
+        th: `เนื้อหาทั้งหมดบนเว็บไซต์ รวมถึงโลโก้ ข้อความ ภาพถ่าย และงานออกแบบ เป็นทรัพย์สินของ ${brand.fullName} หรือผู้อนุญาตให้ใช้สิทธิ ห้ามคัดลอก ทำซ้ำ หรือเผยแพร่โดยไม่ได้รับอนุญาตเป็นลายลักษณ์อักษร`,
+        en: `All content on the Website, including logos, text, photographs, and design, is the property of ${brand.fullName} or its licensors. You may not copy, reproduce, or distribute it without our prior written permission.`,
       },
     ],
   },
@@ -243,8 +249,8 @@ export const termsSections: Section[] = [
     heading: { th: '11. ติดต่อเรา', en: '11. Contact Us' },
     paragraphs: [
       {
-        th: `หากท่านมีคำถามเกี่ยวกับข้อกำหนดฉบับนี้ กรุณาติดต่อเราที่อีเมล ${BRAND.contact.email}`,
-        en: `If you have questions about these Terms, please contact us at ${BRAND.contact.email}.`,
+        th: `หากท่านมีคำถามเกี่ยวกับข้อกำหนดฉบับนี้ กรุณาติดต่อเราที่อีเมล ${brand.email}`,
+        en: `If you have questions about these Terms, please contact us at ${brand.email}.`,
       },
     ],
   },

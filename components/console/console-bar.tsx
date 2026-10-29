@@ -82,7 +82,7 @@ export function ConsoleBar({
 
   // Full-screen button where the browser allows it (Android Chrome, desktop).
   // iPad browsers don't — there, "Add to Home Screen" opens the console
-  // without the browser bar instead (public/console.webmanifest).
+  // without the browser bar instead (app/console.webmanifest/route.ts).
   const [canFullscreen, setCanFullscreen] = useState(false)
   const [isFullscreen, setIsFullscreen] = useState(false)
   useEffect(() => {

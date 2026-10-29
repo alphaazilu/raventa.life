@@ -16,9 +16,13 @@ import { isEarner, myCommissionCard } from '@/lib/console/commission'
 import { codeFor } from '@/lib/console/referral'
 import { listTypes, memberBookings } from '@/lib/console/booking'
 import { BRAND } from '@/lib/brand/config'
+import { getBrandInfo } from '@/lib/brand/settings'
 
-export const metadata: Metadata = {
-  title: `My Account | ${BRAND.fullName}`,
+export async function generateMetadata(): Promise<Metadata> {
+  const brand = await getBrandInfo()
+  return {
+    title: `My Account | ${brand.fullName}`,
+  }
 }
 
 const GIFT_KEEP_DAYS = 60

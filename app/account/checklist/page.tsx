@@ -9,10 +9,13 @@ import { bangkokToday } from '@/lib/check-in/day'
 import { MY_CHECKLIST_PATH } from '@/lib/auth/roles'
 import { dayBounds, listPoints, listRounds, listScans } from '@/lib/console/checklist'
 import { withLivePoints } from '@/lib/checklist'
-import { BRAND } from '@/lib/brand/config'
+import { getBrandInfo } from '@/lib/brand/settings'
 
-export const metadata: Metadata = {
-  title: `เช็คลิสต์ | ${BRAND.name}`,
+export async function generateMetadata(): Promise<Metadata> {
+  const brand = await getBrandInfo()
+  return {
+    title: `เช็คลิสต์ | ${brand.name}`,
+  }
 }
 
 export const dynamic = 'force-dynamic'

@@ -4,12 +4,17 @@ import { TabletPair } from '@/components/console/tablet-pair'
 import { getCurrentDevice } from '@/lib/console/device'
 import { CONSOLE_PATH } from '@/lib/auth/roles'
 import { BRAND } from '@/lib/brand/config'
+import { getBrandInfo } from '@/lib/brand/settings'
+import { backOfficeName, appShortName } from '@/lib/brand/info'
 
-export const metadata: Metadata = {
-  title: `ลงทะเบียน Tablet | ${BRAND.backOfficeName}`,
-  robots: { index: false, follow: false },
-  manifest: '/console.webmanifest',
-  appleWebApp: { capable: true, title: BRAND.appShortName, statusBarStyle: 'default' },
+export async function generateMetadata(): Promise<Metadata> {
+  const brand = await getBrandInfo()
+  return {
+    title: `ลงทะเบียน Tablet | ${backOfficeName(brand)}`,
+    robots: { index: false, follow: false },
+    manifest: '/console.webmanifest',
+    appleWebApp: { capable: true, title: appShortName(brand), statusBarStyle: 'default' },
+  }
 }
 
 export const viewport: Viewport = { themeColor: '#ffffff' }
