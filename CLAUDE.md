@@ -12,7 +12,10 @@
 3. **ห้ามเปลี่ยนสีแบรนด์ `#8D1821`**
 4. **โหมด comment:** ถ้าผู้ใช้รายงานปัญหา/ถาม (ไม่ใช่สั่ง "ทำ" ตรงๆ) → **สำรวจ → เสนอ → รอคำว่า "ทำ"** ก่อนลงมือ · การตอบเลือก option ถือเป็นการยืนยัน
 5. **ห้ามใส่ secret/คีย์** ลงใน chat หรือ commit
-6. **`supabase/schema.sql` = ไฟล์เดียว idempotent** — รันซ้ำได้เสมอ (ใช้ `create ... if not exists`, `drop ... if exists`, `create or replace function`) · section ใหม่ต่อท้าย (ปัจจุบันถึง §52+)
+6. **`supabase/schema.sql` = ไฟล์เดียว idempotent แบบ "สถานะปัจจุบัน"** (squash v0.40) — รันซ้ำได้เสมอ (ใช้ `create ... if not exists`, `drop ... if exists`, `create or replace function`) · แบ่ง 7 ส่วน (helpers → tables → functions → triggers → RLS/policies → storage → seeds) · ของใหม่ใส่ในส่วนที่ตรงเรื่อง
+   - ตารางใหม่: CREATE TABLE ครบทุกคอลัมน์ ท้ายส่วนที่ 2
+   - คอลัมน์ใหม่ในตารางเดิม: ใส่ทั้งใน CREATE TABLE **และ** `alter table … add column if not exists` ท้ายส่วนที่ 2 (ฐานจริงได้คอลัมน์ด้วย)
+   - ประวัติเดิม §1–§53 อยู่ที่ `supabase/archive/schema-v0.39.sql` (ห้ามแก้) · เลข § ในโค้ด/vault ยังอ้างประวัตินั้นได้
 
 ---
 
@@ -51,13 +54,15 @@
 - binaries: `/usr/lib/postgresql/16/bin` · รันเป็น user `postgres` (`su postgres -c '...'`) · socket `/tmp` · port เช่น 5499
 - stub ขั้นต่ำ: สร้าง role `anon`/`authenticated`, schema `auth` + `auth.users` + `auth.uid()` (อ่าน `current_setting('test.uid')`), stub `public.is_staff()`
 - รัน schema (หรือ section ที่แก้) **2 รอบ** ยืนยัน idempotent + ทดสอบ behavior (เช่น anon RPC, RLS staff/non-staff)
+- stub เพิ่มที่ไฟล์เต็มต้องใช้: `auth.users(email, phone, raw_user_meta_data)`, `auth.identities(user_id, provider, provider_id, identity_data)`, schema `storage` (`buckets`, `objects`, `foldername()`), role `service_role`
+- จัดโครงสร้างไฟล์ใหม่ (refactor ที่ไม่ตั้งใจเปลี่ยนผล): เทียบ `pg_dump --schema-only` ของฐานใหม่ที่สร้างจากไฟล์ก่อน/หลัง ต้องเหมือนกัน + รันไฟล์ใหม่ทับฐานที่มีข้อมูล 2 รอบ แล้ว dump ต้องไม่เปลี่ยน
 - ⚠️ หมายเหตุ: dev-mode ใน sandbox บล็อก React hydration → **preview กดปุ่ม/drag ไม่ทำงาน** (SSR อย่างเดียว) · ทดสอบ logic ด้วย `tsx` ตรงๆ หรือให้ผู้ใช้ส่ง screenshot ยืนยัน
 
 ---
 
 ## 4. สถาปัตยกรรมสำคัญ
 
-- **schema.sql** แบ่งเป็น section §1…§52+ ต่อท้ายเรื่อยๆ ทุกอันต้อง idempotent
+- **schema.sql** = สถานะปัจจุบัน 7 ส่วน (ดูกฎข้อ 6) ทุกคำสั่ง idempotent · ประวัติ §1–§53 ใน `supabase/archive/schema-v0.39.sql`
 - **Tolerant column pattern:** select คอลัมน์ครบสุด · ถ้า error `42703` retry แบบไม่มีคอลัมน์นั้น · เขียนคอลัมน์ optional ผ่าน update แยก ignore `42703`/`PGRST204`
 - **Roles:** `customer / staff / admin / accountant` (accountant = เข้าได้แค่หน้ารายงาน) · gate หลายชั้น: `lib/supabase/middleware.ts` (proxy) → `app/console/layout.tsx` → แต่ละ page · helper ใน `lib/auth/roles.ts` (`isAdmin`, `canUseDesk`, `canViewReports`, `canUseConsole`, `consoleHome`) · `is_staff()` = staff|admin
 - **หลายสาขา:** ตาราง `branches` (parent_id/kind=group/branch) · `branch_id` บน devices/sales/visits/cash_sessions · ราคา/สต็อกรายสาขา
