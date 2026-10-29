@@ -4,6 +4,7 @@ import { getAppSettings } from '@/lib/console/settings'
 import { resolveTimePeriod } from '@/lib/console/time-period'
 import { loadTimeReport } from '@/lib/console/time-report'
 import { leaveTotal, type PersonTime } from '@/lib/console/time-report-calc'
+import { BRAND } from '@/lib/brand/config'
 
 // Back Office › Reports › Time › Export (v0.28): CSV for pay (UTF-8 with BOM
 // so Excel shows Thai). ?type=summary — one row per person of the chosen
@@ -133,7 +134,7 @@ export async function GET(request: Request) {
   const report = await loadTimeReport(period.from, period.to)
   const group = report.people.filter((p) => (period.pay === 'none' ? !p.payType : p.payType === period.pay))
   const rows = type === 'daily' ? daily(report.people) : summary(group)
-  const name = type === 'daily' ? `raventa-time-daily-${period.from}_${period.to}.csv` : `raventa-time-${period.pay}-${period.from}_${period.to}.csv`
+  const name = type === 'daily' ? `${BRAND.slug}-time-daily-${period.from}_${period.to}.csv` : `${BRAND.slug}-time-${period.pay}-${period.from}_${period.to}.csv`
   return new NextResponse(csv(rows), {
     headers: {
       'Content-Type': 'text/csv; charset=utf-8',

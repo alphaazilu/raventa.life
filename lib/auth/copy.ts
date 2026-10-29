@@ -1,3 +1,5 @@
+import { BRAND } from '@/lib/brand/config'
+
 type Bilingual = { th: string; en: string }
 
 export const authCopy: Record<string, Bilingual> = {
@@ -27,7 +29,7 @@ export const authCopy: Record<string, Bilingual> = {
   otherSignInOptions: { th: 'เข้าสู่ระบบด้วยวิธีอื่น', en: 'Other ways to sign in' },
   memberCardTapHint: { th: 'แตะบัตรเพื่อแสดง QR เช็คอิน', en: 'Tap your card to show your check-in QR' },
   memberCardOpen: { th: 'แสดง QR เช็คอินแบบเต็มจอ', en: 'Show check-in QR full screen' },
-  memberCardDialog: { th: 'บัตรสมาชิก RAVENTA', en: 'RAVENTA member card' },
+  memberCardDialog: { th: `บัตรสมาชิก ${BRAND.name}`, en: `${BRAND.name} member card` },
   memberCardClose: { th: 'ปิด', en: 'Close' },
   memberCardRefreshIn: { th: 'QR เปลี่ยนใหม่ใน', en: 'New QR in' },
   memberCardSeconds: { th: 'วินาที', en: 's' },
@@ -53,8 +55,8 @@ export const authCopy: Record<string, Bilingual> = {
   avatarUploadFailed: { th: 'อัปโหลดรูปไม่สำเร็จ กรุณาลองใหม่อีกครั้ง', en: 'Upload failed. Please try again.' },
   mergeTitle: { th: 'อีเมลนี้มีบัญชีสมาชิกอยู่แล้ว — เป็นของคุณหรือเปล่า?', en: 'This email already has a membership — is it yours?' },
   // "Already a member?" — asked first when LINE isn't linked to a membership
-  existingWelcome: { th: 'ยินดีต้อนรับสู่ RAVENTA', en: 'Welcome to RAVENTA' },
-  existingAskHeading: { th: 'เคยเป็นสมาชิก RAVENTA แล้วหรือยัง?', en: 'Already a RAVENTA member?' },
+  existingWelcome: { th: `ยินดีต้อนรับสู่ ${BRAND.name}`, en: `Welcome to ${BRAND.name}` },
+  existingAskHeading: { th: `เคยเป็นสมาชิก ${BRAND.name} แล้วหรือยัง?`, en: `Already a ${BRAND.name} member?` },
   existingAskBody: {
     th: 'ถ้าเคยสมัครด้วยอีเมลหรือ Google มาก่อน เชื่อม LINE นี้เข้ากับบัญชีเดิมได้ เลขสมาชิกและแต้มสะสมยังอยู่ครบ',
     en: 'If you joined before with email or Google, link this LINE to that account — your member number and stamps stay.',
@@ -143,8 +145,8 @@ export const authCopy: Record<string, Bilingual> = {
     en: 'Sign-in was cancelled. You can try again.',
   },
   googleExisting: {
-    th: 'อีเมลนี้มีบัญชี RAVENTA อยู่แล้ว — เข้าสู่ระบบด้วยวิธีเดิมก่อน (อีเมล/รหัสผ่าน หรือ LINE) แล้วเชื่อม Google ได้ที่ บัญชีของฉัน › ตั้งค่า',
-    en: 'This email already has a RAVENTA account — sign in the usual way first (email/password or LINE), then link Google in My account › Settings',
+    th: `อีเมลนี้มีบัญชี ${BRAND.name} อยู่แล้ว — เข้าสู่ระบบด้วยวิธีเดิมก่อน (อีเมล/รหัสผ่าน หรือ LINE) แล้วเชื่อม Google ได้ที่ บัญชีของฉัน › ตั้งค่า`,
+    en: `This email already has a ${BRAND.name} account — sign in the usual way first (email/password or LINE), then link Google in My account › Settings`,
   },
   statusPending: { th: 'รอยืนยันอีเมล', en: 'Awaiting email check' },
   googlePendingHint: {
@@ -166,8 +168,8 @@ export const authCopy: Record<string, Bilingual> = {
   unlinkFailed: { th: 'ยกเลิกไม่สำเร็จ กรุณาลองอีกครั้ง', en: 'Couldn’t unlink. Please try again.' },
   googleLinkTitle: { th: 'เชื่อม Google กับบัญชีเดิมของคุณ', en: 'Link Google to your existing account' },
   googleLinkIntro: {
-    th: 'อีเมลนี้มีบัญชี RAVENTA อยู่แล้ว เพื่อความปลอดภัยเราจะส่งรหัส 6 หลักไปที่อีเมลของบัญชี ยืนยันแล้วจะเข้าสู่ระบบและเชื่อม Google ให้ทันที',
-    en: 'This email already has a RAVENTA account. For your security we’ll email a 6-digit code to it — once confirmed you’re signed in and Google is linked.',
+    th: `อีเมลนี้มีบัญชี ${BRAND.name} อยู่แล้ว เพื่อความปลอดภัยเราจะส่งรหัส 6 หลักไปที่อีเมลของบัญชี ยืนยันแล้วจะเข้าสู่ระบบและเชื่อม Google ให้ทันที`,
+    en: `This email already has a ${BRAND.name} account. For your security we’ll email a 6-digit code to it — once confirmed you’re signed in and Google is linked.`,
   },
   googleLinkSend: { th: 'ส่งรหัสไปที่', en: 'Send a code to' },
   googleLinkConfirm: { th: 'ยืนยันและเชื่อม Google', en: 'Confirm and link Google' },
@@ -266,8 +268,8 @@ export const authCopy: Record<string, Bilingual> = {
   adminHeading: { th: 'แดชบอร์ดแอดมิน', en: 'Admin Dashboard' },
   adminWelcome: { th: 'ยินดีต้อนรับ', en: 'Welcome' },
   adminPlaceholder: {
-    th: 'พื้นที่นี้สำหรับทีมงาน RAVENTA — เตรียมไว้สำหรับจัดการเนื้อหาและข้อมูลลูกค้าในขั้นถัดไป',
-    en: 'This area is for the RAVENTA team — content and customer management tools will go here next.',
+    th: `พื้นที่นี้สำหรับทีมงาน ${BRAND.name} — เตรียมไว้สำหรับจัดการเนื้อหาและข้อมูลลูกค้าในขั้นถัดไป`,
+    en: `This area is for the ${BRAND.name} team — content and customer management tools will go here next.`,
   },
   backHome: { th: '← กลับหน้าหลัก', en: '← Back to homepage' },
   completeProfileHeading: { th: 'กรอกข้อมูลให้ครบก่อนใช้งาน', en: 'Complete Your Profile' },

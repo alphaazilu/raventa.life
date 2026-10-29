@@ -12,6 +12,7 @@ import { cookies } from 'next/headers'
 import { saveSignupReferral } from '@/lib/console/referral'
 import { REF_COOKIE } from '@/lib/referral'
 import { applyVerifiedEmail, checkEmailCode, maskEmail, sendEmailCode } from '@/lib/email-verification'
+import { BRAND } from '@/lib/brand/config'
 
 export type CompleteProfileState = {
   error?: string
@@ -36,7 +37,7 @@ const PHONE_RE = /^[0-9]{9,10}$/
 // does the finer check; this just stops obvious junk on a direct POST.
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
-const EMAIL_TAKEN_MESSAGE_TH = 'อีเมลนี้เป็นสมาชิก RAVENTA อยู่แล้ว'
+const EMAIL_TAKEN_MESSAGE_TH = `อีเมลนี้เป็นสมาชิก ${BRAND.name} อยู่แล้ว`
 
 export async function completeProfile(
   _prevState: CompleteProfileState,

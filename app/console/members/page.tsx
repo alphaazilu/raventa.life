@@ -7,9 +7,10 @@ import { canUseDesk, DESK_PATH, MEMBERS_PATH } from '@/lib/auth/roles'
 import { getCurrentDevice } from '@/lib/console/device'
 import { getAppSettings } from '@/lib/console/settings'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { BRAND } from '@/lib/brand/config'
 
 export const metadata: Metadata = {
-  title: 'ข้อมูลลูกค้า | RAVENTA Back Office',
+  title: `ข้อมูลลูกค้า | ${BRAND.backOfficeName}`,
 }
 
 const RESULT_LIMIT = 50

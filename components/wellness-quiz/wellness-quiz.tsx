@@ -12,6 +12,7 @@ import { matchJourney } from "@/lib/wellness-quiz/match"
 import { submitQuizLead } from "@/app/quiz/actions"
 import type { MatchResult } from "@/lib/wellness-quiz/types"
 import type { AgeBand, Experience, Fitness, Goal, Hydration, QuizAnswers, Rested, SafetyFlag, ZoneId } from "@/lib/wellness-quiz/types"
+import { BRAND } from "@/lib/brand/config"
 
 type Step = "goal" | "time" | "experience" | "activity" | "health" | "safety" | "preferences" | "result"
 const STEP_ORDER: Step[] = ["goal", "time", "experience", "activity", "health", "safety", "preferences", "result"]
@@ -21,8 +22,8 @@ const QUESTION_COUNT = STEP_ORDER.length - 1
 // login when the visitor isn't signed in yet.
 const BOOK_HREF = "/account/bookings"
 const SIGNUP_HREF = "/login"
-const PHONE_TEL = "+66804294264"
-const LINE_HREF = "https://line.me/R/ti/p/@630xxrfx"
+const PHONE_TEL = BRAND.contact.phoneTel
+const LINE_HREF = BRAND.contact.lineHref
 
 // Display-only grouping for the result's colour coding (phase 3). The matcher
 // keeps its own sets in match.ts; this never feeds back into timing.
@@ -358,7 +359,7 @@ export function WellnessQuiz() {
     <div ref={rootRef} className="mx-auto w-full max-w-2xl scroll-mt-28 overflow-x-clip px-4 py-8">
       {step === "goal" && (
         <div className="mb-10 text-center">
-          <p className="text-xs font-semibold tracking-brand uppercase text-wood">RAVENTA</p>
+          <p className="text-xs font-semibold tracking-brand uppercase text-wood">{BRAND.name}</p>
           <h1 className="mt-3 text-balance font-display text-3xl font-extrabold text-foreground md:text-4xl">
             {tr(quizCopy.title)}
           </h1>

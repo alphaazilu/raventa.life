@@ -16,9 +16,10 @@ import { getRules, memberBookings, memberNoShow } from '@/lib/console/booking'
 import { MemberReferral } from '@/components/console/member-referral'
 import { referralOf } from '@/lib/console/referral'
 import { listEarners } from '@/lib/console/commission'
+import { BRAND } from '@/lib/brand/config'
 
 export const metadata: Metadata = {
-  title: 'ข้อมูลสมาชิก | RAVENTA Back Office',
+  title: `ข้อมูลสมาชิก | ${BRAND.backOfficeName}`,
 }
 
 export default async function EditMemberPage({ params }: { params: Promise<{ id: string }> }) {

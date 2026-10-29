@@ -1,4 +1,5 @@
 import Image from 'next/image'
+import { BRAND } from '@/lib/brand/config'
 
 // Shown while a page's data loads (Next.js route loading UI): the full
 // logo on white, breathing gently, with a thin progress line.
@@ -11,10 +12,10 @@ export default function Loading() {
       aria-label="กำลังโหลด · Loading"
     >
       <Image
-        src="/images/logo-full.png"
-        alt="RAVENTA"
-        width={1166}
-        height={620}
+        src={BRAND.logos.full.src}
+        alt={BRAND.name}
+        width={BRAND.logos.full.width}
+        height={BRAND.logos.full.height}
         priority
         className="h-auto w-56 motion-safe:animate-[rv-breathe_2.4s_ease-in-out_infinite] md:w-72"
       />

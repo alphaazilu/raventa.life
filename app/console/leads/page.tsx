@@ -4,9 +4,10 @@ import { getConsoleSession } from '@/lib/console/session'
 import { DESK_PATH, LEADS_PATH, isAdmin } from '@/lib/auth/roles'
 import { listLeads } from '@/lib/console/leads'
 import { LeadsView } from '@/components/console/leads-view'
+import { BRAND } from '@/lib/brand/config'
 
 export const metadata: Metadata = {
-  title: 'ผู้สนใจจาก Quiz | RAVENTA Back Office',
+  title: `ผู้สนใจจาก Quiz | ${BRAND.backOfficeName}`,
 }
 
 export const dynamic = 'force-dynamic'

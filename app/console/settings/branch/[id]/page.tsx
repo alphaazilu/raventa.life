@@ -5,9 +5,10 @@ import { getCurrentDevice } from '@/lib/console/device'
 import { loadBranchDetail } from '@/lib/console/branch-detail'
 import { BranchSettingsView } from '@/components/console/branch-settings-view'
 import { DESK_PATH, isAdmin, SETTINGS_PATH } from '@/lib/auth/roles'
+import { BRAND } from '@/lib/brand/config'
 
 export const metadata: Metadata = {
-  title: 'ตั้งค่าสาขา | RAVENTA Back Office',
+  title: `ตั้งค่าสาขา | ${BRAND.backOfficeName}`,
 }
 
 export const dynamic = 'force-dynamic'

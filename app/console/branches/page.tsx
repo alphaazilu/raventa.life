@@ -5,9 +5,10 @@ import { getCurrentDevice } from '@/lib/console/device'
 import { listBranches } from '@/lib/console/settings'
 import { BranchTree } from '@/components/console/branch-tree'
 import { DESK_PATH, isAdmin, BRANCHES_PATH } from '@/lib/auth/roles'
+import { BRAND } from '@/lib/brand/config'
 
 export const metadata: Metadata = {
-  title: 'สาขา | RAVENTA Back Office',
+  title: `สาขา | ${BRAND.backOfficeName}`,
 }
 
 export const dynamic = 'force-dynamic'
@@ -33,7 +34,7 @@ export default async function BranchesPage() {
           ยังตั้งค่าสาขาไม่ได้ — ต้องรัน schema.sql ถึง §46 ก่อน
         </p>
       ) : (
-        <BranchTree branches={branches} companyName="RAVENTA" />
+        <BranchTree branches={branches} companyName={BRAND.name} />
       )}
     </main>
   )

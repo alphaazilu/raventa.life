@@ -7,9 +7,10 @@ import { listItems, loadExtras, visibleOccurrences } from '@/lib/console/calenda
 import { listStaff } from '@/lib/console/time'
 import { addDays } from '@/lib/calendar'
 import { CalendarView } from '@/components/console/calendar-view'
+import { BRAND } from '@/lib/brand/config'
 
 export const metadata: Metadata = {
-  title: 'ปฏิทิน | RAVENTA Back Office',
+  title: `ปฏิทิน | ${BRAND.backOfficeName}`,
 }
 
 export const dynamic = 'force-dynamic'

@@ -1,4 +1,5 @@
 import type { Goal } from './types'
+import { BRAND } from '@/lib/brand/config'
 
 type Bilingual = { th: string; en: string }
 
@@ -139,7 +140,7 @@ export const quizCopy = {
       th: '💧 ดื่มน้ำ 1–2 แก้วก่อนเริ่มและหลังจบ และจิบน้ำระหว่างพักที่ The Canopy',
       en: '💧 Drink 1–2 glasses of water before and after, and sip during rest at The Canopy',
     },
-    shareTitle: { th: 'เส้นทางของฉันที่ RAVENTA', en: 'My journey at RAVENTA' },
+    shareTitle: { th: `เส้นทางของฉันที่ ${BRAND.name}`, en: `My journey at ${BRAND.name}` },
     ctaHeading: { th: 'พร้อมมาลองเส้นทางนี้แล้วหรือยัง?', en: 'Ready to try this journey?' },
     notMedical: {
       th: 'เส้นทางนี้เป็นคำแนะนำทั่วไปเพื่อการผ่อนคลาย ไม่ใช่คำแนะนำทางการแพทย์ · หากมีโรคประจำตัวหรือไม่แน่ใจ ควรปรึกษาแพทย์ และฟังสัญญาณร่างกายเสมอ',
@@ -157,7 +158,7 @@ export const quizCopy = {
     phonePh: { th: 'เบอร์โทรศัพท์', en: 'Phone number' },
     emailPh: { th: 'อีเมล', en: 'Email address' },
     linePh: { th: 'LINE ID', en: 'LINE ID' },
-    consent: { th: 'ฉันยินยอมให้ RAVENTA เก็บข้อมูลติดต่อนี้เพื่อติดต่อกลับ ตามนโยบายความเป็นส่วนตัว', en: 'I agree to RAVENTA keeping this contact to reach out, per the privacy policy' },
+    consent: { th: `ฉันยินยอมให้ ${BRAND.name} เก็บข้อมูลติดต่อนี้เพื่อติดต่อกลับ ตามนโยบายความเป็นส่วนตัว`, en: `I agree to ${BRAND.name} keeping this contact to reach out, per the privacy policy` },
     privacyLink: { th: 'นโยบายความเป็นส่วนตัว', en: 'privacy policy' },
     submit: { th: 'ส่งให้ทีมงาน', en: 'Send' },
     sending: { th: 'กำลังส่ง…', en: 'Sending…' },

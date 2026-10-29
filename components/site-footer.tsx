@@ -4,6 +4,7 @@ import Image from 'next/image'
 import { usePathname } from 'next/navigation'
 import { useLanguage } from '@/components/language-provider'
 import { t } from '@/lib/i18n'
+import { BRAND } from '@/lib/brand/config'
 
 const links = [
   { href: '#about', key: 'about' as const },
@@ -30,10 +31,10 @@ export function SiteFooter() {
           {/* The logo keeps its own red, so it sits on a white tile here. */}
           <div className="rounded-2xl bg-white px-7 py-5">
             <Image
-              src="/images/logo-full.png"
-              alt="RAVENTA Wellness Retreat"
-              width={1166}
-              height={620}
+              src={BRAND.logos.full.src}
+              alt={BRAND.fullName}
+              width={BRAND.logos.full.width}
+              height={BRAND.logos.full.height}
               className="h-auto w-40"
             />
           </div>
@@ -64,7 +65,7 @@ export function SiteFooter() {
             </a>
           </nav>
           <p>
-            &copy; {new Date().getFullYear()} RAVENTA Wellness Retreat, Rayong. {tr(t.footer.rights)}
+            &copy; {new Date().getFullYear()}{` ${BRAND.fullName}, Rayong. `}{tr(t.footer.rights)}
           </p>
           {/* Set in next.config.mjs from package.json + the Vercel commit. */}
           <p className="font-mono text-[10px] text-accent-foreground/40">

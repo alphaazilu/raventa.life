@@ -6,9 +6,10 @@ import { createClient } from '@/lib/supabase/server'
 import { loadVisitHistory } from '@/lib/visit-history'
 import { VisitHistoryView } from '@/components/visit-history-view'
 import { BackLink } from '@/components/account/account-view'
+import { BRAND } from '@/lib/brand/config'
 
 export const metadata: Metadata = {
-  title: 'My visits | RAVENTA Wellness Retreat',
+  title: `My visits | ${BRAND.fullName}`,
 }
 
 // The member's own visits (RLS: own rows only). No prices or staff names.

@@ -6,9 +6,10 @@ import { CONSOLE_PATH, consoleHome, isAdmin } from '@/lib/auth/roles'
 import { loadDashboard } from './dashboard-data'
 import { loadAlerts } from '@/lib/console/alerts'
 import { getAppSettings } from '@/lib/console/settings'
+import { BRAND } from '@/lib/brand/config'
 
 export const metadata: Metadata = {
-  title: 'ภาพรวม | RAVENTA Back Office',
+  title: `ภาพรวม | ${BRAND.backOfficeName}`,
 }
 
 export const dynamic = 'force-dynamic'

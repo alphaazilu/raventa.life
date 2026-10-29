@@ -9,6 +9,7 @@ import { useLanguage } from '@/components/language-provider'
 import { consoleCopy } from '@/lib/console/copy'
 import { CONSOLE_PATH } from '@/lib/auth/roles'
 import { Spinner } from '@/components/ui/spinner'
+import { BRAND } from '@/lib/brand/config'
 
 const POLL_MS = 2500
 
@@ -78,8 +79,8 @@ export function TabletPair({ siteUrl }: { siteUrl: string }) {
   return (
     <main className="flex min-h-dvh flex-col bg-background px-6 py-6 md:px-10">
       <header className="flex items-center gap-3">
-        <Image src="/images/logo-emblem.png" alt="" width={405} height={404} className="h-9 w-9" priority />
-        <Image src="/images/logo-wordmark.png" alt="RAVENTA" width={1166} height={157} className="h-[17px] w-auto" priority />
+        <Image src={BRAND.logos.emblem.src} alt="" width={BRAND.logos.emblem.width} height={BRAND.logos.emblem.height} className="h-9 w-9" priority />
+        <Image src={BRAND.logos.wordmark.src} alt={BRAND.name} width={BRAND.logos.wordmark.width} height={BRAND.logos.wordmark.height} className="h-[17px] w-auto" priority />
         <span className="rounded-full border border-border bg-secondary px-2.5 py-0.5 font-display text-[10px] font-bold tracking-[0.14em] text-secondary-foreground uppercase">
           {tr(consoleCopy.backOffice)}
         </span>

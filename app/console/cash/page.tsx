@@ -11,9 +11,10 @@ import { dayBounds } from '@/lib/console/checklist'
 import type { CashSession } from '@/lib/cash'
 import { CashView } from '@/components/console/cash-view'
 import { DeskTabletOnly } from '@/components/console/desk-tablet-only'
+import { BRAND } from '@/lib/brand/config'
 
 export const metadata: Metadata = {
-  title: 'ปิดกะ | RAVENTA Back Office',
+  title: `ปิดกะ | ${BRAND.backOfficeName}`,
 }
 
 export const dynamic = 'force-dynamic'

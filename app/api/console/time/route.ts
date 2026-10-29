@@ -4,6 +4,7 @@ import { addDays, isoToBangkokLocal, listEntries, minutesOf, isForgotten, weekSt
 import { bangkokToday } from '@/lib/check-in/day'
 import { isAdmin } from '@/lib/auth/roles'
 import { DEFAULT_SETTINGS, entryStats, getTimeSettings, groupAssignments, listAssignments, listTemplates } from '@/lib/console/shifts'
+import { BRAND } from '@/lib/brand/config'
 
 export const dynamic = 'force-dynamic'
 
@@ -60,7 +61,7 @@ export async function GET(request: NextRequest) {
   return new NextResponse('\uFEFF' + lines.join('\r\n') + '\r\n', {
     headers: {
       'Content-Type': 'text/csv; charset=utf-8',
-      'Content-Disposition': `attachment; filename="raventa-time-${start}.csv"`,
+      'Content-Disposition': `attachment; filename="${BRAND.slug}-time-${start}.csv"`,
       'Cache-Control': 'no-store',
     },
   })

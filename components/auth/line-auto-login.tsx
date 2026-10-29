@@ -6,6 +6,7 @@ import { useLanguage } from '@/components/language-provider'
 import { authCopy } from '@/lib/auth/copy'
 import { startOAuth } from '@/components/auth/oauth-buttons'
 import { Spinner } from '@/components/ui/spinner'
+import { BRAND } from '@/lib/brand/config'
 
 // What someone sees after tapping the LINE OA rich menu (/login?via=line):
 // just the logo and a spinner while LINE signs them in — never the
@@ -35,7 +36,7 @@ export function LineAutoLogin({ next }: { next: string }) {
 
   return (
     <div className="mx-auto flex min-h-[60vh] max-w-sm flex-col items-center justify-center px-4 py-16 text-center">
-      <Image src="/images/logo-full.png" alt="RAVENTA" width={1166} height={620} className="h-auto w-44" priority />
+      <Image src={BRAND.logos.full.src} alt={BRAND.name} width={BRAND.logos.full.width} height={BRAND.logos.full.height} className="h-auto w-44" priority />
       {failed ? (
         <>
           <p className="mt-6 text-sm text-destructive">{tr(authCopy.oauthFailed)}</p>

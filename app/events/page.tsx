@@ -4,9 +4,10 @@ import { SiteFooter } from '@/components/site-footer'
 import { EventsView } from '@/components/calendar/events-view'
 import { upcomingOutside } from '@/lib/console/calendar'
 import { bangkokToday } from '@/lib/check-in/day'
+import { BRAND } from '@/lib/brand/config'
 
 export const metadata: Metadata = {
-  title: 'กิจกรรมและข่าวสาร | RAVENTA Wellness Retreat',
+  title: `กิจกรรมและข่าวสาร | ${BRAND.fullName}`,
 }
 
 // Rebuilt at most every 5 minutes (calendar changes also refresh it).

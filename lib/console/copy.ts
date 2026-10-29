@@ -1,3 +1,5 @@
+import { BRAND } from '@/lib/brand/config'
+
 // Back Office console (/console). Staff- and admin-facing: short and direct.
 export const consoleCopy = {
   backOffice: { th: 'Back Office', en: 'Back Office' },
@@ -121,7 +123,7 @@ export const consoleCopy = {
   installIos2: { th: 'เลื่อนลงแล้วเลือก', en: 'Scroll down and choose' },
   installIos2b: { th: 'เพิ่มไปยังหน้าจอโฮม', en: 'Add to Home Screen' },
   installIos3: { th: 'กด “เพิ่ม” ที่มุมขวาบน', en: 'Tap “Add” at the top right' },
-  installIos4: { th: 'ปิด Safari แล้วเปิดจากไอคอน RAVENTA บนหน้าจอโฮม', en: 'Close Safari and open the RAVENTA icon on the home screen' },
+  installIos4: { th: `ปิด Safari แล้วเปิดจากไอคอน ${BRAND.name} บนหน้าจอโฮม`, en: `Close Safari and open the ${BRAND.name} icon on the home screen` },
   installUseSafari: { th: 'เบราว์เซอร์นี้บน iPad เพิ่มไอคอนไม่ได้ — เปิดลิงก์นี้ใน Safari แล้วกดปุ่มนี้อีกครั้ง', en: 'This browser on iPad can’t add the icon — open this link in Safari and tap the button again' },
   installCopy: { th: 'คัดลอกลิงก์', en: 'Copy link' },
   installCopied: { th: 'คัดลอกแล้ว — วางใน Safari', en: 'Copied — paste it in Safari' },
@@ -134,7 +136,7 @@ export const consoleCopy = {
   // lock screen (registered tablet, nobody signed in)
   lockRegistered: { th: 'เครื่องนี้ลงทะเบียนแล้ว', en: 'This device is registered' },
   lockHeading: { th: 'สแกนบัตรสมาชิกของคุณเพื่อเริ่มใช้งาน', en: 'Scan your member card to start' },
-  lockHint: { th: 'เปิดบัตรในเว็บ RAVENTA บนมือถือ แตะบัตรให้ขึ้น QR แล้วยื่นให้กล้อง', en: 'Open your card in the RAVENTA site on your phone, tap it for the QR, and hold it to the camera' },
+  lockHint: { th: `เปิดบัตรในเว็บ ${BRAND.name} บนมือถือ แตะบัตรให้ขึ้น QR แล้วยื่นให้กล้อง`, en: `Open your card in the ${BRAND.name} site on your phone, tap it for the QR, and hold it to the camera` },
   lockSignIn: { th: 'ลืมมือถือ? เข้าสู่ระบบด้วยรหัสผ่าน', en: 'No phone? Sign in with a password' },
   lockChecking: { th: 'กำลังตรวจสอบบัตร…', en: 'Checking card…' },
   lockWelcome: { th: 'ยืนยันแล้ว กำลังเปิด…', en: 'Verified — opening…' },
@@ -193,7 +195,7 @@ export const consoleCopy = {
   // devices page
   devicesHeading: { th: 'อุปกรณ์', en: 'Devices' },
   addDevice: { th: 'เพิ่มเครื่อง', en: 'Add device' },
-  addDeviceIntro: { th: 'บน Tablet เปิด raventawellness.com/tablet แล้วสแกน QR บนจอ หรือพิมพ์รหัส 6 หลัก', en: 'On the tablet open raventawellness.com/tablet, then scan its QR or type the 6-digit code' },
+  addDeviceIntro: { th: `บน Tablet เปิด ${BRAND.domain}/tablet แล้วสแกน QR บนจอ หรือพิมพ์รหัส 6 หลัก`, en: `On the tablet open ${BRAND.domain}/tablet, then scan its QR or type the 6-digit code` },
   scanTabletQr: { th: 'สแกน QR บนจอ Tablet', en: 'Scan the tablet’s QR' },
   codeLabel: { th: 'รหัส 6 หลัก', en: '6-digit code' },
   nameLabel: { th: 'ชื่อเครื่อง', en: 'Device name' },
@@ -220,7 +222,7 @@ export const consoleCopy = {
 export const lockErrors: Record<string, { th: string; en: string }> = {
   not_device: { th: 'เครื่องนี้ยังไม่ได้ลงทะเบียน', en: 'This device isn’t registered' },
   qr_expired: { th: 'QR หมดอายุแล้ว — แตะบัตรเพื่อเปิด QR ใหม่', en: 'QR expired — tap the card for a fresh one' },
-  qr_invalid: { th: 'QR นี้ไม่ใช่บัตรสมาชิก RAVENTA', en: 'Not a RAVENTA member card' },
+  qr_invalid: { th: `QR นี้ไม่ใช่บัตรสมาชิก ${BRAND.name}`, en: `Not a ${BRAND.name} member card` },
   not_staff: { th: 'บัตรนี้ไม่ใช่พนักงาน — ใช้บัตรของพนักงานเท่านั้น', en: 'This card isn’t staff — staff cards only' },
   no_email: { th: 'บัญชีนี้ยังไม่มีอีเมลเข้าสู่ระบบ — ยืนยันอีเมลในหน้าตั้งค่าบัญชีก่อน', en: 'This account has no login email yet — confirm one in account settings first' },
   admin_no_clock: { th: 'แอดมินไม่ต้องลงเวลา — กด “เปิดระบบ” แทน', en: 'Admins don’t clock in — use “Open system”' },

@@ -16,15 +16,16 @@ import { lockConsole } from './lock-actions'
 import { clockInIfNeeded, isForgotten, listOpenEntries } from '@/lib/console/time'
 import { getAppSettings } from '@/lib/console/settings'
 import { UpdateBanner } from '@/components/console/update-banner'
+import { BRAND } from '@/lib/brand/config'
 
 export const metadata: Metadata = {
-  title: 'Back Office | RAVENTA Wellness Retreat',
+  title: `Back Office | ${BRAND.fullName}`,
   robots: { index: false, follow: false },
   // "Add to Home Screen" on the counter tablet opens the console as an app:
   // full screen, no browser bar (iPad Chrome/Safari can't go full screen
   // any other way). See public/console.webmanifest.
   manifest: '/console.webmanifest',
-  appleWebApp: { capable: true, title: 'RAVENTA BO', statusBarStyle: 'default' },
+  appleWebApp: { capable: true, title: BRAND.appShortName, statusBarStyle: 'default' },
 }
 
 export const viewport: Viewport = {

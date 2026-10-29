@@ -14,6 +14,7 @@ import { AvatarCircle } from '@/components/account/avatar-circle'
 import { SearchInput } from '@/components/ui/search-input'
 import type { Person, RoleChange } from '@/lib/console/team'
 import { cn } from '@/lib/utils'
+import { BRAND } from '@/lib/brand/config'
 
 type L = { th: string; en: string }
 const t = {
@@ -74,7 +75,7 @@ const errors: Record<string, L> = {
   not_found: { th: 'ไม่พบสมาชิกคนนี้', en: 'Member not found' },
   not_admin: { th: 'เฉพาะแอดมินเท่านั้น', en: 'Admins only' },
   qr_expired: { th: 'QR หมดอายุ — ให้แตะบัตรเพื่อขึ้น QR ใหม่', en: 'QR expired — tap the card for a fresh one' },
-  qr_invalid: { th: 'ไม่ใช่ QR บัตรสมาชิก RAVENTA', en: 'Not a RAVENTA member card QR' },
+  qr_invalid: { th: `ไม่ใช่ QR บัตรสมาชิก ${BRAND.name}`, en: `Not a ${BRAND.name} member card QR` },
   failed: { th: 'บันทึกไม่สำเร็จ ลองอีกครั้ง', en: 'Couldn’t save — try again' },
   not_team: { th: 'ต้องเป็นพนักงานหรือแอดมินก่อน', en: 'Make them staff or admin first' },
   pay_not_set_up: { th: 'ยังไม่ได้รัน supabase/schema.sql (§28)', en: 'Run supabase/schema.sql (§28) first' },

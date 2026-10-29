@@ -3,10 +3,11 @@ import { SiteHeader } from '@/components/site-header'
 import { SiteFooter } from '@/components/site-footer'
 import { LegalPage } from '@/components/legal/legal-page'
 import { privacyPolicyUpdated, privacyPolicySections } from '@/lib/legal/content'
+import { BRAND } from '@/lib/brand/config'
 
 export const metadata: Metadata = {
-  title: 'นโยบายความเป็นส่วนตัว | RAVENTA Wellness Retreat',
-  description: 'นโยบายความเป็นส่วนตัวของ RAVENTA Wellness Retreat — Privacy Policy for RAVENTA Wellness Retreat.',
+  title: `นโยบายความเป็นส่วนตัว | ${BRAND.fullName}`,
+  description: `นโยบายความเป็นส่วนตัวของ ${BRAND.fullName} — Privacy Policy for ${BRAND.fullName}.`,
 }
 
 export default function PrivacyPolicyPage() {

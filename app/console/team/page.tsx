@@ -4,9 +4,10 @@ import { getConsoleSession } from '@/lib/console/session'
 import { DESK_PATH, isAdmin, TEAM_PATH } from '@/lib/auth/roles'
 import { listPayTypes, listTeam, roleHistory } from '@/lib/console/team'
 import { TeamView } from '@/components/console/team-view'
+import { BRAND } from '@/lib/brand/config'
 
 export const metadata: Metadata = {
-  title: 'ทีมงานและสิทธิ์ | RAVENTA Back Office',
+  title: `ทีมงานและสิทธิ์ | ${BRAND.backOfficeName}`,
 }
 
 export const dynamic = 'force-dynamic'

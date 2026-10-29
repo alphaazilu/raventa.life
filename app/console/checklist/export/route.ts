@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { requireAdmin } from '@/lib/console/guard'
 import { dayBounds, listPoints, listScans } from '@/lib/console/checklist'
+import { BRAND } from '@/lib/brand/config'
 
 // Back Office › Checklists › Log as CSV (§29, v0.29). UTF-8 with BOM so
 // Excel shows Thai. One row per scan; answers as "label: value".
@@ -48,7 +49,7 @@ export async function GET(request: Request) {
   return new NextResponse(csv(rows), {
     headers: {
       'Content-Type': 'text/csv; charset=utf-8',
-      'Content-Disposition': `attachment; filename="raventa-checklist-${from}_${to}.csv"`,
+      'Content-Disposition': `attachment; filename="${BRAND.slug}-checklist-${from}_${to}.csv"`,
       'Cache-Control': 'no-store',
     },
   })

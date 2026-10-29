@@ -5,8 +5,9 @@ import { SiteFooter } from '@/components/site-footer'
 import { createClient } from '@/lib/supabase/server'
 import { readShareLink } from '@/app/account/package-actions'
 import { AcceptShare } from './accept-share'
+import { BRAND } from '@/lib/brand/config'
 
-export const metadata: Metadata = { title: 'Shared package | RAVENTA Wellness Retreat' }
+export const metadata: Metadata = { title: `Shared package | ${BRAND.fullName}` }
 
 // A friend opens a package share link (email or QR, §23). Sign in (or join)
 // first, then accept.

@@ -8,9 +8,10 @@ import { bangkokToday } from '@/lib/check-in/day'
 import { CATALOG_PATH, DESK_PATH, isAdmin } from '@/lib/auth/roles'
 import { listEarners, listRules } from '@/lib/console/commission'
 import { allCodes, getDefaultReferrer } from '@/lib/console/referral'
+import { BRAND } from '@/lib/brand/config'
 
 export const metadata: Metadata = {
-  title: 'สินค้าและราคา | RAVENTA Back Office',
+  title: `สินค้าและราคา | ${BRAND.backOfficeName}`,
 }
 
 export const dynamic = 'force-dynamic'

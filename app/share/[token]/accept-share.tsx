@@ -7,11 +7,12 @@ import { Spinner } from '@/components/ui/spinner'
 import { GiftVoucher } from '@/components/gift-voucher'
 import { formatMemberDate } from '@/lib/format-date'
 import { acceptShareLink, type ShareInfo } from '@/app/account/package-actions'
+import { BRAND } from '@/lib/brand/config'
 
 const t = {
   // One-visit sharing: a gift.
   title: { th: 'คุณ{n} ส่งของขวัญให้คุณ', en: '{n} sent you a gift' },
-  sub: { th: 'Day Pass 1 ครั้ง ที่ RAVENTA Wellness Retreat', en: 'One Day Pass at RAVENTA Wellness Retreat' },
+  sub: { th: `Day Pass 1 ครั้ง ที่ ${BRAND.fullName}`, en: `One Day Pass at ${BRAND.fullName}` },
   accept: { th: 'รับของขวัญ', en: 'Accept the gift' },
   done: { th: 'รับแล้ว! บัตรของขวัญอยู่ในบัญชีของคุณ — ยื่นบัตรสมาชิกที่เคาน์เตอร์ได้เลย', en: 'It’s yours! The voucher is in your account — just show your member card at the counter' },
   note: { th: 'ไม่ได้แสตมป์สะสมจากของขวัญ · ผู้ให้ดึงคืนได้ถ้ายังไม่ได้ใช้', en: 'Gift visits don’t earn stamps · the giver can take it back while unused' },

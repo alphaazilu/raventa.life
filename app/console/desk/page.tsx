@@ -10,9 +10,10 @@ import { DeskTabletOnly } from '@/components/console/desk-tablet-only'
 import { getCashRules, getCurrentSession } from '@/lib/console/cash'
 import { loadDeskCommission } from '@/lib/console/commission'
 import { getAppSettings } from '@/lib/console/settings'
+import { BRAND } from '@/lib/brand/config'
 
 export const metadata: Metadata = {
-  title: 'ขาย + เช็คอิน | RAVENTA Back Office',
+  title: `ขาย + เช็คอิน | ${BRAND.backOfficeName}`,
 }
 
 // Sell + check in — the counter tablet's main screen.

@@ -5,9 +5,10 @@ import { SiteFooter } from '@/components/site-footer'
 import { CompleteProfileForm } from '@/components/complete-profile/complete-profile-form'
 import { createClient } from '@/lib/supabase/server'
 import { isProfileComplete, PROFILE_COMPLETENESS_COLUMNS } from '@/lib/supabase/profile'
+import { BRAND } from '@/lib/brand/config'
 
 export const metadata: Metadata = {
-  title: 'Complete Your Profile | RAVENTA Wellness Retreat',
+  title: `Complete Your Profile | ${BRAND.fullName}`,
 }
 
 export default async function CompleteProfilePage({

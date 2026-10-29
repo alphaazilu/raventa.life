@@ -15,9 +15,10 @@ import { pendingVisit } from '@/lib/console/feedback'
 import { isEarner, myCommissionCard } from '@/lib/console/commission'
 import { codeFor } from '@/lib/console/referral'
 import { listTypes, memberBookings } from '@/lib/console/booking'
+import { BRAND } from '@/lib/brand/config'
 
 export const metadata: Metadata = {
-  title: 'My Account | RAVENTA Wellness Retreat',
+  title: `My Account | ${BRAND.fullName}`,
 }
 
 const GIFT_KEEP_DAYS = 60
@@ -93,7 +94,7 @@ export default async function AccountPage({
   const referral = refCode
     ? {
         code: refCode,
-        link: `${(process.env.SITE_URL ?? 'https://www.raventawellness.com').replace(/\/$/, '')}/login?ref=${refCode}`,
+        link: `${(process.env.SITE_URL ?? BRAND.siteUrl).replace(/\/$/, '')}/login?ref=${refCode}`,
         earns: Boolean(await isEarner(user.id).catch(() => false)),
       }
     : null

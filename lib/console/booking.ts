@@ -29,6 +29,7 @@ import {
   type NoShowStatus,
   type Slot,
 } from '@/lib/booking'
+import { BRAND } from '@/lib/brand/config'
 
 // Bookings (§34, v0.35). SERVER ONLY (service role). Callers check who is asking.
 
@@ -318,7 +319,7 @@ export async function sendBookingEmail(bookingId: string, kind: 'booked' | 'canc
     if (!to) return
     const { data: t } = await db().from('booking_types').select('duration_min, cancel_hours').eq('id', b.typeId).maybeSingle()
     const cancelBy = t ? new Date(Date.parse(b.start) - Number(t.cancel_hours) * 3_600_000).toISOString() : null
-    const site = process.env.SITE_URL ?? 'https://www.raventawellness.com'
+    const site = process.env.SITE_URL ?? BRAND.siteUrl
     const { subject, html } = bookingEmail({
       kind,
       firstName: (p?.first_name as string | null) ?? null,

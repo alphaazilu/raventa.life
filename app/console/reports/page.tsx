@@ -11,9 +11,10 @@ import { ReportView } from '@/components/console/report-view'
 import { TimeReportView } from '@/components/console/time-report-view'
 import { CommissionReportView } from '@/components/console/commission-report-view'
 import { loadCommissionReport } from '@/lib/console/commission'
+import { BRAND } from '@/lib/brand/config'
 
 export const metadata: Metadata = {
-  title: 'รายงาน | RAVENTA Back Office',
+  title: `รายงาน | ${BRAND.backOfficeName}`,
 }
 
 export const dynamic = 'force-dynamic'

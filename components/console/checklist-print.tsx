@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { Printer } from 'lucide-react'
 import { useLanguage } from '@/components/language-provider'
+import { BRAND } from '@/lib/brand/config'
 
 type Sticker = { id: string; name: string; place: string | null; url: string; version: number }
 
@@ -47,7 +48,7 @@ export function PrintStickers({ stickers }: { stickers: Sticker[] }) {
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 print:grid-cols-2 print:gap-0">
         {stickers.map((s) => (
           <div key={s.id} className="flex break-inside-avoid flex-col items-center rounded-2xl border-2 border-dashed border-border bg-white p-6 text-center text-[#1a1a1a] print:h-[148mm] print:justify-center print:rounded-none">
-            <p className="text-xs font-bold tracking-[0.3em] text-[#8D1821]">RAVENTA · CHECK POINT</p>
+            <p className="text-xs font-bold tracking-[0.3em] text-[color:var(--brand-checkpoint)]">{BRAND.name} · CHECK POINT</p>
             <p className="mt-2 font-display text-3xl font-extrabold">{s.name}</p>
             {s.place && <p className="mt-1 text-sm text-neutral-600">{s.place}</p>}
             {images[s.id] ? (

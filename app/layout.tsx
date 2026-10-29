@@ -3,6 +3,7 @@ import type { Metadata, Viewport } from 'next'
 import localFont from 'next/font/local'
 import { LanguageProvider } from '@/components/language-provider'
 import './globals.css'
+import { BRAND } from '@/lib/brand/config'
 
 // Self-hosted variable fonts (Sora, Noto Sans Thai) — avoids a next/font/google
 // build-time fetch to fonts.googleapis.com, which some networks/sandboxes block.
@@ -23,15 +24,15 @@ const notoSansThai = localFont({
 })
 
 export const metadata: Metadata = {
-  title: 'RAVENTA Wellness Retreat | Contrast Therapy · Sauna · Rayong',
+  title: `${BRAND.fullName} | Contrast Therapy · Sauna · Rayong`,
   description:
-    'RAVENTA Wellness Retreat, Rayong — Contrast therapy, hot pools, cold plunge, sauna, steam room and sun bath. Recover, Rebalance, Revive. Return to your best self.',
+    `${BRAND.fullName}, Rayong — Contrast therapy, hot pools, cold plunge, sauna, steam room and sun bath. Recover, Rebalance, Revive. Return to your best self.`,
   generator: 'v0.app',
 }
 
 export const viewport: Viewport = {
   colorScheme: 'light',
-  themeColor: '#8b1e2d',
+  themeColor: BRAND.colors.primary,
 }
 
 export default function RootLayout({

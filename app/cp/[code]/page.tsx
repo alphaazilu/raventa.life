@@ -4,9 +4,10 @@ import { SiteHeader } from '@/components/site-header'
 import { createClient } from '@/lib/supabase/server'
 import { openPoint } from '@/app/account/checklist-actions'
 import { PointPage } from '@/components/checklist/point-page'
+import { BRAND } from '@/lib/brand/config'
 
 export const metadata: Metadata = {
-  title: 'จุดตรวจ | RAVENTA',
+  title: `จุดตรวจ | ${BRAND.name}`,
   robots: { index: false, follow: false },
 }
 
