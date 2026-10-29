@@ -17,10 +17,14 @@ import { cn } from '@/lib/utils'
 // so pages no longer need coloured bars that push their content down. Each
 // row links to the page (and tab) where it gets handled. The red dot means
 // "something new since you last opened it" — remembered per device.
+//
+// Urgent rows (v0.41.2): red = the row's style; urgent = pinned to the top
+// and keeps the badge red until it's handled (the count drops to 0), opened
+// or not. To make another kind urgent, set urgent: true on its row.
 
 type L = { th: string; en: string }
 type GroupKey = keyof typeof bellCopy.groups
-type Row = { key: keyof ConsoleAlerts; n: number; text: L; href: string; red?: boolean; info?: boolean }
+type Row = { key: keyof ConsoleAlerts; n: number; text: L; href: string; red?: boolean; urgent?: boolean; info?: boolean }
 
 const SEEN_KEY = 'rv-bell-seen'
 export const OPEN_BELL_EVENT = 'rv-open-bell'
@@ -54,8 +58,8 @@ function rowsFor(a: ConsoleAlerts): { group: GroupKey; rows: Row[] }[] {
     {
       group: 'cash',
       rows: [
-        { key: 'cashReview', n: a.cashReview, text: c.todoCashReview, href: `${CASH_PATH}?tab=history`, red: true },
-        { key: 'cashOpenLong', n: a.cashOpenLong, text: c.todoCashOpen, href: CASH_PATH, red: true },
+        { key: 'cashReview', n: a.cashReview, text: c.todoCashReview, href: `${CASH_PATH}?tab=history`, red: true, urgent: true },
+        { key: 'cashOpenLong', n: a.cashOpenLong, text: c.todoCashOpen, href: CASH_PATH, red: true, urgent: true },
       ],
     },
     {
@@ -74,8 +78,20 @@ function rowsFor(a: ConsoleAlerts): { group: GroupKey; rows: Row[] }[] {
       ],
     },
   ]
-    .map((g) => ({ group: g.group as GroupKey, rows: g.rows.filter((r) => r.n > 0) as Row[] }))
+    .map((g) => ({ group: g.group as GroupKey, rows: urgentFirst(g.rows.filter((r) => r.n > 0) as Row[]) }))
     .filter((g) => g.rows.length > 0)
+    .sort((x, y) => Number(isUrgent(y.rows)) - Number(isUrgent(x.rows))) // stable: other groups keep their order
+}
+
+const isUrgent = (rows: Row[]) => rows.some((r) => r.urgent)
+const urgentFirst = (rows: Row[]) => [...rows].sort((x, y) => Number(!!y.urgent) - Number(!!x.urgent))
+
+/** Urgent things still waiting — the badge stays red while this is > 0. */
+export function urgentCount(a: ConsoleAlerts): number {
+  return rowsFor(a)
+    .flatMap((g) => g.rows)
+    .filter((r) => r.urgent)
+    .reduce((s, r) => s + r.n, 0)
 }
 
 /** Things to act on — information-only rows (bookings today, calendar) don't count. */
@@ -126,6 +142,7 @@ export function AlertBell({ alerts, leads }: { alerts: ConsoleAlerts; leads: Lea
   const groups = rowsFor(alerts)
   const total = actionCount(alerts)
   const fresh = loaded && hasNew(alerts, leads, seen)
+  const urgent = urgentCount(alerts) > 0
 
   const markSeen = () => {
     const counts: Seen['counts'] = {}
@@ -181,12 +198,12 @@ export function AlertBell({ alerts, leads }: { alerts: ConsoleAlerts; leads: Lea
           open ? 'border-primary/40 bg-primary/5' : 'border-border',
         )}
       >
-        <Bell className={cn('h-4 w-4', fresh && 'text-primary')} aria-hidden="true" />
+        <Bell className={cn('h-4 w-4', urgent ? 'text-destructive' : fresh && 'text-primary')} aria-hidden="true" />
         {total > 0 && (
           <span
             className={cn(
               'absolute -top-1 -right-1 flex h-[18px] min-w-[18px] items-center justify-center rounded-full px-1 text-[10px] font-bold tabular-nums ring-2 ring-background',
-              fresh ? 'bg-primary text-primary-foreground' : 'bg-secondary text-secondary-foreground',
+              urgent ? 'bg-destructive text-white' : fresh ? 'bg-primary text-primary-foreground' : 'bg-secondary text-secondary-foreground',
             )}
           >
             {total > 99 ? '99+' : total}
@@ -213,7 +230,12 @@ export function AlertBell({ alerts, leads }: { alerts: ConsoleAlerts; leads: Lea
               const Icon = GROUP_ICON[group]
               return (
                 <section key={group}>
-                  <div className="flex items-center gap-2 px-4 pt-3 pb-1.5 text-[11px] font-bold tracking-[0.08em] text-muted-foreground uppercase">
+                  <div
+                    className={cn(
+                      'flex items-center gap-2 px-4 pt-3 pb-1.5 text-[11px] font-bold tracking-[0.08em] uppercase',
+                      isUrgent(rows) ? 'text-destructive' : 'text-muted-foreground',
+                    )}
+                  >
                     <Icon className="h-3.5 w-3.5" aria-hidden="true" />
                     <span className="shrink-0">{tr(bellCopy.groups[group])}</span>
                     <span className="h-px flex-1 bg-border" aria-hidden="true" />
