@@ -8,14 +8,15 @@
 ## 0. กฎประจำ (ต้องทำตามเสมอ)
 
 1. **ตอบเป็นภาษาไทย** ทุกครั้ง (โค้ด/คอมเมนต์เป็นอังกฤษได้)
-2. **ห้ามแตะ Supabase โดยตรง** — ผู้ใช้ **commit / push / รัน SQL เอง** ทั้งหมด · Claude ส่งแค่โค้ด+ไฟล์ ไม่ deploy เอง
-3. **ห้ามเปลี่ยนสีแบรนด์ `#8D1821`**
+2. **งานทุกชิ้น = branch + Pull Request · ห้าม push `main` เอง · ห้ามแตะ Supabase โดยตรง** — Claude commit ลง branch + เปิด PR ได้ แต่ **ผู้ใช้เป็นคน merge PR → pull → รัน SQL เอง** · Claude ไม่ merge/push main และไม่ deploy เอง
+3. **ห้ามเปลี่ยนสีแบรนด์ `#8b1e2d`** (สีแบรนด์เดียวทั้งระบบ, CSS var `--brand`) · ถ้าเจอ `#8D1821` เก่าที่ไหน ให้ถือว่าควรเป็น `#8b1e2d`
 4. **โหมด comment:** ถ้าผู้ใช้รายงานปัญหา/ถาม (ไม่ใช่สั่ง "ทำ" ตรงๆ) → **สำรวจ → เสนอ → รอคำว่า "ทำ"** ก่อนลงมือ · การตอบเลือก option ถือเป็นการยืนยัน
 5. **ห้ามใส่ secret/คีย์** ลงใน chat หรือ commit
 6. **`supabase/schema.sql` = ไฟล์เดียว idempotent แบบ "สถานะปัจจุบัน"** (squash v0.40) — รันซ้ำได้เสมอ (ใช้ `create ... if not exists`, `drop ... if exists`, `create or replace function`) · แบ่ง 7 ส่วน (helpers → tables → functions → triggers → RLS/policies → storage → seeds) · ของใหม่ใส่ในส่วนที่ตรงเรื่อง
    - ตารางใหม่: CREATE TABLE ครบทุกคอลัมน์ ท้ายส่วนที่ 2
    - คอลัมน์ใหม่ในตารางเดิม: ใส่ทั้งใน CREATE TABLE **และ** `alter table … add column if not exists` ท้ายส่วนที่ 2 (ฐานจริงได้คอลัมน์ด้วย)
    - ประวัติเดิม §1–§53 อยู่ที่ `supabase/archive/schema-v0.39.sql` (ห้ามแก้) · เลข § ในโค้ด/vault ยังอ้างประวัตินั้นได้
+7. **เช็คก่อนทำ:** ระบบพัฒนาหลายเวอร์ชัน งานบางอย่างอาจทำไปแล้ว · ก่อนลงมือทุกงาน ให้ตรวจสถานะปัจจุบันในโค้ดก่อน ถ้าทำแล้วให้ข้าม + รายงาน ไม่ทำซ้ำ
 
 ---
 
@@ -34,7 +35,8 @@
 1. `npx tsc --noEmit` ให้ผ่าน
 2. `npx next build` ให้ผ่าน (ถ้าเจอ type error ค้าง ลบ `.next/dev .next/types` ก่อน)
 3. **bump version** ใน `package.json` (ยกเว้นไฟล์ meta เช่น CLAUDE.md)
-4. ให้ commit message แยก **2 บล็อก**:
+4. **เปิดเป็น branch + Pull Request** (ไม่ push `main`) — ผู้ใช้รีวิว diff + Vercel preview แล้ว merge / pull / รัน SQL เอง
+5. ให้ commit message แยก **2 บล็อก**:
    - **Summary** (1 บรรทัด) — ขึ้นต้น `⚠️ SQL ...` ถ้ามี SQL ใหม่ / `ไม่มี SQL ใหม่` ถ้าไม่มี
    - **Description** (หลายบรรทัด) — บรรทัดแรก `⚠️ ต้องรัน supabase/schema.sql ...` หรือ `ไม่มี SQL ใหม่` แล้วรายละเอียด
    - ปิดท้ายด้วย trailer:
@@ -42,7 +44,7 @@
      Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>
      Claude-Session: <session url ของ session ปัจจุบัน>
      ```
-5. **อัปเดต vault** (ถ้าเข้าถึงได้): spec `20 - Software Spec.md` (บรรทัด version) + roadmap `25 Roadmap & Releases/Roadmap และประวัติเวอร์ชัน.md` (เพิ่มแถวเวอร์ชันใหม่)
+6. **อัปเดต vault** (ถ้าเข้าถึงได้): spec `20 - Software Spec.md` (บรรทัด version) + roadmap `25 Roadmap & Releases/Roadmap และประวัติเวอร์ชัน.md` (เพิ่มแถวเวอร์ชันใหม่)
    - **Cloud session แตะ vault (Obsidian) ไม่ได้** → ให้ output ข้อความ spec/roadmap ในคำตอบ หรือเป็นไฟล์ `docs/` ใน PR ให้ผู้ใช้ก๊อปวางเอง
 
 ---
@@ -75,10 +77,18 @@
 ## 5. หลัก UI
 
 - **"ไม่ล้นจอ = อยู่กับที่, ล้น = scroll ในกรอบแต่หัวคงอยู่"** (sticky header) · 2 คอลัมน์: ฝั่งสั้นปักไว้ ฝั่งยาวเลื่อน
+- **ตารางยาว:** เลื่อนในกรอบ (max-height + overflow) + หัวคอลัมน์ (thead) ค้าง · ตารางสรุปที่สั้นเสมอไม่ต้องทำ · ใช้แพทเทิร์นเดียวกับตารางใบเสร็จแพ็กเกจ
+- **สีทั้งหมดใช้ token ของธีม** (ห้าม hardcode) → ไม่กระทบ dark mode และไม่แตะสีแบรนด์
 - มือถือต้องใช้ได้ (responsive) · มี dark mode
 
 ---
 
 ## 6. backlog / งานค้าง
 
-ดู roadmap ใน vault (`25 Roadmap & Releases`) · ที่ค้าง ณ ปัจจุบัน: Wellness Quiz เฟส 3 (UX) · หน้า Back Office ดู quiz leads · sticky-header sweep (ลูกค้า/จอง/รายงาน/ทีมงาน) · หลายสาขาขั้นต่อ · Waiver/PDPA/สิทธิ์ผู้ใช้ (M17–M19)
+ดู roadmap ใน vault (`25 Roadmap & Releases`) เป็นหลัก · ที่ค้าง ณ ปัจจุบัน (v0.41.1):
+- ชื่อร้านยังมาจากโค้ดบางจุด (title รายหน้า, ข้อกำหนด/นโยบาย, อีเมลแจ้งเตือน, ไอคอนแอป tablet) → ย้ายไป `brand_settings`
+- กระดิ่ง: เรื่องด่วน (เงินขาด/เกิน) ขึ้นแดง + ค้างจนจัดการ · กดไปที่รายการรายตัว
+- CMS: จัดการข้อความหน้าแรก / 8 โซน / เส้นทาง Quiz
+- Waiver / PDPA / สิทธิ์ผู้ใช้ + audit (M17–M19)
+- หลายสาขาขั้นต่อ (รายงานรายสาขา, สต็อก variant, เวร + คอมมิชชัน)
+- (ตัวเลือก) ปุ่มคืนค่าแบรนด์เริ่มต้น
