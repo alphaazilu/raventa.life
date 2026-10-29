@@ -39,6 +39,7 @@ export const BRANCHES_PATH = '/console/branches'
 export const TIME_PATH = '/console/time'
 export const CATALOG_PATH = '/console/catalog'
 export const SETTINGS_PATH = '/console/settings'
+export const BRAND_SETTINGS_PATH = '/console/settings/brand' // name, colour, logo, contact (§53, v0.39.0)
 export const REPORTS_PATH = '/console/reports'
 export const TEAM_PATH = '/console/team'
 export const BOOKINGS_PATH = '/console/bookings' // bookings: day, list, setup (v0.35)

@@ -1,7 +1,7 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 import { isProfileComplete, PROFILE_COMPLETENESS_COLUMNS } from '@/lib/supabase/profile'
-import { canUseDesk, canViewReports, CONSOLE_PATH, DESK_PATH, isAdmin, MEMBERS_PATH, REPORTS_PATH, TIME_PATH } from '@/lib/auth/roles'
+import { canUseDesk, canViewReports, CONSOLE_PATH, DESK_PATH, isAdmin, MEMBERS_PATH, REPORTS_PATH, SETTINGS_PATH, TIME_PATH } from '@/lib/auth/roles'
 import { DEVICE_COOKIE } from '@/lib/console/device-cookie'
 
 /**
@@ -107,8 +107,12 @@ export async function updateSession(request: NextRequest) {
       const onTabletCookie = Boolean(request.cookies.get(DEVICE_COOKIE)?.value)
       const isStaffMembersRoute = (path === MEMBERS_PATH || path === TIME_PATH) && onTabletCookie
       const isReportsRoute = path === REPORTS_PATH || path.startsWith(`${REPORTS_PATH}/`)
+      // Settings (brand included, v0.39.0) are admin-only whatever is
+      // allowed above — named here so a later allowance can't open them.
+      const isSettingsRoute = path === SETTINGS_PATH || path.startsWith(`${SETTINGS_PATH}/`)
       const allow =
-        ((isDeskRoute || isStaffMembersRoute) && canUseDesk(role)) || (isReportsRoute && canViewReports(role))
+        !isSettingsRoute &&
+        (((isDeskRoute || isStaffMembersRoute) && canUseDesk(role)) || (isReportsRoute && canViewReports(role)))
       if (!allow) {
         const url = request.nextUrl.clone()
         // Send each role to the one place it belongs, not a dead end.

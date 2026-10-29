@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react"
 import Image from "next/image"
 import { ArrowLeft, ArrowRight, Calendar, Check, ChevronDown, Clock, Layers, MessageCircle, Phone, RotateCcw, Share2, Sparkles, UserPlus, X } from "lucide-react"
 import { useLanguage } from "@/components/language-provider"
+import { useBrand } from "@/components/brand-provider"
 import { benefits, zones } from "@/lib/i18n"
 import type { Zone } from "@/lib/i18n"
 import { cn } from "@/lib/utils"
@@ -22,8 +23,6 @@ const QUESTION_COUNT = STEP_ORDER.length - 1
 // login when the visitor isn't signed in yet.
 const BOOK_HREF = "/account/bookings"
 const SIGNUP_HREF = "/login"
-const PHONE_TEL = BRAND.contact.phoneTel
-const LINE_HREF = BRAND.contact.lineHref
 
 // Display-only grouping for the result's colour coding (phase 3). The matcher
 // keeps its own sets in match.ts; this never feeds back into timing.
@@ -628,6 +627,8 @@ function ResultView({
   onRestart: () => void
 }) {
   const { tr } = useLanguage()
+  // Phone + LINE from Back Office › Settings › Brand (v0.39.0).
+  const brand = useBrand()
   const rounds = result.journey.rounds
   // Hero photo: the journey's longest non-rest round — its signature zone.
   const signature = rounds.reduce(
@@ -791,7 +792,7 @@ function ResultView({
           <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
         </a>
         <a
-          href={LINE_HREF}
+          href={brand.lineHref}
           target="_blank"
           rel="noreferrer"
           className="mt-3 inline-flex w-full items-center justify-center gap-2 rounded-full px-7 py-3 text-sm font-semibold text-white transition-opacity hover:opacity-90"
@@ -809,7 +810,7 @@ function ResultView({
             {tr(quizCopy.nav.signUp)}
           </a>
           <a
-            href={`tel:${PHONE_TEL}`}
+            href={`tel:${brand.phoneTel}`}
             className="inline-flex items-center justify-center gap-2 rounded-full border border-border px-4 py-2.5 text-sm font-semibold text-foreground transition-colors hover:border-primary/40"
           >
             <Phone className="h-4 w-4" />

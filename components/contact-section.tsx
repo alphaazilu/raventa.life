@@ -4,21 +4,21 @@ import { MapPin, Clock, Phone, Mail, ArrowRight, ExternalLink } from 'lucide-rea
 import { useLanguage } from '@/components/language-provider'
 import { t } from '@/lib/i18n'
 import { BRAND } from '@/lib/brand/config'
+import { useBrand } from '@/components/brand-provider'
 
-const PHONE_DISPLAY = BRAND.contact.phoneDisplay
-const PHONE_TEL = BRAND.contact.phoneTel
-const EMAIL = BRAND.contact.email
 const GOOGLE_MAPS_URL = BRAND.contact.googleMapsUrl
 const GOOGLE_MAPS_EMBED_URL = BRAND.contact.googleMapsEmbedUrl
 
 export function ContactSection() {
   const { tr } = useLanguage()
+  // Phone, e-mail and address from Back Office › Settings › Brand (v0.39.0).
+  const brand = useBrand()
 
   const info = [
-    { icon: MapPin, label: tr(t.contact.addressLabel), value: tr(t.contact.address), href: GOOGLE_MAPS_URL, external: true },
+    { icon: MapPin, label: tr(t.contact.addressLabel), value: tr(brand.address), href: GOOGLE_MAPS_URL, external: true },
     { icon: Clock, label: tr(t.contact.hoursLabel), value: tr(t.contact.hours) },
-    { icon: Phone, label: tr(t.contact.phoneLabel), value: PHONE_DISPLAY, href: `tel:${PHONE_TEL}` },
-    { icon: Mail, label: tr(t.contact.emailLabel), value: EMAIL, href: `mailto:${EMAIL}` },
+    { icon: Phone, label: tr(t.contact.phoneLabel), value: brand.phoneDisplay, href: `tel:${brand.phoneTel}` },
+    { icon: Mail, label: tr(t.contact.emailLabel), value: brand.email, href: `mailto:${brand.email}` },
   ]
 
   return (
@@ -60,7 +60,7 @@ export function ContactSection() {
 
             <div className="mt-8 border-t border-border pt-6">
               <a
-                href={`tel:${PHONE_TEL}`}
+                href={`tel:${brand.phoneTel}`}
                 className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-primary px-7 py-3.5 text-sm font-semibold text-primary-foreground transition-opacity hover:opacity-90"
               >
                 {tr(t.contact.cta)}

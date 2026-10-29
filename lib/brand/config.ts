@@ -5,6 +5,11 @@
 //
 // Safe on both server and client (plain values, no secrets).
 //
+// v0.39.0: the name (TH/EN), colour, full logo and contact details can be
+// changed by an admin (Back Office › Settings › Brand, schema.sql §53). The
+// site reads them through lib/brand/settings.ts → useBrand(); the values
+// here are the seed and the fallback when the database can't be read.
+//
 // Not covered here (can't import TS — keep in step by hand):
 //   app/globals.css                  --brand / --brand-checkpoint (CSS variables)
 //   public/console.webmanifest       name, short_name, icons
