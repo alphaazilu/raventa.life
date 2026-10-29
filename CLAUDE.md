@@ -88,4 +88,4 @@
 
 ## 6. backlog / งานค้าง
 
-ดู roadmap ใน vault (`25 Roadmap & Releases`) · ที่ค้าง ณ ปัจจุบัน: Wellness Quiz เฟส 3 (UX) · หน้า Back Office ดู quiz leads · หลายสาขาขั้นต่อ · Waiver/PDPA/สิทธิ์ผู้ใช้ (M17–M19)
+ดู roadmap ใน vault (`25 Roadmap & Releases`) · ที่ค้าง ณ ปัจจุบัน: หลายสาขาขั้นต่อ · Waiver/PDPA/สิทธิ์ผู้ใช้ (M17–M19)
