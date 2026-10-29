@@ -8,10 +8,13 @@ import { getRules, listCategories, listTypes, memberBookings, memberNoShow } fro
 import { sortByCategory } from '@/lib/booking'
 import { MY_BOOKINGS_PATH } from '@/lib/auth/roles'
 import { MemberBooking, type PublicType } from '@/components/booking/member-booking'
-import { BRAND } from '@/lib/brand/config'
+import { getBrandInfo } from '@/lib/brand/settings'
 
-export const metadata: Metadata = {
-  title: `จองคิว | ${BRAND.name}`,
+export async function generateMetadata(): Promise<Metadata> {
+  const brand = await getBrandInfo()
+  return {
+    title: `จองคิว | ${brand.name}`,
+  }
 }
 
 export const dynamic = 'force-dynamic'

@@ -4,10 +4,14 @@ import { getConsoleSession } from '@/lib/console/session'
 import { DESK_PATH, isAdmin, TEAM_PATH } from '@/lib/auth/roles'
 import { listPayTypes, listTeam, roleHistory } from '@/lib/console/team'
 import { TeamView } from '@/components/console/team-view'
-import { BRAND } from '@/lib/brand/config'
+import { getBrandInfo } from '@/lib/brand/settings'
+import { backOfficeName } from '@/lib/brand/info'
 
-export const metadata: Metadata = {
-  title: `ทีมงานและสิทธิ์ | ${BRAND.backOfficeName}`,
+export async function generateMetadata(): Promise<Metadata> {
+  const brand = await getBrandInfo()
+  return {
+    title: `ทีมงานและสิทธิ์ | ${backOfficeName(brand)}`,
+  }
 }
 
 export const dynamic = 'force-dynamic'

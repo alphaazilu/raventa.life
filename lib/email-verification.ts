@@ -111,7 +111,7 @@ export async function sendEmailCode(userId: string, rawEmail: string): Promise<S
       console.error('email-verification: EMAIL_FROM_ADDRESS is not set')
       return { ok: false, reason: 'no_sender' }
     }
-    const { subject, html } = emailVerificationCodeEmail(code)
+    const { subject, html } = await emailVerificationCodeEmail(code)
     const sent = await getResendClient().emails.send({ from, to: email, subject, html })
     if (sent.error) {
       console.error('email-verification: send failed', sent.error)

@@ -7,9 +7,14 @@ import { bangkokToday } from '@/lib/check-in/day'
 import { listFeedback, listTopics } from '@/lib/console/feedback'
 import { FeedbackAdmin } from '@/components/console/feedback-admin'
 import { BRAND } from '@/lib/brand/config'
+import { getBrandInfo } from '@/lib/brand/settings'
+import { backOfficeName } from '@/lib/brand/info'
 
-export const metadata: Metadata = {
-  title: `ความเห็นลูกค้า | ${BRAND.backOfficeName}`,
+export async function generateMetadata(): Promise<Metadata> {
+  const brand = await getBrandInfo()
+  return {
+    title: `ความเห็นลูกค้า | ${backOfficeName(brand)}`,
+  }
 }
 
 export const dynamic = 'force-dynamic'

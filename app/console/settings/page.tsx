@@ -9,10 +9,14 @@ import { DEFAULT_SETTINGS, getTimeSettings } from '@/lib/console/shifts'
 import { isMissingTable } from '@/lib/console/db-errors'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { DESK_PATH, isAdmin, SETTINGS_PATH } from '@/lib/auth/roles'
-import { BRAND } from '@/lib/brand/config'
+import { getBrandInfo } from '@/lib/brand/settings'
+import { backOfficeName } from '@/lib/brand/info'
 
-export const metadata: Metadata = {
-  title: `ตั้งค่า | ${BRAND.backOfficeName}`,
+export async function generateMetadata(): Promise<Metadata> {
+  const brand = await getBrandInfo()
+  return {
+    title: `ตั้งค่า | ${backOfficeName(brand)}`,
+  }
 }
 
 export const dynamic = 'force-dynamic'

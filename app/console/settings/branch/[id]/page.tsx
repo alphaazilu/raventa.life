@@ -5,10 +5,14 @@ import { getCurrentDevice } from '@/lib/console/device'
 import { loadBranchDetail } from '@/lib/console/branch-detail'
 import { BranchSettingsView } from '@/components/console/branch-settings-view'
 import { DESK_PATH, isAdmin, SETTINGS_PATH } from '@/lib/auth/roles'
-import { BRAND } from '@/lib/brand/config'
+import { getBrandInfo } from '@/lib/brand/settings'
+import { backOfficeName } from '@/lib/brand/info'
 
-export const metadata: Metadata = {
-  title: `ตั้งค่าสาขา | ${BRAND.backOfficeName}`,
+export async function generateMetadata(): Promise<Metadata> {
+  const brand = await getBrandInfo()
+  return {
+    title: `ตั้งค่าสาขา | ${backOfficeName(brand)}`,
+  }
 }
 
 export const dynamic = 'force-dynamic'

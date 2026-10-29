@@ -6,10 +6,14 @@ import { DESK_PATH, isAdmin } from '@/lib/auth/roles'
 import { getCurrentDevice } from '@/lib/console/device'
 import { listBranches } from '@/lib/console/settings'
 import { listDevices } from './actions'
-import { BRAND } from '@/lib/brand/config'
+import { getBrandInfo } from '@/lib/brand/settings'
+import { backOfficeName } from '@/lib/brand/info'
 
-export const metadata: Metadata = {
-  title: `อุปกรณ์ | ${BRAND.backOfficeName}`,
+export async function generateMetadata(): Promise<Metadata> {
+  const brand = await getBrandInfo()
+  return {
+    title: `อุปกรณ์ | ${backOfficeName(brand)}`,
+  }
 }
 
 // Back Office → Devices. Scanning a tablet's pairing QR with a phone camera

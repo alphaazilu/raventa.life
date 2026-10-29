@@ -114,7 +114,7 @@ export async function createShareLink(packageId: string, rawEmail?: string): Pro
     const from = process.env.EMAIL_FROM_ADDRESS
     if (!from) return { ok: false, error: 'no_sender' }
     const { data: owner } = await admin.from('profiles').select('first_name').eq('id', user.id).maybeSingle()
-    const { subject, html } = packageShareEmail(owner?.first_name || 'เพื่อนของคุณ', pkg.name, url, {
+    const { subject, html } = await packageShareEmail(owner?.first_name || 'เพื่อนของคุณ', pkg.name, url, {
       whole: pkg.share_whole,
       until: pkg.share_whole ? null : pieceUntil(pkg),
     })

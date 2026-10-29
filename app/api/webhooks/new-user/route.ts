@@ -64,8 +64,8 @@ export async function POST(request: Request) {
   const resend = getResendClient()
   const results = await Promise.allSettled([
     email
-      ? (() => {
-          const { subject, html } = welcomeEmail(first_name, member_no)
+      ? (async () => {
+          const { subject, html } = await welcomeEmail(first_name, member_no)
           return resend.emails.send({ from: fromAddress, to: email, subject, html })
         })()
       : Promise.resolve(null),
@@ -75,8 +75,8 @@ export async function POST(request: Request) {
     // filled the form, so the team gets real details, and a LINE sign-in
     // that ends up merged into an existing member never triggers one.
     teamEmail && isProfileComplete({ email, first_name, last_name, phone, province, nationality })
-      ? (() => {
-          const { subject, html } = teamNotificationEmail({
+      ? (async () => {
+          const { subject, html } = await teamNotificationEmail({
             email: email ?? '(ไม่ทราบอีเมล)',
             firstName: first_name,
             lastName: last_name,

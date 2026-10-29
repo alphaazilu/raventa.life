@@ -11,10 +11,14 @@ import { dayBounds } from '@/lib/console/checklist'
 import type { CashSession } from '@/lib/cash'
 import { CashView } from '@/components/console/cash-view'
 import { DeskTabletOnly } from '@/components/console/desk-tablet-only'
-import { BRAND } from '@/lib/brand/config'
+import { getBrandInfo } from '@/lib/brand/settings'
+import { backOfficeName } from '@/lib/brand/info'
 
-export const metadata: Metadata = {
-  title: `ปิดกะ | ${BRAND.backOfficeName}`,
+export async function generateMetadata(): Promise<Metadata> {
+  const brand = await getBrandInfo()
+  return {
+    title: `ปิดกะ | ${backOfficeName(brand)}`,
+  }
 }
 
 export const dynamic = 'force-dynamic'

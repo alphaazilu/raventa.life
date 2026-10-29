@@ -7,10 +7,14 @@ import { listItems, loadExtras, visibleOccurrences } from '@/lib/console/calenda
 import { listStaff } from '@/lib/console/time'
 import { addDays } from '@/lib/calendar'
 import { CalendarView } from '@/components/console/calendar-view'
-import { BRAND } from '@/lib/brand/config'
+import { getBrandInfo } from '@/lib/brand/settings'
+import { backOfficeName } from '@/lib/brand/info'
 
-export const metadata: Metadata = {
-  title: `ปฏิทิน | ${BRAND.backOfficeName}`,
+export async function generateMetadata(): Promise<Metadata> {
+  const brand = await getBrandInfo()
+  return {
+    title: `ปฏิทิน | ${backOfficeName(brand)}`,
+  }
 }
 
 export const dynamic = 'force-dynamic'

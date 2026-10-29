@@ -267,7 +267,7 @@ export async function startMerge(targetRef: MergeTarget): Promise<StartMergeResu
 
     const from = process.env.EMAIL_FROM_ADDRESS
     if (!from) throw new Error('EMAIL_FROM_ADDRESS is not set')
-    const { subject, html } = mergeCodeEmail(code)
+    const { subject, html } = await mergeCodeEmail(code)
     const { error: sendError } = await getResendClient().emails.send({ from, to: target.email, subject, html })
     if (sendError) throw new Error(sendError.message)
     await logEvent(target.id, 'code_sent')

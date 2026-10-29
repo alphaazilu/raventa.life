@@ -12,7 +12,6 @@
 //
 // Not covered here (can't import TS — keep in step by hand):
 //   app/globals.css                  --brand / --brand-checkpoint (CSS variables)
-//   public/console.webmanifest       name, short_name, icons
 //   supabase/email-templates/*.html  Supabase Auth emails (pasted into the dashboard)
 
 type L = { th: string; en: string }

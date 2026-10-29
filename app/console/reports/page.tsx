@@ -11,10 +11,14 @@ import { ReportView } from '@/components/console/report-view'
 import { TimeReportView } from '@/components/console/time-report-view'
 import { CommissionReportView } from '@/components/console/commission-report-view'
 import { loadCommissionReport } from '@/lib/console/commission'
-import { BRAND } from '@/lib/brand/config'
+import { getBrandInfo } from '@/lib/brand/settings'
+import { backOfficeName } from '@/lib/brand/info'
 
-export const metadata: Metadata = {
-  title: `รายงาน | ${BRAND.backOfficeName}`,
+export async function generateMetadata(): Promise<Metadata> {
+  const brand = await getBrandInfo()
+  return {
+    title: `รายงาน | ${backOfficeName(brand)}`,
+  }
 }
 
 export const dynamic = 'force-dynamic'

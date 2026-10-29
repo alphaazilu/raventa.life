@@ -5,10 +5,13 @@ import { SiteFooter } from '@/components/site-footer'
 import { CompleteProfileForm } from '@/components/complete-profile/complete-profile-form'
 import { createClient } from '@/lib/supabase/server'
 import { isProfileComplete, PROFILE_COMPLETENESS_COLUMNS } from '@/lib/supabase/profile'
-import { BRAND } from '@/lib/brand/config'
+import { getBrandInfo } from '@/lib/brand/settings'
 
-export const metadata: Metadata = {
-  title: `Complete Your Profile | ${BRAND.fullName}`,
+export async function generateMetadata(): Promise<Metadata> {
+  const brand = await getBrandInfo()
+  return {
+    title: `Complete Your Profile | ${brand.fullName}`,
+  }
 }
 
 export default async function CompleteProfilePage({

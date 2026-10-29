@@ -6,10 +6,14 @@ import { CONSOLE_PATH, consoleHome, isAdmin } from '@/lib/auth/roles'
 import { loadDashboard } from './dashboard-data'
 import { loadAlerts } from '@/lib/console/alerts'
 import { getAppSettings } from '@/lib/console/settings'
-import { BRAND } from '@/lib/brand/config'
+import { getBrandInfo } from '@/lib/brand/settings'
+import { backOfficeName } from '@/lib/brand/info'
 
-export const metadata: Metadata = {
-  title: `ภาพรวม | ${BRAND.backOfficeName}`,
+export async function generateMetadata(): Promise<Metadata> {
+  const brand = await getBrandInfo()
+  return {
+    title: `ภาพรวม | ${backOfficeName(brand)}`,
+  }
 }
 
 export const dynamic = 'force-dynamic'

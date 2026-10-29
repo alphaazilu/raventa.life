@@ -7,10 +7,14 @@ import { canUseDesk, DESK_PATH, MEMBERS_PATH } from '@/lib/auth/roles'
 import { getCurrentDevice } from '@/lib/console/device'
 import { getAppSettings } from '@/lib/console/settings'
 import { createAdminClient } from '@/lib/supabase/admin'
-import { BRAND } from '@/lib/brand/config'
+import { getBrandInfo } from '@/lib/brand/settings'
+import { backOfficeName } from '@/lib/brand/info'
 
-export const metadata: Metadata = {
-  title: `ข้อมูลลูกค้า | ${BRAND.backOfficeName}`,
+export async function generateMetadata(): Promise<Metadata> {
+  const brand = await getBrandInfo()
+  return {
+    title: `ข้อมูลลูกค้า | ${backOfficeName(brand)}`,
+  }
 }
 
 const RESULT_LIMIT = 50

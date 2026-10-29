@@ -8,10 +8,14 @@ import { bangkokToday } from '@/lib/check-in/day'
 import { CATALOG_PATH, DESK_PATH, isAdmin } from '@/lib/auth/roles'
 import { listEarners, listRules } from '@/lib/console/commission'
 import { allCodes, getDefaultReferrer } from '@/lib/console/referral'
-import { BRAND } from '@/lib/brand/config'
+import { getBrandInfo } from '@/lib/brand/settings'
+import { backOfficeName } from '@/lib/brand/info'
 
-export const metadata: Metadata = {
-  title: `สินค้าและราคา | ${BRAND.backOfficeName}`,
+export async function generateMetadata(): Promise<Metadata> {
+  const brand = await getBrandInfo()
+  return {
+    title: `สินค้าและราคา | ${backOfficeName(brand)}`,
+  }
 }
 
 export const dynamic = 'force-dynamic'

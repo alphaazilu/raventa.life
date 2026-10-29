@@ -3,14 +3,18 @@ import { SiteHeader } from '@/components/site-header'
 import { SiteFooter } from '@/components/site-footer'
 import { LegalPage } from '@/components/legal/legal-page'
 import { privacyPolicyUpdated, privacyPolicySections } from '@/lib/legal/content'
-import { BRAND } from '@/lib/brand/config'
+import { getBrandInfo } from '@/lib/brand/settings'
 
-export const metadata: Metadata = {
-  title: `นโยบายความเป็นส่วนตัว | ${BRAND.fullName}`,
-  description: `นโยบายความเป็นส่วนตัวของ ${BRAND.fullName} — Privacy Policy for ${BRAND.fullName}.`,
+export async function generateMetadata(): Promise<Metadata> {
+  const brand = await getBrandInfo()
+  return {
+    title: `นโยบายความเป็นส่วนตัว | ${brand.fullName}`,
+    description: `นโยบายความเป็นส่วนตัวของ ${brand.fullName} — Privacy Policy for ${brand.fullName}.`,
+  }
 }
 
-export default function PrivacyPolicyPage() {
+export default async function PrivacyPolicyPage() {
+  const brand = await getBrandInfo()
   return (
     <>
       <SiteHeader />
@@ -18,7 +22,7 @@ export default function PrivacyPolicyPage() {
         <LegalPage
           heading={{ th: 'นโยบายความเป็นส่วนตัว', en: 'Privacy Policy' }}
           updated={privacyPolicyUpdated}
-          sections={privacyPolicySections}
+          sections={privacyPolicySections(brand)}
         />
       </main>
       <SiteFooter />

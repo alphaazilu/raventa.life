@@ -273,7 +273,7 @@ async function sendTeamNotification(details: Parameters<typeof teamNotificationE
   const to = process.env.TEAM_NOTIFICATION_EMAIL
   if (!from || !to) return
   try {
-    const { subject, html } = teamNotificationEmail(details)
+    const { subject, html } = await teamNotificationEmail(details)
     await getResendClient().emails.send({ from, to, subject, html })
   } catch (err) {
     console.error('complete-profile: team notification failed to send', err)
@@ -286,7 +286,7 @@ async function sendWelcomeEmail(to: string, firstName: string, memberNo: string 
   const from = process.env.EMAIL_FROM_ADDRESS
   if (!from) return
   try {
-    const { subject, html } = welcomeEmail(firstName, memberNo)
+    const { subject, html } = await welcomeEmail(firstName, memberNo)
     await getResendClient().emails.send({ from, to, subject, html })
   } catch (err) {
     console.error('complete-profile: welcome email failed to send', err)
