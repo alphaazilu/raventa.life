@@ -1378,6 +1378,27 @@ create table if not exists public.brand_settings (
   og_image_url text check (og_image_url is null or og_image_url ~ '^https://')
 );
 
+-- 54. Consent records (v0.42.0, PDPA). Evidence of what each member agreed
+-- to and when: the privacy policy + terms (kind 'pdpa', with the policy
+-- version), marketing messages (opt-in, may be withdrawn: granted false) and
+-- the health-risk waiver (signed off by staff at check-in). Append-only — a
+-- change of mind is a new row; the CURRENT state is the latest row per
+-- (user_id, kind). Rows go when the account itself is deleted.
+create table if not exists public.consent_records (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users(id) on delete cascade,
+  kind text not null check (kind in ('pdpa', 'marketing', 'waiver')),
+  version text check (version is null or char_length(version) <= 40),
+  granted boolean not null,
+  -- where it was given: signup, reconsent, settings, checkin …
+  source text not null check (char_length(source) between 1 and 40),
+  -- who pressed the button (the member, or the staff at the desk); null =
+  -- written by the server on the member's behalf (email sign-up)
+  recorded_by uuid references auth.users(id) on delete set null,
+  created_at timestamptz not null default now()
+);
+create index if not exists consent_records_latest_idx on public.consent_records (user_id, kind, created_at desc);
+
 -- Columns added after a table's first release. Each is also in that table's
 -- CREATE TABLE above; these lines give them to databases created earlier.
 -- brand_settings (v0.41.0)
@@ -3257,6 +3278,27 @@ $fn$;
 revoke execute on function public.update_brand_settings(jsonb) from public, anon;
 grant execute on function public.update_brand_settings(jsonb) to authenticated;
 
+-- 54. consent_records stays append-only and its stamps can't be faked: the
+-- time is always the server's, and a signed-in writer is always recorded as
+-- themselves. Updates are refused for everyone (service role included);
+-- deletes are only granted to the service role (and the auth.users cascade).
+create or replace function public.consent_records_guard()
+returns trigger
+language plpgsql
+set search_path = public
+as $fn$
+begin
+  if tg_op = 'UPDATE' then
+    raise exception 'consent_records is append-only' using errcode = '42501';
+  end if;
+  new.created_at := now();
+  if auth.uid() is not null then
+    new.recorded_by := auth.uid();
+  end if;
+  return new;
+end;
+$fn$;
+
 -- =============================================================================
 -- 4. Triggers
 -- =============================================================================
@@ -3292,6 +3334,10 @@ for each row execute function public.sales_void_guard_items();
 drop trigger if exists member_packages_entry on public.member_packages;
 create trigger member_packages_entry before insert on public.member_packages
 for each row execute function public.member_packages_entry();
+
+drop trigger if exists consent_records_guard on public.consent_records;
+create trigger consent_records_guard before insert or update on public.consent_records
+for each row execute function public.consent_records_guard();
 
 -- =============================================================================
 -- 5. Row level security, grants and policies
@@ -3629,6 +3675,24 @@ revoke all on public.brand_settings from anon, authenticated;
 grant select on public.brand_settings to anon, authenticated;
 drop policy if exists "Brand: everyone reads" on public.brand_settings;
 create policy "Brand: everyone reads" on public.brand_settings for select to anon, authenticated using (true);
+
+-- consent_records (append-only: no update/delete for anyone signed in)
+alter table public.consent_records enable row level security;
+revoke all on public.consent_records from anon;
+revoke update, delete on public.consent_records from authenticated;
+grant select, insert on public.consent_records to authenticated;
+drop policy if exists "Consent: read own" on public.consent_records;
+create policy "Consent: read own" on public.consent_records for select to authenticated using (user_id = auth.uid());
+drop policy if exists "Consent: staff read" on public.consent_records;
+create policy "Consent: staff read" on public.consent_records for select to authenticated using (public.is_staff());
+-- a member records their own PDPA / marketing choices…
+drop policy if exists "Consent: insert own" on public.consent_records;
+create policy "Consent: insert own" on public.consent_records for insert to authenticated
+  with check (user_id = auth.uid() and kind in ('pdpa', 'marketing'));
+-- …and staff record a member's health waiver at the desk.
+drop policy if exists "Consent: staff record waiver" on public.consent_records;
+create policy "Consent: staff record waiver" on public.consent_records for insert to authenticated
+  with check (public.is_staff() and kind = 'waiver');
 
 -- =============================================================================
 -- 6. Storage buckets and their policies

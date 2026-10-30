@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase/server'
 import { isPhoneTaken } from '@/lib/supabase/phone'
 import { cookies } from 'next/headers'
 import { saveSignupReferral } from '@/lib/console/referral'
+import { recordSignupConsents, signupConsents } from '@/lib/consent'
 import { REF_COOKIE } from '@/lib/referral'
 
 export type AuthActionState = {
@@ -63,6 +64,8 @@ export async function signUp(_prevState: AuthActionState, formData: FormData): P
   const province = String(formData.get('province') ?? '').trim()
   const nationality = String(formData.get('nationality') ?? '').trim()
   const acceptPrivacy = formData.get('acceptPrivacy') === 'on'
+  // Optional, separate from the policies (§54, v0.42.0).
+  const acceptMarketing = formData.get('acceptMarketing') === 'on'
   // Optional (§36, v0.36): a team member's referral code, typed or scanned.
   const refCode = String(formData.get('refCode') ?? '').slice(0, 300)
   const refVia = formData.get('refVia') === 'qr' ? 'qr' : 'code'
@@ -139,6 +142,9 @@ export async function signUp(_prevState: AuthActionState, formData: FormData): P
     return { error: EMAIL_TAKEN_MESSAGE, fieldErrors: { email: EMAIL_TAKEN_MESSAGE } }
   }
 
+  // Evidence of what was ticked (§54): the policy version agreed to, and the
+  // marketing yes/no. Best-effort — never stops the sign-up.
+  if (data.user) await recordSignupConsents(data.user.id, signupConsents(acceptMarketing))
   // Kept even with no code (→ the default referrer later). An unknown code never stops the sign-up.
   if (data.user) await saveSignupReferral(data.user.id, refCode, refVia)
   try {
