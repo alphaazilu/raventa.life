@@ -1,7 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { isMissingTable } from '@/lib/console/db-errors'
-import { MARKETING_VERSION, PDPA_VERSION, WAIVER_VERSION } from '@/lib/legal/content'
+import { PDPA_VERSION, WAIVER_VERSION } from '@/lib/legal/content'
 
 // Consent records (schema.sql §54, v0.42.0). SERVER ONLY.
 //
@@ -47,11 +47,13 @@ export function waiverStatus(c: Partial<Record<ConsentKind, Consent>> | null): {
   return { ok: Boolean(w && w.granted && (w.version ?? '') >= WAIVER_VERSION), at: w?.at ?? null }
 }
 
-/** What a sign-up form records: the policies (required) + marketing (optional, yes or no). */
-export const signupConsents = (marketing: boolean, source = 'signup'): ConsentEntry[] => [
-  { kind: 'pdpa', version: PDPA_VERSION, granted: true, source },
-  { kind: 'marketing', version: MARKETING_VERSION, granted: marketing, source },
-]
+/**
+ * What a sign-up form records: the policies (required). Marketing isn't asked
+ * in the app (v0.42.2) — it goes out as LINE OA broadcasts, whose opt-in LINE
+ * itself handles. The 'marketing' kind stays in the table for a later email/SMS
+ * opt-in, and its old rows are kept as history.
+ */
+export const signupConsents = (source = 'signup'): ConsentEntry[] => [{ kind: 'pdpa', version: PDPA_VERSION, granted: true, source }]
 
 /** Written with the member's own session (RLS: their own pdpa/marketing rows). */
 export async function recordConsents(supabase: SupabaseClient, userId: string, entries: ConsentEntry[]): Promise<boolean> {

@@ -20,16 +20,6 @@ export const TERMS_VERSION = '2026-09-21'
 /** One checkbox covers both documents, so its version is the later of the two. */
 export const PDPA_VERSION = PRIVACY_VERSION > TERMS_VERSION ? PRIVACY_VERSION : TERMS_VERSION
 
-// Marketing messages — a separate, optional opt-in (never needed to sign up),
-// which the member can withdraw any time in My account › Settings.
-// ⚠️ PLACEHOLDER wording: have a lawyer review it before relying on it.
-// Changing the meaning of this text = bump MARKETING_VERSION.
-export const MARKETING_VERSION = '2026-10-30'
-export const marketingConsentText: Bilingual = {
-  th: 'ฉันยินยอมรับข่าวสาร โปรโมชั่น และข้อเสนอพิเศษจากเราทางอีเมล/SMS/LINE (ไม่บังคับ — ยกเลิกได้ทุกเมื่อในหน้าตั้งค่าบัญชี)',
-  en: 'I agree to receive news, promotions and special offers from us by email/SMS/LINE (optional — withdraw any time in account settings)',
-}
-
 // Health-risk waiver (v0.42.1) — confirmed by staff at check-in, once per
 // version. ⚠️ PLACEHOLDER wording: have a lawyer review it before relying on
 // it. Changing the meaning of this text = bump WAIVER_VERSION (everyone is

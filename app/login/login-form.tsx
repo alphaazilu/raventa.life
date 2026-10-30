@@ -8,7 +8,6 @@ import { COUNTRIES } from '@/lib/countries'
 import { OAuthButtons } from '@/components/auth/oauth-buttons'
 import { fieldClass } from '@/lib/form-field-class'
 import { signIn, signUp, type AuthActionState } from './actions'
-import { MarketingConsentCheckbox } from '@/components/legal/marketing-consent'
 import { Spinner } from '@/components/ui/spinner'
 import { GoogleLinkPanel } from '@/components/auth/google-link-panel'
 import { ReferralField } from '@/components/auth/referral-field'
@@ -356,8 +355,6 @@ export function LoginForm({
                 )}
               </div>
             )}
-
-            {mode === 'signup' && <MarketingConsentCheckbox />}
 
             {state?.error && <p className="text-sm text-destructive">{state.error}</p>}
             {/* A failed Google/LINE round trip, until the person tries again. */}
