@@ -1,7 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { isMissingTable } from '@/lib/console/db-errors'
-import { MARKETING_VERSION, PDPA_VERSION } from '@/lib/legal/content'
+import { MARKETING_VERSION, PDPA_VERSION, WAIVER_VERSION } from '@/lib/legal/content'
 
 // Consent records (schema.sql §54, v0.42.0). SERVER ONLY.
 //
@@ -38,6 +38,13 @@ export function needsPdpa(c: Partial<Record<ConsentKind, Consent>> | null): bool
   if (!c) return false // not set up yet: never lock anyone out
   const p = c.pdpa
   return !p || !p.granted || (p.version ?? '') < PDPA_VERSION
+}
+
+/** Has this member's health waiver been confirmed for the current version? null = not set up. */
+export function waiverStatus(c: Partial<Record<ConsentKind, Consent>> | null): { ok: boolean; at: string | null } | null {
+  if (!c) return null
+  const w = c.waiver
+  return { ok: Boolean(w && w.granted && (w.version ?? '') >= WAIVER_VERSION), at: w?.at ?? null }
 }
 
 /** What a sign-up form records: the policies (required) + marketing (optional, yes or no). */

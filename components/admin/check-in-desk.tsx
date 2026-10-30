@@ -23,10 +23,12 @@ import { isGift, type MemberPackage, type PackageItem } from '@/lib/packages'
 import type { FloorVisit as FloorVisitT, DeskItem as DeskItemT } from '@/app/console/desk/actions'
 import { cmCopy, cmErrors, type DeskCommission } from '@/lib/commission'
 import { bkCopy, bkkHm } from '@/lib/booking'
+import { waiverText } from '@/lib/legal/content'
 import {
   cancelVisit,
   checkoutBill,
   reEnter,
+  recordWaiver,
   checkOut,
   checkOutWithLoans,
   lendItems,
@@ -443,6 +445,15 @@ export function CheckInDesk({
                     }
                     onLend={(v) => setLendVisit(v)}
                     canLend={lendables.length > 0}
+                    onWaiver={() =>
+                      run(
+                        () => recordWaiver(member.id),
+                        () => {
+                          setNotice(`${tr(deskCopy.waiverDone)} · ${member.name}`)
+                          reloadMember(member.id)
+                        },
+                      )
+                    }
                     onReEnter={(visitId) =>
                       run(
                         () => reEnter(visitId),
@@ -815,6 +826,41 @@ function loanSummary(loans: { name: string; nameEn: string; qty: number }[], lan
   return [...m.values()].map((g) => `${g.name} ×${g.qty}`).join(' · ')
 }
 
+// Health-risk waiver (§54, v0.42.1): shown until staff confirm the guest
+// accepted the current version. Doesn't block the check-in itself.
+function WaiverCard({ busy, onConfirm }: { busy: boolean; onConfirm: () => void }) {
+  const { tr } = useLanguage()
+  const [ticked, setTicked] = useState(false)
+  return (
+    <div className="mt-3 rounded-2xl border border-amber-500/40 bg-amber-500/10 p-3 text-left">
+      <p className="text-xs font-bold uppercase tracking-wide text-amber-800 dark:text-amber-300">{tr(waiverText.title)}</p>
+      <p className="mt-0.5 text-xs text-amber-800 dark:text-amber-300">{tr(deskCopy.waiverNeeded)}</p>
+      <ul className="mt-2 list-disc space-y-1 pl-4 text-xs leading-relaxed text-card-foreground">
+        {waiverText.points.map((pt, i) => (
+          <li key={i}>{tr(pt)}</li>
+        ))}
+      </ul>
+      <label className="mt-2.5 flex items-start gap-2 text-sm font-semibold text-card-foreground">
+        <input
+          type="checkbox"
+          checked={ticked}
+          onChange={(e) => setTicked(e.target.checked)}
+          className="mt-0.5 h-4 w-4 shrink-0 rounded border-border text-primary focus:ring-2 focus:ring-primary"
+        />
+        <span>{tr(waiverText.confirm)}</span>
+      </label>
+      <button
+        type="button"
+        disabled={!ticked || busy}
+        onClick={onConfirm}
+        className="mt-2.5 inline-flex h-9 w-full items-center justify-center rounded-full bg-primary px-4 text-sm font-bold text-primary-foreground disabled:cursor-not-allowed disabled:opacity-50"
+      >
+        {tr(deskCopy.waiverSave)}
+      </button>
+    </div>
+  )
+}
+
 function MemberInfo({
   member,
   busy,
@@ -826,6 +872,7 @@ function MemberInfo({
   onCancel,
   onLend,
   canLend,
+  onWaiver,
 }: {
   member: DeskMember
   busy: boolean
@@ -837,6 +884,7 @@ function MemberInfo({
   onCancel: (visit: NonNullable<DeskMember['today']>, reason: string) => void
   onLend: (v: FloorVisitT) => void
   canLend: boolean
+  onWaiver: () => void
 }) {
   const { tr, lang } = useLanguage()
   const [cancelling, setCancelling] = useState(false)
@@ -878,6 +926,8 @@ function MemberInfo({
           </span>
         )}
       </div>
+
+      {member.waiver && !member.waiver.ok && !member.isSelf && <WaiverCard key={member.id} busy={busy} onConfirm={onWaiver} />}
 
       {member.bookingsToday.length > 0 && (
         <div className="mt-3 rounded-2xl border border-primary/30 bg-primary/5 p-3">

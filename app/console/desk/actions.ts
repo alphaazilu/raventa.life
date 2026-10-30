@@ -14,6 +14,8 @@ import { dayTypeOf, loadCatalog, priceOn, type DayType } from '@/lib/console/cat
 import { loadMemberPackages, type MemberPackage } from '@/lib/packages'
 import { recordCommissions } from '@/lib/console/commission'
 import { markArrived, memberToday } from '@/lib/console/booking'
+import { latestConsents, recordConsents, waiverStatus } from '@/lib/consent'
+import { WAIVER_VERSION } from '@/lib/legal/content'
 
 // Front-desk actions. Every write is a database function (see
 // supabase/schema.sql §13) called with the staff member's own session, so
@@ -60,6 +62,9 @@ export type DeskMember = {
   weekend: boolean
   // Booked for today (§34, v0.35): shown with "add to bill".
   bookingsToday: DeskBooking[]
+  // Health waiver (§54, v0.42.1): confirmed for the current version? null =
+  // consent records not set up yet (nothing shown).
+  waiver: { ok: boolean; at: string | null } | null
 }
 
 export type DeskBooking = { id: string; name: { th: string; en: string }; start: string; end: string; wholeDay: boolean; arriveTime: string | null; productId: string | null; status: 'booked' | 'arrived'; kind: string; with: string | null }
@@ -175,7 +180,7 @@ async function selectVisits<T>(run: (columns: string) => PromiseLike<{ data: T; 
 
 async function loadMember(supabase: Supabase, userId: string, memberId: string): Promise<DeskResult<DeskMember>> {
   const today = bangkokToday()
-  const [{ data: p, error: pErr }, visitRes, stampRes, priceRes, pastRes, pkgRes, pkgNowRes, booked] = await Promise.all([
+  const [{ data: p, error: pErr }, visitRes, stampRes, priceRes, pastRes, pkgRes, pkgNowRes, booked, consents] = await Promise.all([
     supabase
       .from('profiles')
       .select('id, first_name, last_name, email, member_no, role, created_at, avatar_path, provider_avatar_url')
@@ -197,6 +202,7 @@ async function loadMember(supabase: Supabase, userId: string, memberId: string):
     loadMemberPackages(supabase, memberId, today),
     supabase.rpc('usable_package', { p_member_id: memberId, p_date: today }),
     memberToday(memberId),
+    latestConsents(supabase, memberId),
   ])
   if (pErr) return { ok: false, error: errorCode(pErr) }
   if (!p) return { ok: false, error: 'member_not_found' }
@@ -237,6 +243,7 @@ async function loadMember(supabase: Supabase, userId: string, memberId: string):
         kind: b.kind,
         with: b.resourceLabel,
       })),
+      waiver: waiverStatus(consents),
     },
   }
 }
@@ -253,6 +260,16 @@ export async function getMember(memberId: string): Promise<DeskResult<DeskMember
   const ctx = await requireDesk()
   if ('error' in ctx) return { ok: false, error: ctx.error }
   return loadMember(ctx.supabase, ctx.userId, memberId)
+}
+
+// Staff confirm at the desk that the guest accepted the health-risk waiver
+// (§54, v0.42.1). Recorded with the staff member's own session (RLS: staff
+// may insert kind 'waiver'; the row stamps who pressed it and when).
+export async function recordWaiver(memberId: string): Promise<DeskResult<true>> {
+  const ctx = await requireDesk()
+  if ('error' in ctx) return { ok: false, error: ctx.error }
+  const ok = await recordConsents(ctx.supabase, memberId, [{ kind: 'waiver', version: WAIVER_VERSION, granted: true, source: 'checkin' }])
+  return ok ? { ok: true, data: true } : { ok: false, error: 'failed' }
 }
 
 export async function searchMembers(query: string): Promise<DeskResult<MemberHit[]>> {
