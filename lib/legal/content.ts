@@ -30,6 +30,33 @@ export const marketingConsentText: Bilingual = {
   en: 'I agree to receive news, promotions and special offers from us by email/SMS/LINE (optional — withdraw any time in account settings)',
 }
 
+// Health-risk waiver (v0.42.1) — confirmed by staff at check-in, once per
+// version. ⚠️ PLACEHOLDER wording: have a lawyer review it before relying on
+// it. Changing the meaning of this text = bump WAIVER_VERSION (everyone is
+// asked again at their next check-in).
+export const WAIVER_VERSION = '2026-10-30'
+export const waiverText: { title: Bilingual; points: Bilingual[]; confirm: Bilingual } = {
+  title: { th: 'รับทราบความเสี่ยงด้านสุขภาพ', en: 'Health-risk acknowledgement' },
+  points: [
+    {
+      th: 'การใช้ซาวน่า ห้องอบไอน้ำ บ่อน้ำร้อน และบ่อน้ำเย็น ทำให้หัวใจ ความดันโลหิต และอุณหภูมิร่างกายเปลี่ยนแปลงอย่างรวดเร็ว',
+      en: 'Sauna, steam, hot pools and cold plunge change heart rate, blood pressure and body temperature quickly.',
+    },
+    {
+      th: 'ผู้มีโรคหัวใจ ความดันโลหิตผิดปกติ ตั้งครรภ์ มีโรคประจำตัว หรือดื่มแอลกอฮอล์ ควรปรึกษาแพทย์ก่อนใช้บริการ',
+      en: 'If you have a heart condition, abnormal blood pressure, are pregnant, have a medical condition or have been drinking, check with a doctor first.',
+    },
+    {
+      th: 'หยุดใช้ทันทีหากรู้สึกเวียนศีรษะ แน่นหน้าอก หรือไม่สบาย และแจ้งพนักงาน',
+      en: 'Stop at once and tell a staff member if you feel dizzy, chest pain or unwell.',
+    },
+  ],
+  confirm: {
+    th: 'ลูกค้าได้รับทราบและยอมรับความเสี่ยงข้างต้นแล้ว',
+    en: 'The guest has read and accepts the risks above',
+  },
+}
+
 export const privacyPolicyUpdated: Bilingual = {
   th: 'ปรับปรุงล่าสุด: 27 กันยายน 2569',
   en: 'Last updated: September 27, 2026',
