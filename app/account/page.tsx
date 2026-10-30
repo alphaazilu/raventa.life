@@ -5,6 +5,7 @@ import { SiteFooter } from '@/components/site-footer'
 import { AccountHome } from '@/components/account/account-home'
 import { deskAllowed } from '@/lib/console/settings'
 import { createClient } from '@/lib/supabase/server'
+import { latestConsents, waiverStatus } from '@/lib/consent'
 import { resolveAvatarUrl } from '@/lib/supabase/avatar'
 import { isGift, loadMemberPackages, packageAlive } from '@/lib/packages'
 import { bangkokToday } from '@/lib/check-in/day'
@@ -104,6 +105,9 @@ export default async function AccountPage({
     : null
   const booking =
     bookable || (myBookings?.upcoming.length ?? 0) > 0 ? { next: myBookings?.upcoming[0] ?? null, count: myBookings?.upcoming.length ?? 0 } : null
+  // §54 (v0.43.0): health waiver not accepted for the current version yet
+  // (null = consent records not set up → nothing asked).
+  const waiver = waiverStatus(await latestConsents(supabase, user.id))
   const fullName = [profile?.first_name, profile?.last_name].filter(Boolean).join(' ')
   // Staff see the front-desk link only when an admin allowed it on their
   // phone (Back Office › Settings); otherwise they use the counter tablet.
@@ -115,6 +119,7 @@ export default async function AccountPage({
       <SiteHeader />
       <main className="min-h-screen bg-background pt-20 md:pt-24">
         <AccountHome
+          waiverNeeded={waiver !== null && !waiver.ok}
           name={fullName || user.email || profile?.email || '—'}
           memberNo={profile?.member_no ?? null}
           avatarUrl={avatarUrl}

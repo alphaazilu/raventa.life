@@ -9,6 +9,7 @@ import { Spinner } from '@/components/ui/spinner'
 import { cn } from '@/lib/utils'
 import { formatMemberDate, formatMemberNo } from '@/lib/format-date'
 import { QrSvg } from '@/components/ui/qr-svg'
+import { WaiverStep } from '@/components/account/waiver-prompt'
 import { BrandEmblem, BrandWordmark } from '@/components/brand-logo'
 
 
@@ -66,13 +67,26 @@ function CardFace({ name, memberNo, avatarUrl, joinedAt, role, showQrHint }: Per
   )
 }
 
-export function MemberCard({ name, memberNo, avatarUrl, joinedAt, role, autoOpen }: Person & { autoOpen: boolean }) {
+export function MemberCard({
+  name,
+  memberNo,
+  avatarUrl,
+  joinedAt,
+  role,
+  autoOpen,
+  waiverNeeded = false,
+  onWaiverAccepted,
+}: Person & { autoOpen: boolean; waiverNeeded?: boolean; onWaiverAccepted?: () => void }) {
   const { tr } = useLanguage()
   const [open, setOpen] = useState(autoOpen)
+  // §54 (v0.43.0): the health waiver comes before the QR until it's accepted;
+  // "skip" shows the QR anyway (staff confirm at the desk) for this opening.
+  const [skipped, setSkipped] = useState(false)
   const cardRef = useRef<HTMLButtonElement>(null)
 
   const close = useCallback(() => {
     setOpen(false)
+    setSkipped(false)
     // Opened straight from LINE (/account?card=1): drop the flag so a
     // refresh doesn't pop the QR up again.
     const url = new URL(window.location.href)
@@ -95,9 +109,12 @@ export function MemberCard({ name, memberNo, avatarUrl, joinedAt, role, autoOpen
         <CardFace name={name} memberNo={memberNo} avatarUrl={avatarUrl} joinedAt={joinedAt} role={role} showQrHint />
       </button>
       <p className="text-sm text-muted-foreground">{tr(authCopy.memberCardTapHint)}</p>
-      {open && (
-        <QrOverlay name={name} memberNo={memberNo} avatarUrl={avatarUrl} joinedAt={joinedAt} role={role} onClose={close} />
-      )}
+      {open &&
+        (waiverNeeded && !skipped ? (
+          <WaiverStep onAccepted={() => onWaiverAccepted?.()} onSkip={() => setSkipped(true)} onClose={close} />
+        ) : (
+          <QrOverlay name={name} memberNo={memberNo} avatarUrl={avatarUrl} joinedAt={joinedAt} role={role} onClose={close} />
+        ))}
     </div>
   )
 }

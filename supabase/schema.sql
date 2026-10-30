@@ -1381,7 +1381,8 @@ create table if not exists public.brand_settings (
 -- 54. Consent records (v0.42.0, PDPA). Evidence of what each member agreed
 -- to and when: the privacy policy + terms (kind 'pdpa', with the policy
 -- version), marketing messages (opt-in, may be withdrawn: granted false) and
--- the health-risk waiver (signed off by staff at check-in). Append-only — a
+-- the health-risk waiver (accepted by the member before showing their QR —
+-- source 'self', v0.43.0 — or signed off by staff at check-in). Append-only — a
 -- change of mind is a new row; the CURRENT state is the latest row per
 -- (user_id, kind). Rows go when the account itself is deleted.
 create table if not exists public.consent_records (
@@ -3685,11 +3686,12 @@ drop policy if exists "Consent: read own" on public.consent_records;
 create policy "Consent: read own" on public.consent_records for select to authenticated using (user_id = auth.uid());
 drop policy if exists "Consent: staff read" on public.consent_records;
 create policy "Consent: staff read" on public.consent_records for select to authenticated using (public.is_staff());
--- a member records their own PDPA / marketing choices…
+-- a member records their own PDPA / marketing choices and accepts the health
+-- waiver themselves (v0.43.0, before showing their member QR)…
 drop policy if exists "Consent: insert own" on public.consent_records;
 create policy "Consent: insert own" on public.consent_records for insert to authenticated
-  with check (user_id = auth.uid() and kind in ('pdpa', 'marketing'));
--- …and staff record a member's health waiver at the desk.
+  with check (user_id = auth.uid() and kind in ('pdpa', 'marketing', 'waiver'));
+-- …and staff record a member's health waiver at the desk (for those who didn't).
 drop policy if exists "Consent: staff record waiver" on public.consent_records;
 create policy "Consent: staff record waiver" on public.consent_records for insert to authenticated
   with check (public.is_staff() and kind = 'waiver');

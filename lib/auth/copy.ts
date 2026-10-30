@@ -333,3 +333,15 @@ export const consentCopy = {
   failed: { th: 'บันทึกไม่สำเร็จ ลองอีกครั้ง', en: 'Couldn’t save — please try again' },
   signOut: { th: 'ออกจากระบบ', en: 'Sign out' },
 }
+
+// Health-risk waiver, accepted by the member (§54, v0.43.0). The waiver text
+// itself is lib/legal/content.ts (waiverText).
+export const waiverCopy = {
+  intro: { th: 'ก่อนใช้บริการ กรุณาอ่านและยืนยันครั้งเดียว', en: 'Before your visit, please read and confirm — once is enough' },
+  self: { th: 'ฉันได้อ่านและยอมรับความเสี่ยงข้างต้น', en: 'I have read and accept the risks above' },
+  accept: { th: 'ยอมรับ', en: 'I accept' },
+  acceptShowQr: { th: 'ยอมรับและแสดง QR', en: 'Accept and show my QR' },
+  skip: { th: 'ข้ามไปก่อน — ยืนยันกับพนักงานที่เคาน์เตอร์', en: 'Skip for now — confirm with staff at the desk' },
+  done: { th: 'ยืนยันแล้ว ขอบคุณค่ะ', en: 'Confirmed — thank you' },
+  failed: { th: 'บันทึกไม่สำเร็จ — ยืนยันกับพนักงานที่เคาน์เตอร์ได้', en: 'Couldn’t save — you can confirm with staff at the desk' },
+}

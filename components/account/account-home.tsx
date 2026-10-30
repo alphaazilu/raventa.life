@@ -1,8 +1,10 @@
 'use client'
 
+import { useState } from 'react'
 import { useLanguage } from '@/components/language-provider'
 import { authCopy } from '@/lib/auth/copy'
 import { MemberCard } from '@/components/account/member-card'
+import { WaiverCard } from '@/components/account/waiver-prompt'
 import { LinkRow } from '@/components/account/account-view'
 import { DESK_PATH, MY_CHECKLIST_PATH } from '@/lib/auth/roles'
 import { cn } from '@/lib/utils'
@@ -52,6 +54,7 @@ export function AccountHome({
   commission = null,
   referral = null,
   booking = null,
+  waiverNeeded = false,
 }: {
   name: string
   memberNo: string | null
@@ -71,8 +74,11 @@ export function AccountHome({
   commission?: MyCommissionCard | null // my commission this pay period (§33)
   referral?: MyReferral | null // team: my referral code + QR (§36)
   booking?: { next: Booking | null; count: number } | null // bookings (§34); null = nothing bookable
+  waiverNeeded?: boolean // §54: health waiver not accepted for the current version yet
 }) {
   const { tr, lang } = useLanguage()
+  // One state for both places it can be accepted (this card, the QR step).
+  const [needWaiver, setNeedWaiver] = useState(waiverNeeded)
   return (
     <div className="mx-auto max-w-lg px-4 pt-4 pb-16 md:pt-6">
       <h1 className="font-display text-3xl font-extrabold text-foreground md:text-4xl">
@@ -93,8 +99,19 @@ export function AccountHome({
       )}
 
       <div className="mt-8">
-        <MemberCard name={name} memberNo={memberNo} avatarUrl={avatarUrl} joinedAt={joinedAt} role={role} autoOpen={openCardOnLoad} />
+        <MemberCard
+          name={name}
+          memberNo={memberNo}
+          avatarUrl={avatarUrl}
+          joinedAt={joinedAt}
+          role={role}
+          autoOpen={openCardOnLoad}
+          waiverNeeded={needWaiver}
+          onWaiverAccepted={() => setNeedWaiver(false)}
+        />
       </div>
+
+      {needWaiver && <WaiverCard onAccepted={() => setNeedWaiver(false)} />}
 
       {booking && (
         <Link href={MY_BOOKINGS_PATH} className="mt-4 flex items-center gap-3 rounded-2xl border border-border bg-card px-4 py-3.5">
