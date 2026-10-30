@@ -51,8 +51,6 @@ export async function completeProfile(
   const province = String(formData.get('province') ?? '').trim()
   const nationality = String(formData.get('nationality') ?? '').trim()
   const acceptPrivacy = formData.get('acceptPrivacy') === 'on'
-  // Optional, separate from the policies (§54, v0.42.0).
-  const acceptMarketing = formData.get('acceptMarketing') === 'on'
   const next = safeNext(formData.get('next'))
   // Optional (§36, v0.36): a team member's referral code, typed or scanned.
   const refCode = String(formData.get('refCode') ?? '').slice(0, 300)
@@ -145,7 +143,7 @@ export async function completeProfile(
     if (saveErr) return { error: saveErr.message }
     await saveSignupReferral(user.id, refCode, refVia)
     // Evidence of what was ticked on this form (§54) — best-effort.
-    await recordConsents(supabase, user.id, signupConsents(acceptMarketing))
+    await recordConsents(supabase, user.id, signupConsents())
 
     const sent = await sendEmailCode(user.id, email)
     if (sent.ok) return { verifyEmail: { email, maskedEmail: sent.maskedEmail } }
@@ -187,13 +185,8 @@ export async function completeProfile(
   if (error) return { error: error.message }
   if (isNewSignup) await saveSignupReferral(user.id, refCode, refVia)
   // Evidence of what was ticked on this form (§54) — best-effort. An existing
-  // member sent back here ticked the policies again, so that's recorded too;
-  // an unticked marketing box doesn't undo an earlier yes (that's Settings).
-  await recordConsents(
-    supabase,
-    user.id,
-    signupConsents(acceptMarketing, isNewSignup ? 'signup' : 'profile').filter((e) => isNewSignup || e.kind === 'pdpa' || e.granted),
-  )
+  // member sent back here ticked the policies again, so that's recorded too.
+  await recordConsents(supabase, user.id, signupConsents(isNewSignup ? 'signup' : 'profile'))
   try {
     ;(await cookies()).delete(REF_COOKIE)
   } catch {}

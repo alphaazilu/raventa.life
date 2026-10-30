@@ -316,8 +316,7 @@ export const authCopy: Record<string, Bilingual> = {
   adminEditMemberHeading: { th: 'แก้ไขข้อมูลสมาชิก', en: 'Edit Member' },
 }
 
-// Consent (§54, v0.42.0): asking again when the policies change, and the
-// marketing opt-in in My account › Settings.
+// Consent (§54, v0.42.0): asking again when the policies change.
 export const consentCopy = {
   title: { th: 'เราปรับปรุงนโยบายแล้ว', en: 'We’ve updated our policies' },
   intro: {
@@ -333,10 +332,4 @@ export const consentCopy = {
   required: { th: 'กรุณาติ๊กยอมรับก่อน', en: 'Please tick the box first' },
   failed: { th: 'บันทึกไม่สำเร็จ ลองอีกครั้ง', en: 'Couldn’t save — please try again' },
   signOut: { th: 'ออกจากระบบ', en: 'Sign out' },
-  // settings
-  marketingHeading: { th: 'ข่าวสารและโปรโมชั่น', en: 'News & offers' },
-  marketingOn: { th: 'รับข่าวสารอยู่', en: 'Subscribed' },
-  marketingOff: { th: 'ไม่รับข่าวสาร', en: 'Not subscribed' },
-  marketingSince: { th: 'บันทึกเมื่อ {d}', en: 'Recorded {d}' },
-  marketingSaved: { th: 'บันทึกแล้ว', en: 'Saved' },
 }
