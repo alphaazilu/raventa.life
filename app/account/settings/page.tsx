@@ -10,6 +10,7 @@ import { resolveAvatarUrl } from '@/lib/supabase/avatar'
 import type { LinkProvider, LinkResult } from '@/components/account/link-line'
 import { headers } from 'next/headers'
 import { getBrandInfo } from '@/lib/brand/settings'
+import { latestConsents } from '@/lib/consent'
 
 export async function generateMetadata(): Promise<Metadata> {
   const brand = await getBrandInfo()
@@ -38,6 +39,9 @@ export default async function AccountSettingsPage({
     .maybeSingle()
 
   const avatarUrl = await resolveAvatarUrl(supabase, profile)
+  // §54: the marketing opt-in's current state (null = not set up yet)
+  const consents = await latestConsents(supabase, user.id)
+  const marketing = consents ? { granted: consents.marketing?.granted ?? false, at: consents.marketing?.at ?? null } : null
   const lineLinked = lineUserIdOf(user) !== null
   // Only email/password sign-ups have a password to change; LINE- or
   // Google-only accounts would just be sent to a form that can't help.
@@ -86,6 +90,7 @@ export default async function AccountSettingsPage({
           googlePending={Boolean(google) && user.app_metadata?.google_pending === true}
           googleEmail={googleEmail}
           joinedAt={profile?.created_at ?? null}
+          marketing={marketing}
         />
       </main>
       <SiteFooter />

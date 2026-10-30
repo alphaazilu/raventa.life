@@ -16,6 +16,8 @@ import { lockConsole } from './lock-actions'
 import { clockInIfNeeded, isForgotten, listOpenEntries } from '@/lib/console/time'
 import { getAppSettings } from '@/lib/console/settings'
 import { UpdateBanner } from '@/components/console/update-banner'
+import { createClient } from '@/lib/supabase/server'
+import { latestConsents, needsPdpa } from '@/lib/consent'
 import { getBrandInfo } from '@/lib/brand/settings'
 import { appShortName } from '@/lib/brand/info'
 
@@ -66,6 +68,12 @@ export default async function ConsoleLayout({ children }: { children: React.Reac
     }
     redirect(user ? '/account' : `/login?next=${CONSOLE_PATH}`)
   }
+
+  // §54: agree to the current privacy policy / terms first. Not on the
+  // counter tablet — it's shared, and only the console may open there (the
+  // proxy would bounce /consent straight back); staff agree on their own
+  // phone or account.
+  if (!device && needsPdpa(await latestConsents(await createClient(), user.id))) redirect(`/consent?next=${CONSOLE_PATH}`)
 
   // Staff who got in with the password fallback are clocked in here (a card
   // scan already did it). No-op when an entry is open.

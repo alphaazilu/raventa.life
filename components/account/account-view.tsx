@@ -7,6 +7,7 @@ import { authCopy } from '@/lib/auth/copy'
 import { fieldClass } from '@/lib/form-field-class'
 import { updateOwnPhone, type UpdatePhoneState } from '@/app/account/actions'
 import { LoginMethods, type LinkResult } from '@/components/account/link-line'
+import { MarketingToggle } from '@/components/account/marketing-toggle'
 import { AvatarEditor } from '@/components/account/avatar'
 import { Spinner } from '@/components/ui/spinner'
 import { formatMemberDate } from '@/lib/format-date'
@@ -32,6 +33,7 @@ export function AccountSettingsView({
   googlePending,
   googleEmail,
   joinedAt,
+  marketing,
   authEmail,
   inLineApp,
   openEmailSetup,
@@ -57,6 +59,8 @@ export function AccountSettingsView({
   googlePending: boolean
   googleEmail: string | null
   joinedAt: string | null
+  /** §54 marketing opt-in; null = consent records not set up yet (hidden) */
+  marketing: { granted: boolean; at: string | null } | null
 }) {
   const { tr, lang } = useLanguage()
   const joined = formatMemberDate(joinedAt, lang, true)
@@ -197,6 +201,12 @@ export function AccountSettingsView({
           openEmailSetup={openEmailSetup}
         />
       </section>
+
+      {marketing && (
+        <section className="mt-4 rounded-2xl border border-border bg-card px-5 pt-5 pb-2">
+          <MarketingToggle initial={marketing} />
+        </section>
+      )}
 
       {hasPassword && (
         <nav className="mt-4 overflow-hidden rounded-2xl border border-border bg-card">

@@ -9,6 +9,7 @@ import { COUNTRIES } from '@/lib/countries'
 import { fieldClass } from '@/lib/form-field-class'
 import { completeProfile, type CompleteProfileState } from '@/app/complete-profile/actions'
 import { Spinner } from '@/components/ui/spinner'
+import { MarketingConsentCheckbox } from '@/components/legal/marketing-consent'
 import { MergePanel } from '@/components/complete-profile/merge-panel'
 import { VerifyEmailPanel } from '@/components/complete-profile/verify-email-panel'
 import { ExistingMemberChooser } from '@/components/complete-profile/existing-member-chooser'
@@ -281,6 +282,8 @@ export function CompleteProfileForm({
               <p className="mt-1.5 text-xs text-destructive">{tr(authCopy.acceptPrivacyRequired)}</p>
             )}
           </div>
+
+          <MarketingConsentCheckbox />
 
           {state?.error && <p className="text-sm text-destructive">{state.error}</p>}
 

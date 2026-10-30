@@ -9,6 +9,27 @@ type LegalBrand = Pick<BrandInfo, 'name' | 'fullName' | 'email'>
 type Bilingual = { th: string; en: string }
 type Section = { heading: Bilingual; paragraphs: Bilingual[] }
 
+// Policy versions (v0.42.0, PDPA). Each signed-up member's consent is
+// recorded with the version they agreed to (consent_records, schema.sql
+// §54). When the privacy policy or the terms change, update the text below,
+// set its *_VERSION to the new date (YYYY-MM-DD, also in its "Last updated"
+// line) — everyone is then asked to agree again the next time they open their
+// account or the Back Office.
+export const PRIVACY_VERSION = '2026-09-27'
+export const TERMS_VERSION = '2026-09-21'
+/** One checkbox covers both documents, so its version is the later of the two. */
+export const PDPA_VERSION = PRIVACY_VERSION > TERMS_VERSION ? PRIVACY_VERSION : TERMS_VERSION
+
+// Marketing messages — a separate, optional opt-in (never needed to sign up),
+// which the member can withdraw any time in My account › Settings.
+// ⚠️ PLACEHOLDER wording: have a lawyer review it before relying on it.
+// Changing the meaning of this text = bump MARKETING_VERSION.
+export const MARKETING_VERSION = '2026-10-30'
+export const marketingConsentText: Bilingual = {
+  th: 'ฉันยินยอมรับข่าวสาร โปรโมชั่น และข้อเสนอพิเศษจากเราทางอีเมล/SMS/LINE (ไม่บังคับ — ยกเลิกได้ทุกเมื่อในหน้าตั้งค่าบัญชี)',
+  en: 'I agree to receive news, promotions and special offers from us by email/SMS/LINE (optional — withdraw any time in account settings)',
+}
+
 export const privacyPolicyUpdated: Bilingual = {
   th: 'ปรับปรุงล่าสุด: 27 กันยายน 2569',
   en: 'Last updated: September 27, 2026',
