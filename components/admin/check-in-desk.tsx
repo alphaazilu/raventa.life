@@ -826,7 +826,7 @@ function loanSummary(loans: { name: string; nameEn: string; qty: number }[], lan
   return [...m.values()].map((g) => `${g.name} ×${g.qty}`).join(' · ')
 }
 
-// Health-risk waiver (§54, v0.42.1): shown until staff confirm the guest
+// Health-readiness waiver (§54, v0.42.1): shown until staff confirm the guest
 // accepted the current version. Doesn't block the check-in itself.
 function WaiverCard({ busy, onConfirm }: { busy: boolean; onConfirm: () => void }) {
   const { tr } = useLanguage()
@@ -847,7 +847,7 @@ function WaiverCard({ busy, onConfirm }: { busy: boolean; onConfirm: () => void 
           onChange={(e) => setTicked(e.target.checked)}
           className="mt-0.5 h-4 w-4 shrink-0 rounded border-border text-primary focus:ring-2 focus:ring-primary"
         />
-        <span>{tr(waiverText.confirm)}</span>
+        <span>{tr(waiverText.confirmStaff)}</span>
       </label>
       <button
         type="button"

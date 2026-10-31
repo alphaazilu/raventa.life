@@ -262,7 +262,7 @@ export async function getMember(memberId: string): Promise<DeskResult<DeskMember
   return loadMember(ctx.supabase, ctx.userId, memberId)
 }
 
-// Staff confirm at the desk that the guest accepted the health-risk waiver
+// Staff confirm at the desk that the guest accepted the health-readiness waiver
 // (§54, v0.42.1). Recorded with the staff member's own session (RLS: staff
 // may insert kind 'waiver'; the row stamps who pressed it and when).
 export async function recordWaiver(memberId: string): Promise<DeskResult<true>> {

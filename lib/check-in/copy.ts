@@ -175,9 +175,9 @@ export const deskCopy = {
   voidHint: { th: 'ยกเลิกทั้งบิล: คืนเงิน คืนสต็อก ยกเลิกเช็คอิน · พนักงานทำได้ภายใน 30 นาที · บันทึกชื่อผู้ยกเลิก', en: 'Voids the whole bill: refund, stock back, check-in undone · staff within 30 min · your name is logged' },
   doneVoid: { th: 'ยกเลิกบิลแล้ว', en: 'Bill voided' },
   // Health waiver (§54, v0.42.1)
-  waiverNeeded: { th: 'ยังไม่ได้ยืนยัน — อ่านให้ลูกค้าฟัง/ให้ลูกค้าอ่าน แล้วติ๊กยืนยัน', en: 'Not confirmed yet — go through it with the guest, then tick' },
+  waiverNeeded: { th: 'ยังไม่ได้ยืนยัน — อ่าน/ให้ลูกค้าอ่านข้อแนะนำด้านสุขภาพ แล้วติ๊กยืนยัน', en: 'Not confirmed yet — go through the health guidance with the guest, then tick' },
   waiverSave: { th: 'บันทึกการยืนยัน', en: 'Record confirmation' },
-  waiverDone: { th: 'ยืนยันความเสี่ยงสุขภาพแล้ว', en: 'Health waiver confirmed' },
+  waiverDone: { th: 'ยืนยันความพร้อมด้านสุขภาพแล้ว', en: 'Health readiness confirmed' },
 } satisfies Record<string, Bilingual>
 
 // Database / server error codes → what staff see.

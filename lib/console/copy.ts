@@ -1086,7 +1086,7 @@ export const waiverStatusCopy = {
   desk: { th: 'พนักงานยืนยันที่เคาน์เตอร์', en: 'by staff at the desk' },
   heading: { th: 'ความยินยอม', en: 'Consent' },
   pdpa: { th: 'นโยบายความเป็นส่วนตัว + ข้อกำหนด', en: 'Privacy policy + terms' },
-  waiver: { th: 'ความเสี่ยงสุขภาพ (waiver)', en: 'Health waiver' },
+  waiver: { th: 'ความพร้อมด้านสุขภาพ (waiver)', en: 'Health readiness (waiver)' },
   pdpaOk: { th: 'ยอมรับฉบับปัจจุบันแล้ว', en: 'Current version accepted' },
   pdpaOld: { th: 'ยอมรับฉบับเก่า — จะถูกขอใหม่ตอนเข้าใช้', en: 'Older version — asked again at next sign-in' },
   pdpaNone: { th: 'ยังไม่มีบันทึก', en: 'Nothing on record' },
