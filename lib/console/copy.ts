@@ -875,9 +875,11 @@ export const brandCopy = {
     th: 'ค่าที่เพิ่มใน v0.41 (โลโก้อื่น สี แผนที่ เวลา โซเชียล SEO) ต้องรัน supabase/schema.sql ก่อนจึงจะบันทึกได้',
     en: 'The v0.41 settings (other logos, colours, map, hours, socials, SEO) need supabase/schema.sql to be run before they can be saved',
   },
+  // Since v0.41.3 page titles, terms/privacy, notification emails and the
+  // tablet app follow these settings; what's left is below.
   stillCode: {
-    th: 'ข้อความอื่นที่มีชื่อร้าน (เช่น หัวข้อแต่ละหน้า, ข้อกำหนด, อีเมลแจ้งเตือน) ยังใช้ค่าในโค้ด (lib/brand/config.ts)',
-    en: 'Other text mentioning the shop name (per-page titles, terms, notification emails) still uses the values in code (lib/brand/config.ts)',
+    th: 'ข้อความบางจุดบนหน้าจอที่มีชื่อร้าน (เช่น บัตรสมาชิก ข้อความแจ้งเตือน) และอีเมลยืนยัน/รีเซ็ตรหัสผ่านของ Supabase Auth ยังใช้ชื่อในโค้ด (lib/brand/config.ts)',
+    en: 'Some on-screen text with the shop name (e.g. the member card, notices) and the Supabase Auth confirm / reset-password emails still use the name in code (lib/brand/config.ts)',
   },
 }
 
