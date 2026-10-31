@@ -36,7 +36,11 @@ export const effectivePermissions = cache(async (userId: string): Promise<Set<st
     return expandPermissions(floor)
   }
 
-  const roleIds = new Set((mine ?? []).map((r) => r.role_id as string))
+  const custom = (mine ?? []).map((r) => r.role_id as string)
+  // ยังไม่มี role ที่มอบเพิ่ม (ทุกคน จนกว่าจะมี UI เฟส 3): floor = สิทธิ์ของ system role อยู่แล้ว ข้าม round-trip ที่เหลือ
+  if (custom.length === 0) return expandPermissions(floor)
+
+  const roleIds = new Set(custom)
   if (fallback) {
     const { data: sys } = await db.from('roles').select('id').eq('key', fallback).eq('is_system', true).maybeSingle()
     if (sys) roleIds.add(sys.id as string)
