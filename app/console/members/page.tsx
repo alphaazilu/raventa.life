@@ -7,6 +7,7 @@ import { canUseDesk, DESK_PATH, MEMBERS_PATH } from '@/lib/auth/roles'
 import { getCurrentDevice } from '@/lib/console/device'
 import { getAppSettings } from '@/lib/console/settings'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { waiverStatusMany } from '@/lib/consent'
 import { getBrandInfo } from '@/lib/brand/settings'
 import { backOfficeName } from '@/lib/brand/info'
 
@@ -51,10 +52,13 @@ export default async function MembersPage({ searchParams }: { searchParams: Prom
 
   // Uploaded photos live in a private bucket — sign them in one request.
   const avatarUrls = await resolveAvatarUrls(db, members as { id: string; avatar_path: string | null; provider_avatar_url: string | null }[])
+  // Health waiver per result (v0.43.1), so staff can see who still needs it.
+  const waivers = await waiverStatusMany(db, members.map((m) => m.id as string))
   const results = members.map(({ avatar_path: _a, provider_avatar_url: _p, ...m }) => ({
     ...(m as Omit<AdminMember, 'avatar_url'>),
     email: admin ? (m.email as string | null) : maskEmail(m.email as string | null),
     avatar_url: avatarUrls[m.id as string] ?? null,
+    waiver: waivers?.[m.id as string],
   }))
 
   return (

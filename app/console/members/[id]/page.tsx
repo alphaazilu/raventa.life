@@ -18,6 +18,9 @@ import { referralOf } from '@/lib/console/referral'
 import { listEarners } from '@/lib/console/commission'
 import { getBrandInfo } from '@/lib/brand/settings'
 import { backOfficeName } from '@/lib/brand/info'
+import { latestConsents } from '@/lib/consent'
+import { PDPA_VERSION, WAIVER_VERSION } from '@/lib/legal/content'
+import { MemberConsent } from '@/components/console/member-consent'
 
 export async function generateMetadata(): Promise<Metadata> {
   const brand = await getBrandInfo()
@@ -34,7 +37,7 @@ export default async function EditMemberPage({ params }: { params: Promise<{ id:
 
   if (role !== 'admin') redirect(DESK_PATH)
 
-  const [{ data: member }, history, stampRes, packages, shareEvents, bookings, rules, referral, team] = await Promise.all([
+  const [{ data: member }, history, stampRes, packages, shareEvents, bookings, rules, referral, team, consents] = await Promise.all([
     supabase
       .from('profiles')
       .select('id, member_no, first_name, last_name, email, phone, province, nationality, role')
@@ -49,6 +52,8 @@ export default async function EditMemberPage({ params }: { params: Promise<{ id:
     // §36: who referred them (null = not run yet)
     referralOf(id).catch(() => null),
     listEarners().catch(() => null),
+    // §54 (v0.43.1): PDPA + health waiver; null = not set up (card hidden)
+    latestConsents(supabase, id),
   ])
   const noShow = bookings ? await memberNoShow(id, rules).catch(() => null) : null
 
@@ -65,6 +70,7 @@ export default async function EditMemberPage({ params }: { params: Promise<{ id:
           person={{ id: member.id, name: [member.first_name, member.last_name].filter(Boolean).join(' ') || member.email || '—', role: member.role }}
           meId={user.id}
         />
+        {consents && <MemberConsent pdpa={consents.pdpa ?? null} waiver={consents.waiver ?? null} pdpaCurrent={PDPA_VERSION} waiverCurrent={WAIVER_VERSION} />}
         {referral && (
           <MemberReferral
             memberId={id}

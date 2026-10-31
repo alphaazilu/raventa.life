@@ -897,3 +897,197 @@ export const brandErrors: Record<string, { th: string; en: string }> = {
   upload_failed: { th: 'อัปโหลดรูปไม่สำเร็จ — ตรวจว่ามี Storage bucket "brand" แล้ว', en: 'Upload failed — check the "brand" Storage bucket exists' },
   failed: { th: 'บันทึกไม่สำเร็จ ลองอีกครั้ง', en: 'Couldn’t save — try again' },
 }
+
+// Back Office › System › Audit log (v0.43.1): what staff_actions codes mean.
+// A code missing here shows as itself — add it when a new kind is logged.
+type AuditL = { th: string; en: string }
+export const AUDIT_GROUPS = {
+  front: {
+    label: { th: 'หน้าร้าน / ขาย', en: 'Front desk / sales' },
+    actions: {
+      check_in: { th: 'เช็คอิน', en: 'Check-in' },
+      check_out: { th: 'เช็คเอาท์', en: 'Check-out' },
+      re_enter: { th: 'กลับเข้าใหม่', en: 'Re-entry' },
+      cancel_visit: { th: 'ยกเลิกการเข้าใช้', en: 'Visit cancelled' },
+      sale: { th: 'ออกบิลขาย', en: 'Sale' },
+      void_sale: { th: 'ยกเลิกบิล', en: 'Bill voided' },
+      sale_off_tablet: { th: 'ขายนอก tablet เคาน์เตอร์', en: 'Sold away from the counter tablet' },
+      lend: { th: 'ให้ยืมของ', en: 'Item lent' },
+      package_item: { th: 'ใช้สิทธิ์ในแพ็กเกจ', en: 'Package item used' },
+      package_item_undo: { th: 'ยกเลิกการใช้สิทธิ์แพ็กเกจ', en: 'Package item use undone' },
+    },
+  },
+  cash: {
+    label: { th: 'เงินสด', en: 'Cash' },
+    actions: {
+      cash_open: { th: 'เปิดลิ้นชัก', en: 'Drawer opened' },
+      cash_count: { th: 'นับเงิน', en: 'Cash counted' },
+      cash_close: { th: 'ปิดกะ', en: 'Shift closed' },
+      cash_review: { th: 'รีวิวเงินขาด/เกิน', en: 'Shortfall / overage reviewed' },
+    },
+  },
+  team: {
+    label: { th: 'ทีมงาน', en: 'Team' },
+    actions: {
+      clock_in: { th: 'ลงเวลาเข้า', en: 'Clocked in' },
+      clock_out: { th: 'ลงเวลาออก', en: 'Clocked out' },
+      console_sign_in: { th: 'เข้า Back Office ด้วยบัตร', en: 'Signed in with card' },
+      console_lock: { th: 'ล็อก / สลับคน', en: 'Locked / switched person' },
+      role_change: { th: 'เปลี่ยนสิทธิ์', en: 'Role changed' },
+      pay_type: { th: 'เปลี่ยนรูปแบบค่าจ้าง', en: 'Pay type changed' },
+      leave_approve: { th: 'อนุมัติลา', en: 'Leave approved' },
+      leave_reject: { th: 'ไม่อนุมัติลา', en: 'Leave rejected' },
+    },
+  },
+  catalog: {
+    label: { th: 'สินค้าและราคา', en: 'Products & prices' },
+    actions: {
+      stock_set: { th: 'ปรับสต็อก', en: 'Stock adjusted' },
+      branch_price: { th: 'ตั้งราคารายสาขา', en: 'Branch price set' },
+      branch_stock: { th: 'ตั้งสต็อกรายสาขา', en: 'Branch stock set' },
+      commission_on: { th: 'เปิดค่าคอม', en: 'Commission on' },
+      commission_off: { th: 'ปิดค่าคอม', en: 'Commission off' },
+    },
+  },
+  customers: {
+    label: { th: 'ลูกค้า', en: 'Customers' },
+    actions: {
+      feedback_handled: { th: 'จัดการความเห็นลูกค้า', en: 'Feedback handled' },
+      feedback_topics: { th: 'แก้หัวข้อคะแนน', en: 'Feedback topics changed' },
+      quiz_lead_handled: { th: 'ติดต่อผู้สนใจแล้ว', en: 'Quiz lead contacted' },
+      quiz_lead_reopened: { th: 'เปิดผู้สนใจอีกครั้ง', en: 'Quiz lead reopened' },
+    },
+  },
+  checklist: {
+    label: { th: 'เช็คลิสต์', en: 'Checklists' },
+    actions: {
+      checklist_point: { th: 'บันทึกจุดตรวจ', en: 'Check point saved' },
+      checklist_point_delete: { th: 'ลบจุดตรวจ', en: 'Check point deleted' },
+      checklist_reissue: { th: 'ออก QR จุดตรวจใหม่', en: 'Check point QR reissued' },
+      checklist_round: { th: 'บันทึกรอบตรวจ', en: 'Round saved' },
+      checklist_round_delete: { th: 'ลบรอบตรวจ', en: 'Round deleted' },
+    },
+  },
+  calendar: {
+    label: { th: 'ปฏิทิน', en: 'Calendar' },
+    actions: {
+      calendar_add: { th: 'เพิ่มในปฏิทิน', en: 'Calendar item added' },
+      calendar_update: { th: 'แก้ปฏิทิน', en: 'Calendar item changed' },
+      calendar_delete: { th: 'ลบจากปฏิทิน', en: 'Calendar item deleted' },
+    },
+  },
+  settings: {
+    label: { th: 'ตั้งค่า', en: 'Settings' },
+    actions: {
+      settings_access: { th: 'ตั้งค่าการเข้าถึง', en: 'Access settings' },
+      settings_cash: { th: 'ตั้งค่าเงินสด', en: 'Cash settings' },
+      settings_pay: { th: 'ตั้งค่ารอบค่าจ้าง', en: 'Pay cycle settings' },
+      settings_review_url: { th: 'ตั้งลิงก์รีวิว', en: 'Review link set' },
+      phone_access_on: { th: 'อนุญาตขายจากมือถือ', en: 'Phone selling allowed' },
+      phone_access_off: { th: 'ยกเลิกขายจากมือถือ', en: 'Phone selling removed' },
+      brand_updated: { th: 'แก้แบรนด์', en: 'Brand changed' },
+    },
+  },
+} satisfies Record<string, { label: AuditL; actions: Record<string, AuditL> }>
+export type AuditGroup = keyof typeof AUDIT_GROUPS
+
+const AUDIT_LABELS: Record<string, AuditL> = Object.assign({}, ...Object.values(AUDIT_GROUPS).map((g) => g.actions))
+/** Thai/English label of an action code; unknown codes show as the code. */
+export const auditLabel = (code: string): AuditL => AUDIT_LABELS[code] ?? { th: code, en: code }
+export const auditGroupOf = (code: string): AuditGroup | null =>
+  (Object.keys(AUDIT_GROUPS) as AuditGroup[]).find((g) => code in AUDIT_GROUPS[g].actions) ?? null
+
+/** Names for the keys found in `detail`; others show as the key. */
+export const AUDIT_DETAIL_KEYS: Record<string, AuditL> = {
+  reason: { th: 'เหตุผล', en: 'Reason' },
+  note: { th: 'บันทึก', en: 'Note' },
+  from: { th: 'จาก', en: 'From' },
+  to: { th: 'เป็น', en: 'To' },
+  device: { th: 'เครื่อง', en: 'Device' },
+  method: { th: 'วิธี', en: 'Method' },
+  via: { th: 'ผ่าน', en: 'Via' },
+  name: { th: 'ชื่อ', en: 'Name' },
+  title: { th: 'หัวข้อ', en: 'Title' },
+  receipt_no: { th: 'เลขใบเสร็จ', en: 'Receipt' },
+  total: { th: 'ยอด', en: 'Total' },
+  price: { th: 'ราคา', en: 'Price' },
+  unit_price: { th: 'ราคาต่อหน่วย', en: 'Unit price' },
+  discount: { th: 'ส่วนลด', en: 'Discount' },
+  promo: { th: 'โปรโมชั่น', en: 'Promotion' },
+  payment_method: { th: 'ชำระด้วย', en: 'Paid by' },
+  entry_type: { th: 'ประเภทการเข้า', en: 'Entry' },
+  qty: { th: 'จำนวน', en: 'Qty' },
+  count: { th: 'จำนวน', en: 'Count' },
+  item: { th: 'รายการ', en: 'Item' },
+  items: { th: 'รายการ', en: 'Items' },
+  stock: { th: 'สต็อก', en: 'Stock' },
+  counted: { th: 'นับได้', en: 'Counted' },
+  diff: { th: 'ส่วนต่าง', en: 'Difference' },
+  float: { th: 'เงินทอนตั้งต้น', en: 'Float' },
+  cash_float: { th: 'เงินทอนตั้งต้น', en: 'Float' },
+  cash_alert: { th: 'เตือนเมื่อต่างเกิน', en: 'Alert above' },
+  wristband: { th: 'สายรัด', en: 'Wristband' },
+  kind: { th: 'ประเภท', en: 'Kind' },
+  start: { th: 'เริ่ม', en: 'Start' },
+  end: { th: 'ถึง', en: 'End' },
+  url: { th: 'ลิงก์', en: 'Link' },
+  color: { th: 'สี', en: 'Colour' },
+  version: { th: 'เวอร์ชัน', en: 'Version' },
+  active: { th: 'เปิดใช้', en: 'Active' },
+  topics: { th: 'หัวข้อ', en: 'Topics' },
+  wd: { th: 'วันธรรมดา', en: 'Weekday' },
+  we: { th: 'เสาร์-อาทิตย์', en: 'Weekend' },
+  ho: { th: 'วันหยุด', en: 'Holiday' },
+  charged: { th: 'คิดเงิน', en: 'Charged' },
+  was_out_at: { th: 'ออกไปเมื่อ', en: 'Was out at' },
+  cleared_shifts: { th: 'ล้างกะ', en: 'Shifts cleared' },
+  cleared_phone: { th: 'ล้างสิทธิ์มือถือ', en: 'Phone access cleared' },
+}
+
+export const auditCopy = {
+  title: { th: 'บันทึกการกระทำ', en: 'Audit log' },
+  intro: { th: 'ใครทำอะไรเมื่อไหร่ในระบบ (อ่านอย่างเดียว)', en: 'Who did what, and when (read only)' },
+  colAt: { th: 'วันเวลา', en: 'When' },
+  colActor: { th: 'ผู้ทำ', en: 'By' },
+  colAction: { th: 'การกระทำ', en: 'Action' },
+  colMember: { th: 'สมาชิกที่เกี่ยว', en: 'Member' },
+  colDetail: { th: 'รายละเอียด', en: 'Details' },
+  allActors: { th: 'ทุกคน', en: 'Everyone' },
+  allActions: { th: 'ทุกประเภท', en: 'All actions' },
+  wholeGroup: { th: 'ทั้งหมดในกลุ่ม', en: 'Whole group' },
+  search: { th: 'ค้นชื่อ เลขสมาชิก เลขใบเสร็จ เหตุผล…', en: 'Search name, member no., receipt, reason…' },
+  apply: { th: 'กรอง', en: 'Filter' },
+  clear: { th: 'ล้างตัวกรอง', en: 'Clear filters' },
+  system: { th: 'ระบบ', en: 'System' },
+  none: { th: 'ไม่มีรายการในช่วงนี้', en: 'Nothing logged for these filters' },
+  failed: { th: 'โหลดบันทึกไม่สำเร็จ ลองรีเฟรช', en: 'Couldn’t load the log — try refreshing' },
+  newer: { th: '← ใหม่กว่า', en: '← Newer' },
+  older: { th: 'เก่ากว่า →', en: 'Older →' },
+  page: { th: 'หน้า {n}', en: 'Page {n}' },
+  export: { th: 'ส่งออก CSV', en: 'Export CSV' },
+  exportNote: { th: 'ตามตัวกรองปัจจุบัน สูงสุด 10,000 รายการ', en: 'Current filters, up to 10,000 rows' },
+  today: { th: 'วันนี้', en: 'Today' },
+  yesterday: { th: 'เมื่อวาน', en: 'Yesterday' },
+  '7d': { th: '7 วัน', en: '7 days' },
+  month: { th: 'เดือนนี้', en: 'This month' },
+  last_month: { th: 'เดือนก่อน', en: 'Last month' },
+  fromTo: { th: 'ถึง', en: 'to' },
+}
+
+// Health-waiver status for staff (v0.43.1): the member list and the member page.
+export const waiverStatusCopy = {
+  col: { th: 'Waiver', en: 'Waiver' },
+  ok: { th: 'ยืนยันแล้ว', en: 'Confirmed' },
+  missing: { th: 'ยังไม่ยืนยัน', en: 'Not yet' },
+  old: { th: 'ฉบับเก่า', en: 'Old version' },
+  self: { th: 'ลูกค้ายืนยันเอง', en: 'by the member' },
+  desk: { th: 'พนักงานยืนยันที่เคาน์เตอร์', en: 'by staff at the desk' },
+  heading: { th: 'ความยินยอม', en: 'Consent' },
+  pdpa: { th: 'นโยบายความเป็นส่วนตัว + ข้อกำหนด', en: 'Privacy policy + terms' },
+  waiver: { th: 'ความเสี่ยงสุขภาพ (waiver)', en: 'Health waiver' },
+  pdpaOk: { th: 'ยอมรับฉบับปัจจุบันแล้ว', en: 'Current version accepted' },
+  pdpaOld: { th: 'ยอมรับฉบับเก่า — จะถูกขอใหม่ตอนเข้าใช้', en: 'Older version — asked again at next sign-in' },
+  pdpaNone: { th: 'ยังไม่มีบันทึก', en: 'Nothing on record' },
+  version: { th: 'ฉบับ {v}', en: 'version {v}' },
+  notSetUp: { th: 'ยังไม่ได้รัน SQL §54', en: 'SQL §54 not run yet' },
+}

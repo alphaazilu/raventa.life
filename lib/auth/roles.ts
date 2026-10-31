@@ -46,6 +46,7 @@ export const BOOKINGS_PATH = '/console/bookings' // bookings: day, list, setup (
 export const MY_BOOKINGS_PATH = '/account/bookings'
 export const FEEDBACK_PATH = '/console/feedback' // member ratings + comments (v0.33)
 export const LEADS_PATH = '/console/leads' // quiz "contact me" leads (v0.38.31)
+export const AUDIT_PATH = '/console/audit' // who did what (staff_actions), admins only (v0.43.1)
 export const CALENDAR_PATH = '/console/calendar' // events, campaigns, notes (v0.32)
 export const CASH_PATH = '/console/cash' // drawer: open, blind count, close (v0.31)
 export const CHECKLIST_PATH = '/console/checklist' // admin: set up + log (v0.29)
