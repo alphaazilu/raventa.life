@@ -3964,13 +3964,20 @@ from (values
   ('admin', 'action:time.edit'),
   ('admin', 'action:export.data'),
   ('admin', 'action:roles.manage'),
-  -- staff: the front desk; on a registered tablet also the member list
-  -- (view only) and the time page — the tablet / setting conditions stay
-  -- where they are. Void within 30 minutes (the limit is in pos_void_sale),
-  -- open / count / close the drawer.
+  ('admin', 'action:console.anywhere'),
+  -- staff: the front desk (their phone too when an admin allows it); on a
+  -- registered counter tablet also cash, bookings, the member list (view
+  -- only), the time page and the calendar — "tablet only" is ROUTE_RULES'
+  -- tabletUnless: action:console.anywhere, which staff don't hold. Void
+  -- within 30 minutes (the limit is in pos_void_sale), open / count / close
+  -- the drawer. (cash / bookings / calendar added v0.44.3 — staff always had
+  -- them on the tablet; phase 1 missed them.)
   ('staff', 'access:storefront.desk'),
+  ('staff', 'access:storefront.cash'),
+  ('staff', 'access:storefront.bookings'),
   ('staff', 'access:storefront.members'),
   ('staff', 'access:team.time'),
+  ('staff', 'access:team.calendar'),
   ('staff', 'action:bill.void'),
   ('staff', 'action:cash.close'),
   -- accountant: the sales report (+ its export), nothing else
