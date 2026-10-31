@@ -334,11 +334,10 @@ export const consentCopy = {
   signOut: { th: 'ออกจากระบบ', en: 'Sign out' },
 }
 
-// Health-risk waiver, accepted by the member (§54, v0.43.0). The waiver text
-// itself is lib/legal/content.ts (waiverText).
+// Health-readiness waiver, accepted by the member (§54, v0.43.0). The waiver
+// text itself — and the line the member ticks — is lib/legal/content.ts (waiverText).
 export const waiverCopy = {
   intro: { th: 'ก่อนใช้บริการ กรุณาอ่านและยืนยันครั้งเดียว', en: 'Before your visit, please read and confirm — once is enough' },
-  self: { th: 'ฉันได้อ่านและยอมรับความเสี่ยงข้างต้น', en: 'I have read and accept the risks above' },
   accept: { th: 'ยอมรับ', en: 'I accept' },
   acceptShowQr: { th: 'ยอมรับและแสดง QR', en: 'Accept and show my QR' },
   skip: { th: 'ข้ามไปก่อน — ยืนยันกับพนักงานที่เคาน์เตอร์', en: 'Skip for now — confirm with staff at the desk' },

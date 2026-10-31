@@ -8,7 +8,7 @@ import { authCopy, waiverCopy as c } from '@/lib/auth/copy'
 import { waiverText } from '@/lib/legal/content'
 import { acceptWaiver } from '@/app/account/waiver-actions'
 
-// The health-risk waiver, accepted by the member themselves (§54, v0.43.0):
+// The health-readiness waiver, accepted by the member themselves (§54, v0.43.0):
 // a card on My account, and a step before the member QR shows. Same text as
 // the desk's card (lib/legal/content.ts). Once accepted for this version,
 // neither shows again — and staff at the desk aren't asked to confirm it.
@@ -40,7 +40,7 @@ function WaiverForm({ acceptLabel, onAccepted, onSkip }: { acceptLabel: string; 
           onChange={(e) => setTicked(e.target.checked)}
           className="mt-0.5 h-4 w-4 shrink-0 rounded border-border text-primary focus:ring-2 focus:ring-primary"
         />
-        <span>{tr(c.self)}</span>
+        <span>{tr(waiverText.confirm)}</span>
       </label>
       {failed && <p className="mt-2 text-xs text-destructive">{tr(c.failed)}</p>}
       <button

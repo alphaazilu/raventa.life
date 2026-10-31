@@ -20,30 +20,37 @@ export const TERMS_VERSION = '2026-09-21'
 /** One checkbox covers both documents, so its version is the later of the two. */
 export const PDPA_VERSION = PRIVACY_VERSION > TERMS_VERSION ? PRIVACY_VERSION : TERMS_VERSION
 
-// Health-risk waiver (v0.42.1) — confirmed by staff at check-in, once per
+// Health-readiness waiver (v0.42.1; warmer wording v0.43.3) — accepted by the
+// member before their QR shows, or confirmed by staff at check-in, once per
 // version. ⚠️ PLACEHOLDER wording: have a lawyer review it before relying on
 // it. Changing the meaning of this text = bump WAIVER_VERSION (everyone is
-// asked again at their next check-in).
-export const WAIVER_VERSION = '2026-10-30'
-export const waiverText: { title: Bilingual; points: Bilingual[]; confirm: Bilingual } = {
-  title: { th: 'รับทราบความเสี่ยงด้านสุขภาพ', en: 'Health-risk acknowledgement' },
+// asked again).
+export const WAIVER_VERSION = '2026-10-31'
+export const waiverText: { title: Bilingual; points: Bilingual[]; confirm: Bilingual; confirmStaff: Bilingual } = {
+  title: { th: 'ความพร้อมด้านสุขภาพ', en: 'Health readiness' },
   points: [
     {
-      th: 'การใช้ซาวน่า ห้องอบไอน้ำ บ่อน้ำร้อน และบ่อน้ำเย็น ทำให้หัวใจ ความดันโลหิต และอุณหภูมิร่างกายเปลี่ยนแปลงอย่างรวดเร็ว',
-      en: 'Sauna, steam, hot pools and cold plunge change heart rate, blood pressure and body temperature quickly.',
+      th: 'บริการบำบัดร้อน–เย็น (ซาวน่า ห้องอบไอน้ำ บ่อน้ำร้อน บ่อน้ำเย็น) เกี่ยวข้องกับอุณหภูมิสูงและต่ำ ซึ่งทำให้หัวใจ ความดันโลหิต และอุณหภูมิร่างกายเปลี่ยนแปลง',
+      en: 'Our hot–cold therapy (sauna, steam, hot and cold pools) involves high and low temperatures that affect your heart, blood pressure and body temperature.',
     },
     {
-      th: 'ผู้มีโรคหัวใจ ความดันโลหิตผิดปกติ ตั้งครรภ์ มีโรคประจำตัว หรือดื่มแอลกอฮอล์ ควรปรึกษาแพทย์ก่อนใช้บริการ',
-      en: 'If you have a heart condition, abnormal blood pressure, are pregnant, have a medical condition or have been drinking, check with a doctor first.',
+      th: 'หากคุณตั้งครรภ์ มีโรคหัวใจ ความดันโลหิต หรือภาวะสุขภาพที่ต้องดูแลเป็นพิเศษ แนะนำให้ปรึกษาทีมงานหรือแพทย์ก่อนใช้บริการ',
+      en: 'If you are pregnant, have a heart condition, blood-pressure issues or any condition needing special care, please consult our team or your doctor first.',
     },
     {
-      th: 'หยุดใช้ทันทีหากรู้สึกเวียนศีรษะ แน่นหน้าอก หรือไม่สบาย และแจ้งพนักงาน',
-      en: 'Stop at once and tell a staff member if you feel dizzy, chest pain or unwell.',
+      th: 'โปรดฟังร่างกายตัวเอง ดื่มน้ำให้พอ และแจ้งทีมงานทันทีหากรู้สึกไม่สบาย',
+      en: 'Please listen to your body, stay hydrated, and tell our team right away if you feel unwell.',
     },
   ],
+  /** The member, in their own words (My account / before the QR). */
   confirm: {
-    th: 'ลูกค้าได้รับทราบและยอมรับความเสี่ยงข้างต้นแล้ว',
-    en: 'The guest has read and accepts the risks above',
+    th: 'ฉันเข้าใจข้อควรระวังด้านสุขภาพข้างต้น และยืนยันความพร้อมในการใช้บริการ',
+    en: 'I understand the health precautions above and confirm I am ready to use the service.',
+  },
+  /** The same, ticked by staff at the desk on the guest's behalf. */
+  confirmStaff: {
+    th: 'ลูกค้าเข้าใจข้อควรระวังด้านสุขภาพข้างต้น และยืนยันความพร้อมในการใช้บริการ',
+    en: 'The guest understands the health precautions above and confirms they are ready to use the service.',
   },
 }
 
