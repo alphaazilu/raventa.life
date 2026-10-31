@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { requireAdmin } from '@/lib/console/guard'
+import { requirePermissions } from '@/lib/console/guard'
 import { getAppSettings } from '@/lib/console/settings'
 import { resolveTimePeriod } from '@/lib/console/time-period'
 import { loadTimeReport } from '@/lib/console/time-report'
@@ -125,7 +125,7 @@ function daily(people: PersonTime[]) {
 }
 
 export async function GET(request: Request) {
-  const ctx = await requireAdmin()
+  const ctx = await requirePermissions('access:reports.hours', 'action:export.data')
   if ('error' in ctx) return new NextResponse('Forbidden', { status: 403 })
   const q = Object.fromEntries(new URL(request.url).searchParams)
   const type = q.type === 'daily' ? 'daily' : 'summary'

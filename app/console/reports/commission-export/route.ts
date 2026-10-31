@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { requireAdmin } from '@/lib/console/guard'
+import { requirePermissions } from '@/lib/console/guard'
 import { getAppSettings } from '@/lib/console/settings'
 import { resolveTimePeriod } from '@/lib/console/time-period'
 import { loadCommissionReport } from '@/lib/console/commission'
@@ -19,7 +19,7 @@ function csv(rows: (string | number | null)[][]): string {
 }
 
 export async function GET(req: Request) {
-  const ctx = await requireAdmin()
+  const ctx = await requirePermissions('access:reports.commission', 'action:export.data')
   if ('error' in ctx) return new NextResponse('Forbidden', { status: 403 })
   const url = new URL(req.url)
   const settings = await getAppSettings()

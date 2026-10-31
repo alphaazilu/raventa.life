@@ -5,7 +5,8 @@ import { getConsoleSession } from '@/lib/console/session'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { loadCatalog, saleTypesFrom } from '@/lib/console/catalog'
 import { bangkokToday } from '@/lib/check-in/day'
-import { CATALOG_PATH, DESK_PATH, isAdmin } from '@/lib/auth/roles'
+import { CATALOG_PATH, DESK_PATH } from '@/lib/auth/roles'
+import { canSeeArea } from '@/lib/auth/permissions'
 import { listEarners, listRules } from '@/lib/console/commission'
 import { allCodes, getDefaultReferrer } from '@/lib/console/referral'
 import { getBrandInfo } from '@/lib/brand/settings'
@@ -22,9 +23,9 @@ export const dynamic = 'force-dynamic'
 
 // Back Office → Products & prices (schema.sql §18). Admins only.
 export default async function CatalogPage({ searchParams }: { searchParams: Promise<{ tab?: string; view?: string }> }) {
-  const { user, role } = await getConsoleSession()
+  const { user } = await getConsoleSession()
   if (!user) redirect(`/login?next=${CATALOG_PATH}`)
-  if (!isAdmin(role)) redirect(DESK_PATH)
+  if (!(await canSeeArea(user.id, 'catalog'))) redirect(DESK_PATH)
 
   const q = await searchParams
   const raw = q.tab ?? q.view // ?view= = links from before v0.30

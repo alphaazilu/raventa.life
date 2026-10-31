@@ -42,6 +42,7 @@ import {
 } from 'lucide-react'
 import { useLanguage } from '@/components/language-provider'
 import { consoleCopy } from '@/lib/console/copy'
+import { canSeeArea, holds, mayOpen } from '@/lib/auth/permission-catalog'
 import {
   AUDIT_PATH,
   CALENDAR_PATH,
@@ -85,13 +86,12 @@ import { BrandEmblem, BrandWordmark } from '@/components/brand-logo'
 type L = { th: string; en: string }
 type Item = {
   key: string
+  // RBAC (v0.44.1): the Back Office area this item opens (lib/auth/permission-catalog.ts)
+  area: string
   label: L
   icon: LucideIcon
   href?: string // none = coming soon
-  adminOnly?: boolean
-  accountantOk?: boolean // an accountant (reports-only role) may see it too
-  staffOnTablet?: boolean // staff see it too, on a registered tablet
-  notOnTablet?: boolean // never on the counter tablet
+  notOnTablet?: boolean // never on the counter tablet (a device condition)
   badge?: (a: ConsoleAlerts) => number
   isActive?: (path: string, tab: string | null) => boolean
   // Tabs inside the page, shown under the item (v0.30.4). The page keeps its
@@ -168,13 +168,14 @@ const t = {
 const under = (href: string) => (p: string) => p === href || p.startsWith(`${href}/`)
 
 const GROUPS: Group[] = [
-  { key: 'overview', items: [{ key: 'overview', label: t.overview, icon: LayoutDashboard, href: CONSOLE_PATH, adminOnly: true, isActive: (p) => p === CONSOLE_PATH }] },
+  { key: 'overview', items: [{ key: 'overview', area: 'overview', label: t.overview, icon: LayoutDashboard, href: CONSOLE_PATH, isActive: (p) => p === CONSOLE_PATH }] },
   {
     key: 'front',
     label: t.front,
     items: [
       {
         key: 'desk',
+        area: 'storefront.desk',
         label: t.desk,
         icon: Receipt,
         href: DESK_PATH,
@@ -185,6 +186,7 @@ const GROUPS: Group[] = [
       },
       {
         key: 'cash',
+        area: 'storefront.cash',
         label: t.cash,
         icon: Wallet,
         href: CASH_PATH,
@@ -196,6 +198,7 @@ const GROUPS: Group[] = [
       },
       {
         key: 'bookings',
+        area: 'storefront.bookings',
         label: t.bookings,
         icon: CalendarCheck,
         href: BOOKINGS_PATH,
@@ -208,13 +211,13 @@ const GROUPS: Group[] = [
           { key: 'setup', label: t.bkSetup, tab: 'setup' },
         ],
       },
-      { key: 'members', label: t.members, icon: Users, href: MEMBERS_PATH, adminOnly: true, staffOnTablet: true },
+      { key: 'members', area: 'storefront.members', label: t.members, icon: Users, href: MEMBERS_PATH },
       {
         key: 'feedback',
+        area: 'storefront.feedback',
         label: t.feedback,
         icon: MessageSquareHeart,
         href: FEEDBACK_PATH,
-        adminOnly: true,
         notOnTablet: true,
         badge: (a) => a.feedbackFollow,
         subs: [
@@ -222,7 +225,7 @@ const GROUPS: Group[] = [
           { key: 'topics', label: t.fbTopics, tab: 'topics' },
         ],
       },
-      { key: 'leads', label: t.leads, icon: Inbox, href: LEADS_PATH, adminOnly: true, notOnTablet: true, badge: (a) => a.quizLeads },
+      { key: 'leads', area: 'storefront.leads', label: t.leads, icon: Inbox, href: LEADS_PATH, notOnTablet: true, badge: (a) => a.quizLeads },
     ],
   },
   {
@@ -231,11 +234,10 @@ const GROUPS: Group[] = [
     items: [
       {
         key: 'time',
+        area: 'team.time',
         label: t.time,
         icon: Clock,
         href: TIME_PATH,
-        adminOnly: true,
-        staffOnTablet: true,
         badge: (a) => a.pendingLeave + a.forgotClockOut,
         // admins only — staff on the tablet see just their clock entries
         subs: [
@@ -245,8 +247,8 @@ const GROUPS: Group[] = [
           { key: 'leave', label: t.leave, tab: 'leave', badge: (a) => a.pendingLeave },
         ],
       },
-      { key: 'calendar', label: t.calendar, icon: CalendarDays, href: CALENDAR_PATH, adminOnly: true, staffOnTablet: true },
-      { key: 'team', label: t.teamRoles, icon: UserCog, href: TEAM_PATH, adminOnly: true, notOnTablet: true, badge: (a) => a.unsetPay },
+      { key: 'calendar', area: 'team.calendar', label: t.calendar, icon: CalendarDays, href: CALENDAR_PATH },
+      { key: 'team', area: 'team.roles', label: t.teamRoles, icon: UserCog, href: TEAM_PATH, notOnTablet: true, badge: (a) => a.unsetPay },
     ],
   },
   {
@@ -255,10 +257,10 @@ const GROUPS: Group[] = [
     items: [
       {
         key: 'checklist',
+        area: 'operations.checklist',
         label: t.checklist,
         icon: ListChecks,
         href: CHECKLIST_PATH,
-        adminOnly: true,
         notOnTablet: true,
         badge: (a) => a.checklistIssues + a.checklistMissed,
         subs: [
@@ -267,7 +269,7 @@ const GROUPS: Group[] = [
           { key: 'setup', label: t.points, tab: 'setup' },
         ],
       },
-      { key: 'maintenance', label: t.maintenance, icon: Wrench, adminOnly: true, notOnTablet: true },
+      { key: 'maintenance', area: 'operations.maintenance', label: t.maintenance, icon: Wrench, notOnTablet: true },
     ],
   },
   // Catalog (v0.41.1): its own group, out of Operations — prices feed the
@@ -278,10 +280,10 @@ const GROUPS: Group[] = [
     items: [
       {
         key: 'catalog',
+        area: 'catalog',
         label: t.catalog,
         icon: Package,
         href: CATALOG_PATH,
-        adminOnly: true,
         notOnTablet: true,
         subs: [
           { key: 'products', label: t.products, tab: null },
@@ -296,9 +298,9 @@ const GROUPS: Group[] = [
     key: 'reports',
     label: t.reports,
     items: [
-      { key: 'sales', label: t.sales, icon: BarChart3, href: REPORTS_PATH, adminOnly: true, accountantOk: true, isActive: (p, tab) => p === REPORTS_PATH && tab !== 'time' && tab !== 'commission' },
-      { key: 'timeReport', label: t.timeReport, icon: FileClock, href: `${REPORTS_PATH}?tab=time`, adminOnly: true, isActive: (p, tab) => p === REPORTS_PATH && tab === 'time' },
-      { key: 'commissionReport', label: t.commissionReport, icon: Coins, href: `${REPORTS_PATH}?tab=commission`, adminOnly: true, isActive: (p, tab) => p === REPORTS_PATH && tab === 'commission' },
+      { key: 'sales', area: 'reports.sales', label: t.sales, icon: BarChart3, href: REPORTS_PATH, isActive: (p, tab) => p === REPORTS_PATH && tab !== 'time' && tab !== 'commission' },
+      { key: 'timeReport', area: 'reports.hours', label: t.timeReport, icon: FileClock, href: `${REPORTS_PATH}?tab=time`, isActive: (p, tab) => p === REPORTS_PATH && tab === 'time' },
+      { key: 'commissionReport', area: 'reports.commission', label: t.commissionReport, icon: Coins, href: `${REPORTS_PATH}?tab=commission`, isActive: (p, tab) => p === REPORTS_PATH && tab === 'commission' },
     ],
   },
   {
@@ -307,10 +309,10 @@ const GROUPS: Group[] = [
     items: [
       {
         key: 'settings',
+        area: 'system.settings',
         label: t.settings,
         icon: Settings,
         href: SETTINGS_PATH,
-        adminOnly: true,
         notOnTablet: true,
         // Brand has its own item below (v0.39.0).
         isActive: (p) => under(SETTINGS_PATH)(p) && !under(BRAND_SETTINGS_PATH)(p),
@@ -320,10 +322,10 @@ const GROUPS: Group[] = [
           { key: 'shop', label: t.setShop, tab: 'shop' },
         ],
       },
-      { key: 'brand', label: t.brand, icon: Palette, href: BRAND_SETTINGS_PATH, adminOnly: true, notOnTablet: true },
-      { key: 'branches', label: t.branches, icon: Network, href: BRANCHES_PATH, adminOnly: true, notOnTablet: true, isActive: under(BRANCHES_PATH) },
-      { key: 'devices', label: t.devices, icon: Tablet, href: DEVICES_PATH, adminOnly: true, notOnTablet: true },
-      { key: 'audit', label: t.audit, icon: ScrollText, href: AUDIT_PATH, adminOnly: true, notOnTablet: true },
+      { key: 'brand', area: 'system.brand', label: t.brand, icon: Palette, href: BRAND_SETTINGS_PATH, notOnTablet: true },
+      { key: 'branches', area: 'system.branches', label: t.branches, icon: Network, href: BRANCHES_PATH, notOnTablet: true, isActive: under(BRANCHES_PATH) },
+      { key: 'devices', area: 'system.devices', label: t.devices, icon: Tablet, href: DEVICES_PATH, notOnTablet: true },
+      { key: 'audit', area: 'system.audit', label: t.audit, icon: ScrollText, href: AUDIT_PATH, notOnTablet: true },
     ],
   },
 ]
@@ -335,6 +337,7 @@ type NavPref = 'open' | 'closed' | null
 export function ConsoleShell({
   name,
   admin,
+  perms,
   deviceName = null,
   signOutAction,
   staffMembers = true,
@@ -346,6 +349,8 @@ export function ConsoleShell({
 }: {
   name: string
   admin: boolean
+  /** RBAC (v0.44.1): the person's effective permissions — decides the menu */
+  perms: string[]
   accountant?: boolean
   // A registered counter tablet: its name, and "Lock" instead of "Back to site".
   deviceName?: string | null
@@ -394,10 +399,17 @@ export function ConsoleShell({
     }
   }, [withBell])
 
+  // RBAC (v0.44.1): an item shows when the person may open its page (the same
+  // rule as the middleware, tablet condition included) and holds its area
+  // (report tabs share one page). Device conditions stay as they were: some
+  // items never on the counter tablet; the member list for staff only when
+  // an admin allowed it (Settings — staffMembersOnTablet).
+  const P = new Set(perms)
   const allowed = (i: Item) =>
-    accountant
-      ? Boolean(i.accountantOk)
-      : (admin || !i.adminOnly || (i.staffOnTablet && onTablet && (i.key !== 'members' || staffMembers))) && !(i.notOnTablet && onTablet)
+    (i.area === 'catalog' ? canSeeArea(P, i.area) : holds(P, `access:${i.area}`)) &&
+    (!i.href || mayOpen(P, i.href.split('?')[0], onTablet)) &&
+    !(i.notOnTablet && onTablet) &&
+    (i.key !== 'members' || staffMembers || holds(P, 'action:pii.view'))
   const groups = GROUPS.map((g) => ({ ...g, items: g.items.filter(allowed) })).filter((g) => g.items.length > 0)
   const active = (i: Item) => Boolean(i.href) && (i.isActive ? i.isActive(pathname, tab) : under(i.href!)(pathname))
   const current = groups.flatMap((g) => g.items).find(active)

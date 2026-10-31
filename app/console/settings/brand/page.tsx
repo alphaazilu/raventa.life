@@ -1,7 +1,8 @@
 import type { Metadata } from 'next'
 import { redirect } from 'next/navigation'
 import { getConsoleSession } from '@/lib/console/session'
-import { BRAND_SETTINGS_PATH, DESK_PATH, isAdmin } from '@/lib/auth/roles'
+import { BRAND_SETTINGS_PATH, DESK_PATH } from '@/lib/auth/roles'
+import { can } from '@/lib/auth/permissions'
 import { getBrandInfo } from '@/lib/brand/settings'
 import { backOfficeName } from '@/lib/brand/info'
 import { readBrandRow } from '@/lib/brand/settings'
@@ -20,9 +21,9 @@ export const dynamic = 'force-dynamic'
 // Back Office › Settings › Brand (schema.sql §53, v0.39.0). Admins only —
 // also gated in lib/supabase/middleware.ts and app/console/layout.tsx.
 export default async function BrandSettingsPage() {
-  const { user, role } = await getConsoleSession()
+  const { user } = await getConsoleSession()
   if (!user) redirect(`/login?next=${BRAND_SETTINGS_PATH}`)
-  if (!isAdmin(role)) redirect(DESK_PATH)
+  if (!(await can(user.id, 'access:system.brand'))) redirect(DESK_PATH)
 
   // Straight from the table (not the site's cache), so the form shows what
   // is saved right now. null = §53 not run yet: the form shows the defaults.

@@ -1,7 +1,8 @@
 import type { Metadata } from 'next'
 import { redirect } from 'next/navigation'
 import { getConsoleSession } from '@/lib/console/session'
-import { BOOKINGS_PATH, canUseDesk, isAdmin } from '@/lib/auth/roles'
+import { BOOKINGS_PATH, isAdmin } from '@/lib/auth/roles'
+import { can } from '@/lib/auth/permissions'
 import { bangkokToday } from '@/lib/check-in/day'
 import { bookingStats, getRules, listBookings, listCategories, listTemplates, listTypes, monthLoad } from '@/lib/console/booking'
 import { addDays, gridStart, sortByCategory } from '@/lib/booking'
@@ -30,7 +31,7 @@ const ISO = /^\d{4}-\d{2}-\d{2}$/
 export default async function BookingsPage({ searchParams }: { searchParams: Promise<{ tab?: string; d?: string; m?: string; from?: string; to?: string }> }) {
   const { user, role } = await getConsoleSession()
   if (!user) redirect(`/login?next=${BOOKINGS_PATH}`)
-  if (!canUseDesk(role)) redirect('/account')
+  if (!(await can(user.id, 'access:storefront.bookings'))) redirect('/account')
   const admin = isAdmin(role)
   const q = await searchParams
   const tab: BookingsTab =

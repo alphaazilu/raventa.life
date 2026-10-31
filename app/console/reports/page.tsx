@@ -1,7 +1,9 @@
 import type { Metadata } from 'next'
 import { redirect } from 'next/navigation'
 import { getConsoleSession } from '@/lib/console/session'
-import { canUseDesk, canViewReports, DESK_PATH, isAdmin, REPORTS_PATH } from '@/lib/auth/roles'
+import { REPORTS_PATH } from '@/lib/auth/roles'
+import { effectivePermissions } from '@/lib/auth/permissions'
+import { canSeeArea, consoleHomeFor, holds } from '@/lib/auth/permission-catalog'
 import { loadSalesReport } from '@/lib/console/reports'
 import { resolvePeriod } from '@/lib/console/report-period'
 import { resolveTimePeriod } from '@/lib/console/time-period'
@@ -35,13 +37,19 @@ export default async function ReportsPage({
 }: {
   searchParams: Promise<{ tab?: string; r?: string; p?: string; from?: string; to?: string; pay?: string }>
 }) {
-  const { user, role } = await getConsoleSession()
+  const { user } = await getConsoleSession()
   if (!user) redirect(`/login?next=${REPORTS_PATH}`)
-  if (!canViewReports(role)) redirect(canUseDesk(role) ? DESK_PATH : '/account')
+  // RBAC (v0.44.1): the page = the "reports" area; each tab its own report.
+  const perms = await effectivePermissions(user.id)
+  if (!canSeeArea(perms, 'reports')) redirect(consoleHomeFor(perms))
   const q = await searchParams
-  // Time and commission are payroll — admins only. An accountant who lands on
-  // those tabs is sent back to the sales report.
-  if (!isAdmin(role) && (q.tab === 'time' || q.tab === 'commission' || q.r === 'time')) redirect(REPORTS_PATH)
+  // Time and commission are payroll (admins); someone without that report is
+  // sent back to the sales report, as before.
+  const wantTime = q.tab === 'time' || q.r === 'time'
+  if ((wantTime && !holds(perms, 'access:reports.hours')) || (q.tab === 'commission' && !holds(perms, 'access:reports.commission'))) redirect(REPORTS_PATH)
+  // No sales report (a role with only payroll reports): its first report.
+  if (!wantTime && q.tab !== 'commission' && !holds(perms, 'access:reports.sales'))
+    redirect(holds(perms, 'access:reports.hours') ? `${REPORTS_PATH}?tab=time` : `${REPORTS_PATH}?tab=commission`)
 
   // Commission (?tab=commission, v0.34): per person, from the bills' kept amounts.
   if (q.tab === 'commission') {

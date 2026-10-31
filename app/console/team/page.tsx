@@ -1,7 +1,8 @@
 import type { Metadata } from 'next'
 import { redirect } from 'next/navigation'
 import { getConsoleSession } from '@/lib/console/session'
-import { DESK_PATH, isAdmin, TEAM_PATH } from '@/lib/auth/roles'
+import { DESK_PATH, TEAM_PATH } from '@/lib/auth/roles'
+import { can } from '@/lib/auth/permissions'
 import { listPayTypes, listTeam, roleHistory } from '@/lib/console/team'
 import { TeamView } from '@/components/console/team-view'
 import { getBrandInfo } from '@/lib/brand/settings'
@@ -20,9 +21,9 @@ export const dynamic = 'force-dynamic'
 // from the members, change or remove their role — no more editing
 // profiles.role in Supabase by hand. Admins only.
 export default async function TeamPage() {
-  const { user, role } = await getConsoleSession()
+  const { user } = await getConsoleSession()
   if (!user) redirect(`/login?next=${TEAM_PATH}`)
-  if (!isAdmin(role)) redirect(DESK_PATH)
+  if (!(await can(user.id, 'access:team.roles'))) redirect(DESK_PATH)
   const [history, pay] = await Promise.all([roleHistory(), listPayTypes()])
   const team = await listTeam(history, pay)
   return (

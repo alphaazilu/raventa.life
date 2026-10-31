@@ -3,7 +3,8 @@ import { redirect } from 'next/navigation'
 import { AdminView, type AdminMember } from '@/components/admin/admin-view'
 import { getConsoleSession } from '@/lib/console/session'
 import { resolveAvatarUrls } from '@/lib/supabase/avatar'
-import { canUseDesk, DESK_PATH, MEMBERS_PATH } from '@/lib/auth/roles'
+import { DESK_PATH, MEMBERS_PATH } from '@/lib/auth/roles'
+import { can, mayOpen } from '@/lib/auth/permissions'
 import { getCurrentDevice } from '@/lib/console/device'
 import { getAppSettings } from '@/lib/console/settings'
 import { createAdminClient } from '@/lib/supabase/admin'
@@ -27,13 +28,15 @@ export default async function MembersPage({ searchParams }: { searchParams: Prom
 
   if (!user) redirect(`/login?next=${MEMBERS_PATH}`)
 
-  // Admins: search everything, editable. Staff: view only, and only on a
-  // registered counter tablet (Vault R2) — profiles are admin-only under
-  // RLS, so read them with the service-role client and leave out email.
-  const admin = role === 'admin'
-  if (!admin && !(canUseDesk(role) && (await getCurrentDevice().catch(() => null)))) redirect(DESK_PATH)
+  // Full access (action:pii.view — admins): search everything, editable.
+  // Otherwise (staff): view only, only on a registered counter tablet (Vault
+  // R2, ROUTE_RULES tabletUnless) and only when an admin allowed it in
+  // Settings; email left out.
+  const admin = await can(user.id, 'action:pii.view')
+  if (!(await mayOpen(user.id, MEMBERS_PATH, Boolean(await getCurrentDevice().catch(() => null))))) redirect(DESK_PATH)
   if (!admin && !(await getAppSettings()).staffMembersOnTablet) redirect(DESK_PATH)
-  const db = admin ? supabase : createAdminClient()
+  // profiles are admin-only under RLS: anyone else reads with the service role.
+  const db = role === 'admin' ? supabase : createAdminClient()
 
   const query = ((await searchParams).q ?? '').trim().slice(0, 60)
   const { count: total } = await db.from('profiles').select('id', { count: 'exact', head: true })

@@ -2,7 +2,9 @@ import type { Metadata } from 'next'
 import { redirect } from 'next/navigation'
 import { ConsoleDashboard } from '@/components/console/console-dashboard'
 import { getConsoleSession } from '@/lib/console/session'
-import { CONSOLE_PATH, consoleHome, isAdmin } from '@/lib/auth/roles'
+import { CONSOLE_PATH } from '@/lib/auth/roles'
+import { can, effectivePermissions } from '@/lib/auth/permissions'
+import { consoleHomeFor } from '@/lib/auth/permission-catalog'
 import { loadDashboard } from './dashboard-data'
 import { loadAlerts } from '@/lib/console/alerts'
 import { getAppSettings } from '@/lib/console/settings'
@@ -22,9 +24,9 @@ export const dynamic = 'force-dynamic'
 // card per area. Admins only —
 // staff land on the front desk.
 export default async function ConsolePage() {
-  const { user, role, firstName } = await getConsoleSession()
+  const { user, firstName } = await getConsoleSession()
   if (!user) redirect(`/login?next=${CONSOLE_PATH}`)
-  if (!isAdmin(role)) redirect(consoleHome(role))
+  if (!(await can(user.id, 'access:overview'))) redirect(consoleHomeFor(await effectivePermissions(user.id)))
 
   const [data, alerts, settings] = await Promise.all([loadDashboard(), loadAlerts(), getAppSettings()])
   return (

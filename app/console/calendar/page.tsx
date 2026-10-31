@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import { redirect } from 'next/navigation'
 import { getConsoleSession } from '@/lib/console/session'
 import { CALENDAR_PATH, isAdmin } from '@/lib/auth/roles'
+import { can } from '@/lib/auth/permissions'
 import { bangkokToday } from '@/lib/check-in/day'
 import { listItems, loadExtras, visibleOccurrences } from '@/lib/console/calendar'
 import { listStaff } from '@/lib/console/time'
@@ -27,7 +28,7 @@ export const dynamic = 'force-dynamic'
 export default async function CalendarPage({ searchParams }: { searchParams: Promise<{ month?: string; view?: string }> }) {
   const { user, role } = await getConsoleSession()
   if (!user) redirect(`/login?next=${CALENDAR_PATH}`)
-  if (role !== 'staff' && !isAdmin(role)) redirect('/account')
+  if (!(await can(user.id, 'access:team.calendar'))) redirect('/account')
   const admin = isAdmin(role)
   const q = await searchParams
   const today = bangkokToday()

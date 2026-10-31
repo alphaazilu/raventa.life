@@ -2,7 +2,8 @@ import { addDays } from '@/lib/date'
 import type { Metadata } from 'next'
 import { redirect } from 'next/navigation'
 import { getConsoleSession } from '@/lib/console/session'
-import { CHECKLIST_PATH, DESK_PATH, isAdmin } from '@/lib/auth/roles'
+import { CHECKLIST_PATH, DESK_PATH } from '@/lib/auth/roles'
+import { can } from '@/lib/auth/permissions'
 import { bangkokToday } from '@/lib/check-in/day'
 import { dayBounds, listPoints, listRounds, listScans } from '@/lib/console/checklist'
 import { listStaff } from '@/lib/console/time'
@@ -30,9 +31,9 @@ export default async function ChecklistPage({
 }: {
   searchParams: Promise<{ tab?: string; date?: string; from?: string; to?: string; point?: string; staff?: string }>
 }) {
-  const { user, role } = await getConsoleSession()
+  const { user } = await getConsoleSession()
   if (!user) redirect(`/login?next=${CHECKLIST_PATH}`)
-  if (!isAdmin(role)) redirect(DESK_PATH)
+  if (!(await can(user.id, 'access:operations.checklist'))) redirect(DESK_PATH)
   const q = await searchParams
   const tab: ChecklistTab = q.tab === 'log' || q.tab === 'setup' ? q.tab : 'board'
   const today = bangkokToday()

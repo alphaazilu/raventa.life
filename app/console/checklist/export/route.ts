@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { requireAdmin } from '@/lib/console/guard'
+import { requirePermissions } from '@/lib/console/guard'
 import { dayBounds, listPoints, listScans } from '@/lib/console/checklist'
 import { BRAND } from '@/lib/brand/config'
 
@@ -22,7 +22,7 @@ const stamp = (iso: string) => {
 }
 
 export async function GET(request: Request) {
-  const ctx = await requireAdmin()
+  const ctx = await requirePermissions('access:operations.checklist', 'action:export.data')
   if ('error' in ctx) return new NextResponse('Forbidden', { status: 403 })
   const q = Object.fromEntries(new URL(request.url).searchParams)
   const from = ISO.test(q.from ?? '') ? q.from : new Date().toISOString().slice(0, 10)
