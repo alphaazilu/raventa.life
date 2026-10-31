@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import { redirect } from 'next/navigation'
 import { getConsoleSession } from '@/lib/console/session'
 import { CHECKLIST_PATH, DESK_PATH } from '@/lib/auth/roles'
+import { gatePage } from '@/lib/console/guard'
 import { can } from '@/lib/auth/permissions'
 import { listPoints } from '@/lib/console/checklist'
 import { pointUrl } from '@/lib/checklist-code'
@@ -24,6 +25,8 @@ export default async function PrintPage({ searchParams }: { searchParams: Promis
   const { user } = await getConsoleSession()
   const { ids } = await searchParams
   if (!user) redirect(`/login?next=${encodeURIComponent(`${CHECKLIST_PATH}/print${ids ? `?ids=${ids}` : ''}`)}`)
+  // RBAC 3b: ROUTE_RULES with the person's real roles (the middleware no longer checks per page).
+  await gatePage(`${CHECKLIST_PATH}/print`)
   if (!(await can(user.id, 'access:operations.checklist'))) redirect(DESK_PATH)
   const want = ids ? new Set(ids.split(',')) : null
   const points = ((await listPoints()) ?? []).filter((p) => p.active && (!want || want.has(p.id)))

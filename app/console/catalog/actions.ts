@@ -1,6 +1,6 @@
 'use server'
 
-import { isMissingTable, requireAdmin } from '@/lib/console/guard'
+import { isMissingTable, requirePermissions } from '@/lib/console/guard'
 import { revalidatePath } from 'next/cache'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { CATALOG_PATH, DESK_PATH } from '@/lib/auth/roles'
@@ -64,7 +64,7 @@ export async function saveProduct(input: {
   // v0.38.11 (§51): staff can lend this item to a customer on the spot.
   lendable?: boolean
 }): Promise<CatalogResult> {
-  const ctx = await requireAdmin()
+  const ctx = await requirePermissions('access:catalog.products')
   if ('error' in ctx) return { ok: false, error: ctx.error }
   const nameTh = input.nameTh.trim().slice(0, 60)
   const general = input.kind === 'general' || input.kind === 'item' || input.kind === 'addon' || input.kind === 'merch' || input.kind === 'souvenir'
@@ -305,7 +305,7 @@ async function saveIncludes(admin: ReturnType<typeof createAdminClient>, product
 
 // Sale type names and which are offered (§37, v0.37).
 export async function saveSaleTypes(input: SaleTypeNames): Promise<CatalogResult> {
-  const ctx = await requireAdmin()
+  const ctx = await requirePermissions('access:catalog.commission')
   if ('error' in ctx) return { ok: false, error: ctx.error }
   const clean = saleTypesFrom(input)
   if (!SALE_TYPES.some((k) => clean[k].on)) return { ok: false, error: 'need_one_type' }
@@ -318,7 +318,7 @@ export async function saveSaleTypes(input: SaleTypeNames): Promise<CatalogResult
 
 // A category's commission rate (§37). mode null = none for the category.
 export async function saveCategoryRate(categoryId: string, mode: 'pct' | 'thb' | null, value: number): Promise<CatalogResult> {
-  const ctx = await requireAdmin()
+  const ctx = await requirePermissions('access:catalog.commission')
   if ('error' in ctx) return { ok: false, error: ctx.error }
   const admin = createAdminClient()
   const v = Math.round(Number(value) * 100) / 100
@@ -339,7 +339,7 @@ export async function saveVariant(input: {
   sku: string
   active: boolean
 }): Promise<CatalogResult> {
-  const ctx = await requireAdmin()
+  const ctx = await requirePermissions('access:catalog.products')
   if ('error' in ctx) return { ok: false, error: ctx.error }
   const label = input.label.trim().slice(0, 40)
   if (!label) return { ok: false, error: 'need_name' }
@@ -360,7 +360,7 @@ export async function setStock(input: {
   stock: number
   reason: string
 }): Promise<CatalogResult> {
-  const ctx = await requireAdmin()
+  const ctx = await requirePermissions('access:catalog.products')
   if ('error' in ctx) return { ok: false, error: ctx.error }
   const stock = Math.round(Number(input.stock))
   if (!(stock >= 0 && stock <= 1_000_000)) return { ok: false, error: 'bad_stock' }
@@ -382,7 +382,7 @@ export async function setStock(input: {
 }
 
 export async function saveHoliday(day: string, name: string): Promise<CatalogResult> {
-  const ctx = await requireAdmin()
+  const ctx = await requirePermissions('access:catalog.holidays')
   if ('error' in ctx) return { ok: false, error: ctx.error }
   if (!DATE_RE.test(day)) return { ok: false, error: 'bad_date' }
   const n = name.trim().slice(0, 60)
@@ -393,7 +393,7 @@ export async function saveHoliday(day: string, name: string): Promise<CatalogRes
 }
 
 export async function removeHoliday(day: string): Promise<CatalogResult> {
-  const ctx = await requireAdmin()
+  const ctx = await requirePermissions('access:catalog.holidays')
   if ('error' in ctx) return { ok: false, error: ctx.error }
   if (!DATE_RE.test(day)) return { ok: false, error: 'bad_date' }
   const { error } = await createAdminClient().from('holidays').delete().eq('day', day)
@@ -415,7 +415,7 @@ export async function savePromotion(input: {
   endsOn: string
   active: boolean
 }): Promise<CatalogResult> {
-  const ctx = await requireAdmin()
+  const ctx = await requirePermissions('access:catalog.promotions')
   if ('error' in ctx) return { ok: false, error: ctx.error }
   const name = input.name.trim().slice(0, 60)
   if (!name) return { ok: false, error: 'need_name' }
@@ -476,7 +476,7 @@ export async function savePromotion(input: {
 // for good. Otherwise hidden: off the list and the counter, but old bills
 // and reports keep working. Returns { hidden: true } when it was hidden.
 export async function deleteProduct(id: string): Promise<CatalogResult> {
-  const ctx = await requireAdmin()
+  const ctx = await requirePermissions('access:catalog.products')
   if ('error' in ctx) return { ok: false, error: ctx.error }
   const admin = createAdminClient()
   // Any history that must be preserved?
@@ -513,7 +513,7 @@ export async function deleteProduct(id: string): Promise<CatalogResult> {
 
 // Bring a hidden product back (§43).
 export async function restoreProduct(id: string): Promise<CatalogResult> {
-  const ctx = await requireAdmin()
+  const ctx = await requirePermissions('access:catalog.products')
   if ('error' in ctx) return { ok: false, error: ctx.error }
   const { error } = await createAdminClient().from('products').update({ hidden: false, updated_at: new Date().toISOString() }).eq('id', id)
   if (error) return { ok: false, error: isMissingTable(error) ? 'not_set_up_43' : dbError(error) }
@@ -523,7 +523,7 @@ export async function restoreProduct(id: string): Promise<CatalogResult> {
 // ---- Product categories (§37, v0.37) ----
 
 export async function saveProductCategory(input: { id?: string; nameTh: string; nameEn: string }): Promise<CatalogResult> {
-  const ctx = await requireAdmin()
+  const ctx = await requirePermissions('access:catalog.products')
   if ('error' in ctx) return { ok: false, error: ctx.error }
   const nameTh = input.nameTh.trim().slice(0, 40)
   if (!nameTh) return { ok: false, error: 'need_name' }
@@ -542,7 +542,7 @@ export async function saveProductCategory(input: { id?: string; nameTh: string; 
 
 // New order: every category id, top first.
 export async function orderProductCategories(ids: string[]): Promise<CatalogResult> {
-  const ctx = await requireAdmin()
+  const ctx = await requirePermissions('access:catalog.products')
   if ('error' in ctx) return { ok: false, error: ctx.error }
   const db = createAdminClient()
   for (const [i, id] of ids.slice(0, 200).entries()) {
@@ -554,7 +554,7 @@ export async function orderProductCategories(ids: string[]): Promise<CatalogResu
 
 // Its products are left without a category (nothing else changes).
 export async function deleteProductCategory(id: string): Promise<CatalogResult> {
-  const ctx = await requireAdmin()
+  const ctx = await requirePermissions('access:catalog.products')
   if ('error' in ctx) return { ok: false, error: ctx.error }
   const { error } = await createAdminClient().from('product_categories').delete().eq('id', id)
   return error ? { ok: false, error: dbError(error) } : done()

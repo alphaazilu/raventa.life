@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { isMissingTable } from '@/lib/console/db-errors'
 import { getConsoleSession } from '@/lib/console/session'
+import { can } from '@/lib/auth/permissions'
 import { CALENDAR_PATH, CONSOLE_PATH, isAdmin } from '@/lib/auth/roles'
 import { daysBetween, KINDS, REPEATS, VISIBILITY, type CalKind, type Repeat, type Visibility } from '@/lib/calendar'
 
@@ -49,7 +50,8 @@ const done = () => {
 
 async function who(): Promise<{ userId: string; admin: boolean } | { error: string }> {
   const { user, role } = await getConsoleSession()
-  if (!user || (role !== 'staff' && !isAdmin(role))) return { error: 'not_allowed' }
+  // RBAC 3b (v0.44.6): the calendar area (staff, admins).
+  if (!user || !(await can(user.id, 'access:team.calendar'))) return { error: 'not_allowed' }
   return { userId: user.id, admin: isAdmin(role) }
 }
 

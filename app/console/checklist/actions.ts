@@ -1,7 +1,7 @@
 'use server'
 
 import { revalidatePath } from 'next/cache'
-import { requireAdmin } from '@/lib/console/guard'
+import { requirePermissions } from '@/lib/console/guard'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { isMissingTable } from '@/lib/console/db-errors'
 import { CHECKLIST_PATH, MY_CHECKLIST_PATH } from '@/lib/auth/roles'
@@ -46,7 +46,7 @@ function cleanItems(raw: unknown): ChecklistItem[] | null {
 }
 
 export async function savePoint(input: { id?: string | null; name: string; place?: string | null; items: ChecklistItem[]; active: boolean }): Promise<ChecklistResult> {
-  const ctx = await requireAdmin()
+  const ctx = await requirePermissions('access:operations.checklist')
   if ('error' in ctx) return { ok: false, error: ctx.error }
   const name = String(input.name ?? '').trim().slice(0, 60)
   if (!name) return { ok: false, error: 'need_name' }
@@ -71,7 +71,7 @@ export async function savePoint(input: { id?: string | null; name: string; place
 
 // A new sticker: the old QR stops working (lost, or someone kept a photo).
 export async function reissuePoint(id: string): Promise<ChecklistResult> {
-  const ctx = await requireAdmin()
+  const ctx = await requirePermissions('access:operations.checklist')
   if ('error' in ctx) return { ok: false, error: ctx.error }
   if (!UUID.test(id)) return { ok: false, error: 'failed' }
   const db = createAdminClient()
@@ -90,7 +90,7 @@ export async function reissuePoint(id: string): Promise<ChecklistResult> {
 // Only points never scanned can go (the log keeps the rest); otherwise
 // switch them off.
 export async function deletePoint(id: string): Promise<ChecklistResult> {
-  const ctx = await requireAdmin()
+  const ctx = await requirePermissions('access:operations.checklist')
   if ('error' in ctx) return { ok: false, error: ctx.error }
   if (!UUID.test(id)) return { ok: false, error: 'failed' }
   const db = createAdminClient()
@@ -121,7 +121,7 @@ export async function saveRound(input: {
   pointIds: string[]
   active: boolean
 }): Promise<ChecklistResult> {
-  const ctx = await requireAdmin()
+  const ctx = await requirePermissions('access:operations.checklist')
   if ('error' in ctx) return { ok: false, error: ctx.error }
   const name = String(input.name ?? '').trim().slice(0, 60)
   if (!name) return { ok: false, error: 'need_name' }
@@ -163,7 +163,7 @@ export async function saveRound(input: {
 
 // Rounds hold no history (the scans belong to points), so they can go.
 export async function deleteRound(id: string): Promise<ChecklistResult> {
-  const ctx = await requireAdmin()
+  const ctx = await requirePermissions('access:operations.checklist')
   if ('error' in ctx) return { ok: false, error: ctx.error }
   if (!UUID.test(id)) return { ok: false, error: 'failed' }
   const db = createAdminClient()

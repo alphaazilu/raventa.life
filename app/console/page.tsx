@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation'
 import { ConsoleDashboard } from '@/components/console/console-dashboard'
 import { getConsoleSession } from '@/lib/console/session'
 import { CONSOLE_PATH } from '@/lib/auth/roles'
+import { gatePage } from '@/lib/console/guard'
 import { can, effectivePermissions } from '@/lib/auth/permissions'
 import { consoleHomeFor } from '@/lib/auth/permission-catalog'
 import { loadDashboard } from './dashboard-data'
@@ -26,6 +27,8 @@ export const dynamic = 'force-dynamic'
 export default async function ConsolePage() {
   const { user, firstName } = await getConsoleSession()
   if (!user) redirect(`/login?next=${CONSOLE_PATH}`)
+  // RBAC 3b: ROUTE_RULES with the person's real roles (the middleware no longer checks per page).
+  await gatePage(CONSOLE_PATH)
   if (!(await can(user.id, 'access:overview'))) redirect(consoleHomeFor(await effectivePermissions(user.id)))
 
   const [data, alerts, settings] = await Promise.all([loadDashboard(), loadAlerts(), getAppSettings()])

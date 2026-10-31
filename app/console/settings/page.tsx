@@ -9,6 +9,7 @@ import { DEFAULT_SETTINGS, getTimeSettings } from '@/lib/console/shifts'
 import { isMissingTable } from '@/lib/console/db-errors'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { DESK_PATH, SETTINGS_PATH } from '@/lib/auth/roles'
+import { gatePage } from '@/lib/console/guard'
 import { can } from '@/lib/auth/permissions'
 import { getBrandInfo } from '@/lib/brand/settings'
 import { backOfficeName } from '@/lib/brand/info'
@@ -27,6 +28,8 @@ export const dynamic = 'force-dynamic'
 export default async function SettingsPage({ searchParams }: { searchParams: Promise<{ tab?: string }> }) {
   const { user } = await getConsoleSession()
   if (!user) redirect(`/login?next=${SETTINGS_PATH}`)
+  // RBAC 3b: ROUTE_RULES with the person's real roles (the middleware no longer checks per page).
+  await gatePage(SETTINGS_PATH)
   if (!(await can(user.id, 'access:system.settings'))) redirect(DESK_PATH)
 
   const { tab } = await searchParams

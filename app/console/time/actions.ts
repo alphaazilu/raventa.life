@@ -1,6 +1,6 @@
 'use server'
 
-import { requireAdmin } from '@/lib/console/guard'
+import { requirePermissions } from '@/lib/console/guard'
 import { redirect } from 'next/navigation'
 import { revalidatePath } from 'next/cache'
 import { createAdminClient } from '@/lib/supabase/admin'
@@ -55,7 +55,7 @@ function parseTimes(inLocal: string, outLocal: string): { inIso: string; outIso:
 
 // Admin: correct an entry. The old times and the reason are kept.
 export async function editEntry(entryId: string, inLocal: string, outLocal: string, reason: string): Promise<TimeResult> {
-  const ctx = await requireAdmin()
+  const ctx = await requirePermissions('access:team.time', 'action:time.edit')
   if ('error' in ctx) return { ok: false, error: ctx.error }
   const why = reason.trim()
   if (why.length < 3) return { ok: false, error: 'need_reason' }
@@ -92,7 +92,7 @@ export async function editEntry(entryId: string, inLocal: string, outLocal: stri
 
 // Admin: add a missing entry (someone forgot to scan in).
 export async function addEntry(staffId: string, inLocal: string, outLocal: string, reason: string): Promise<TimeResult> {
-  const ctx = await requireAdmin()
+  const ctx = await requirePermissions('access:team.time', 'action:time.edit')
   if ('error' in ctx) return { ok: false, error: ctx.error }
   const why = reason.trim()
   if (why.length < 3) return { ok: false, error: 'need_reason' }
@@ -128,7 +128,7 @@ export async function addEntry(staffId: string, inLocal: string, outLocal: strin
 // Admin: clock someone out from "Working now" (v0.28) — they left without
 // pressing the button, or forgot. Kept like an edit: who, the time, why.
 export async function adminClockOut(entryId: string, outLocal: string, reason: string): Promise<TimeResult> {
-  const ctx = await requireAdmin()
+  const ctx = await requirePermissions('access:team.time', 'action:time.edit')
   if ('error' in ctx) return { ok: false, error: ctx.error }
   const why = reason.trim()
   if (why.length < 3) return { ok: false, error: 'need_reason' }

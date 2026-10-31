@@ -1,6 +1,6 @@
 'use server'
 
-import { isMissingTable, requireAdmin } from '@/lib/console/guard'
+import { isMissingTable, requirePermissions } from '@/lib/console/guard'
 import { revalidatePath } from 'next/cache'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { TIME_PATH } from '@/lib/auth/roles'
@@ -25,7 +25,7 @@ export async function saveTemplate(input: {
   shortCode?: string // §26 — '' = automatic
   color?: string // §26 — '' = automatic
 }): Promise<ShiftResult> {
-  const ctx = await requireAdmin()
+  const ctx = await requirePermissions('access:team.time', 'action:time.edit')
   if ('error' in ctx) return { ok: false, error: ctx.error }
   const name = input.name.trim()
   if (!name || name.length > 40) return { ok: false, error: 'need_name' }
@@ -58,7 +58,7 @@ export async function saveTemplate(input: {
 }
 
 export async function saveTimeSettings(lateGraceMinutes: number, otMinMinutes: number, minStaffPerDay?: number): Promise<ShiftResult> {
-  const ctx = await requireAdmin()
+  const ctx = await requirePermissions('access:team.time', 'action:time.edit')
   if ('error' in ctx) return { ok: false, error: ctx.error }
   const grace = Math.round(Number(lateGraceMinutes))
   const ot = Math.round(Number(otMinMinutes))
@@ -89,7 +89,7 @@ async function replaceDay(staffId: string, date: string, templateIds: string[], 
 // value: a template id, 'off' (day off) or '' (nothing planned) — the day
 // becomes just that (the weekly grid's dropdown).
 export async function setAssignment(staffId: string, date: string, value: string): Promise<ShiftResult> {
-  const ctx = await requireAdmin()
+  const ctx = await requirePermissions('access:team.time', 'action:time.edit')
   if ('error' in ctx) return { ok: false, error: ctx.error }
   if (!DATE_RE.test(date) || !UUID_RE.test(staffId)) return { ok: false, error: 'bad_time' }
   if (value && value !== 'off' && !UUID_RE.test(value)) return { ok: false, error: 'bad_time' }
@@ -101,7 +101,7 @@ export async function setAssignment(staffId: string, date: string, value: string
 // The monthly roster's day menu: the day's shifts as a set (several
 // allowed), or a day off, or nothing.
 export async function setDayShifts(staffId: string, date: string, value: { off: true } | { shifts: string[] }): Promise<ShiftResult> {
-  const ctx = await requireAdmin()
+  const ctx = await requirePermissions('access:team.time', 'action:time.edit')
   if ('error' in ctx) return { ok: false, error: ctx.error }
   if (!DATE_RE.test(date) || !UUID_RE.test(staffId)) return { ok: false, error: 'bad_time' }
   const ids = 'off' in value ? [] : [...new Set(value.shifts)].filter((id) => UUID_RE.test(id))
@@ -122,7 +122,7 @@ export type BulkAction =
   | { clear: true }
 
 export async function setCells(cells: { staffId: string; date: string }[], action: BulkAction): Promise<ShiftResult & { count?: number }> {
-  const ctx = await requireAdmin()
+  const ctx = await requirePermissions('access:team.time', 'action:time.edit')
   if ('error' in ctx) return { ok: false, error: ctx.error }
   const uniq = [...new Map(cells.filter((c) => UUID_RE.test(c.staffId) && DATE_RE.test(c.date)).map((c) => [`${c.staffId}|${c.date}`, c])).values()]
   if (uniq.length === 0) return { ok: false, error: 'bad_range' }
@@ -162,7 +162,7 @@ export async function setCells(cells: { staffId: string; date: string }[], actio
 
 // Copy last week's roster onto this week (only days still empty).
 export async function copyPreviousWeek(weekStart: string): Promise<ShiftResult> {
-  const ctx = await requireAdmin()
+  const ctx = await requirePermissions('access:team.time', 'action:time.edit')
   if ('error' in ctx) return { ok: false, error: ctx.error }
   if (!DATE_RE.test(weekStart)) return { ok: false, error: 'bad_time' }
   const shift = (iso: string, n: number) => {
@@ -192,7 +192,7 @@ export async function copyPreviousWeek(weekStart: string): Promise<ShiftResult> 
 // four weeks earlier (same weekday), day by day — so a regular weekly
 // rotation carries on. Days already planned are left alone.
 export async function copyMonthPattern(monthStart: string): Promise<ShiftResult & { count?: number }> {
-  const ctx = await requireAdmin()
+  const ctx = await requirePermissions('access:team.time', 'action:time.edit')
   if ('error' in ctx) return { ok: false, error: ctx.error }
   if (!/^\d{4}-\d{2}-01$/.test(monthStart)) return { ok: false, error: 'bad_time' }
   const shift = (iso: string, n: number) => {
@@ -253,7 +253,7 @@ export async function setAssignmentRange(input: {
   mode?: 'replace' | 'empty' | 'add'
   overwrite?: boolean // older callers: true = replace, false = empty
 }): Promise<ShiftResult & { count?: number }> {
-  const ctx = await requireAdmin()
+  const ctx = await requirePermissions('access:team.time', 'action:time.edit')
   if ('error' in ctx) return { ok: false, error: ctx.error }
   const { from, to } = input
   if (!DATE_RE.test(from) || !DATE_RE.test(to) || from > to) return { ok: false, error: 'bad_range' }

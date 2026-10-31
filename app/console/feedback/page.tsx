@@ -3,6 +3,7 @@ import type { Metadata } from 'next'
 import { redirect } from 'next/navigation'
 import { getConsoleSession } from '@/lib/console/session'
 import { DESK_PATH, FEEDBACK_PATH } from '@/lib/auth/roles'
+import { gatePage } from '@/lib/console/guard'
 import { can } from '@/lib/auth/permissions'
 import { bangkokToday } from '@/lib/check-in/day'
 import { listFeedback, listTopics } from '@/lib/console/feedback'
@@ -28,6 +29,8 @@ const ISO = /^\d{4}-\d{2}-\d{2}$/
 export default async function FeedbackPage({ searchParams }: { searchParams: Promise<{ tab?: string; from?: string; to?: string; f?: string }> }) {
   const { user } = await getConsoleSession()
   if (!user) redirect(`/login?next=${FEEDBACK_PATH}`)
+  // RBAC 3b: ROUTE_RULES with the person's real roles (the middleware no longer checks per page).
+  await gatePage(FEEDBACK_PATH)
   if (!(await can(user.id, 'access:storefront.feedback'))) redirect(DESK_PATH)
   const q = await searchParams
   const tab = q.tab === 'topics' ? 'topics' : 'list'

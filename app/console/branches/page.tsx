@@ -5,6 +5,7 @@ import { getCurrentDevice } from '@/lib/console/device'
 import { listBranches } from '@/lib/console/settings'
 import { BranchTree } from '@/components/console/branch-tree'
 import { DESK_PATH, BRANCHES_PATH } from '@/lib/auth/roles'
+import { gatePage } from '@/lib/console/guard'
 import { can } from '@/lib/auth/permissions'
 import { BRAND } from '@/lib/brand/config'
 import { getBrandInfo } from '@/lib/brand/settings'
@@ -25,6 +26,8 @@ export const dynamic = 'force-dynamic'
 export default async function BranchesPage() {
   const { user } = await getConsoleSession()
   if (!user) redirect(`/login?next=${BRANCHES_PATH}`)
+  // RBAC 3b: ROUTE_RULES with the person's real roles (the middleware no longer checks per page).
+  await gatePage(BRANCHES_PATH)
   if (!(await can(user.id, 'access:system.branches'))) redirect(DESK_PATH)
   if (await getCurrentDevice().catch(() => null)) redirect(DESK_PATH)
 

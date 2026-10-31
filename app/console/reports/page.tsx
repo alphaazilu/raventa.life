@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import { redirect } from 'next/navigation'
 import { getConsoleSession } from '@/lib/console/session'
 import { REPORTS_PATH } from '@/lib/auth/roles'
+import { gatePage } from '@/lib/console/guard'
 import { effectivePermissions } from '@/lib/auth/permissions'
 import { canSeeArea, consoleHomeFor, holds } from '@/lib/auth/permission-catalog'
 import { loadSalesReport } from '@/lib/console/reports'
@@ -10,7 +11,7 @@ import { resolveTimePeriod } from '@/lib/console/time-period'
 import { loadTimeReport } from '@/lib/console/time-report'
 import { getAppSettings } from '@/lib/console/settings'
 import { ReportView } from '@/components/console/report-view'
-import { TimeReportView } from '@/components/console/time-report-view'
+import { ALL_REPORT_TABS, TimeReportView } from '@/components/console/time-report-view'
 import { CommissionReportView } from '@/components/console/commission-report-view'
 import { loadCommissionReport } from '@/lib/console/commission'
 import { getBrandInfo } from '@/lib/brand/settings'
@@ -39,6 +40,8 @@ export default async function ReportsPage({
 }) {
   const { user } = await getConsoleSession()
   if (!user) redirect(`/login?next=${REPORTS_PATH}`)
+  // RBAC 3b: ROUTE_RULES with the person's real roles (the middleware no longer checks per page).
+  await gatePage(REPORTS_PATH)
   // RBAC (v0.44.1): the page = the "reports" area; each tab its own report.
   const perms = await effectivePermissions(user.id)
   if (!canSeeArea(perms, 'reports')) redirect(consoleHomeFor(perms))
@@ -50,6 +53,8 @@ export default async function ReportsPage({
   // No sales report (a role with only payroll reports): its first report.
   if (!wantTime && q.tab !== 'commission' && !holds(perms, 'access:reports.sales'))
     redirect(holds(perms, 'access:reports.hours') ? `${REPORTS_PATH}?tab=time` : `${REPORTS_PATH}?tab=commission`)
+  // The tabs shown: only the reports this person holds (RBAC 3b).
+  const tabs = ALL_REPORT_TABS.filter((k) => holds(perms, `access:reports.${k === 'time' ? 'hours' : k}`))
 
   // Commission (?tab=commission, v0.34): per person, from the bills' kept amounts.
   if (q.tab === 'commission') {
@@ -63,7 +68,7 @@ export default async function ReportsPage({
       })
     return (
       <main>
-        <CommissionReportView period={period} people={people} />
+        <CommissionReportView period={period} people={people} reportTabs={tabs} />
       </main>
     )
   }
@@ -77,7 +82,7 @@ export default async function ReportsPage({
     })
     return (
       <main>
-        <TimeReportView period={period} report={report} paySetUp={report ? report.paySetUp : settings.paySetUp} />
+        <TimeReportView period={period} report={report} paySetUp={report ? report.paySetUp : settings.paySetUp} reportTabs={tabs} />
       </main>
     )
   }
@@ -89,7 +94,7 @@ export default async function ReportsPage({
   })
   return (
     <main>
-      <ReportView period={period} report={report} />
+      <ReportView period={period} report={report} reportTabs={tabs} />
     </main>
   )
 }

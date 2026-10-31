@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation'
 import { CheckInDesk } from '@/components/admin/check-in-desk'
 import { getConsoleSession } from '@/lib/console/session'
 import { DESK_PATH, isAdmin } from '@/lib/auth/roles'
+import { gatePage } from '@/lib/console/guard'
 import { can, effectivePermissions } from '@/lib/auth/permissions'
 import { consoleHomeFor } from '@/lib/auth/permission-catalog'
 import { getDeskCatalog, getFloor } from './actions'
@@ -29,6 +30,8 @@ export default async function DeskPage({ searchParams }: { searchParams: Promise
   const view = q.tab ?? q.view
   const { user, role } = await getConsoleSession()
   if (!user) redirect(`/login?next=${DESK_PATH}`)
+  // RBAC 3b: ROUTE_RULES with the person's real roles (the middleware no longer checks per page).
+  await gatePage(DESK_PATH)
   if (!(await can(user.id, 'access:storefront.desk'))) redirect(consoleHomeFor(await effectivePermissions(user.id)))
   const onTablet = Boolean(await getCurrentDevice().catch(() => null))
   if (!(await deskAllowed({ userId: user.id, admin: isAdmin(role), onTablet }))) return <DeskTabletOnly />

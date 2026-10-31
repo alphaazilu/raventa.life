@@ -2,7 +2,8 @@
 
 import { revalidatePath } from 'next/cache'
 import { getConsoleSession } from '@/lib/console/session'
-import { canUseDesk, isAdmin, BOOKINGS_PATH } from '@/lib/auth/roles'
+import { can } from '@/lib/auth/permissions'
+import { isAdmin, BOOKINGS_PATH } from '@/lib/auth/roles'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { isMissingTable } from '@/lib/console/db-errors'
 import { daysFree, getBooking, listTypes, memberNoShow, sendBookingEmail, slotsFor } from '@/lib/console/booking'
@@ -18,7 +19,9 @@ export type BkResult<T = null> = { ok: true; data: T } | { ok: false; error: str
 
 async function team(): Promise<{ userId: string; admin: boolean } | { error: string }> {
   const { user, role } = await getConsoleSession()
-  if (!user || !canUseDesk(role)) return { error: 'not_staff' }
+  // RBAC 3b (v0.44.6): the bookings area (staff on the tablet, admins).
+  // Setting bookings up stays admin (the role, below) for now.
+  if (!user || !(await can(user.id, 'access:storefront.bookings'))) return { error: 'not_staff' }
   return { userId: user.id, admin: isAdmin(role) }
 }
 
