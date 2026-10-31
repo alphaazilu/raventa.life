@@ -19,7 +19,7 @@ import { BRAND } from '@/lib/brand/config'
 type L = { th: string; en: string }
 const t = {
   title: { th: 'ทีมงานและสิทธิ์', en: 'Team & roles' },
-  intro: { th: 'ใครเป็นพนักงานหรือแอดมิน · เปลี่ยนแล้วมีผลทันที ไม่ต้องแก้ใน Supabase', en: 'Who is staff or admin · changes apply at once, no Supabase editing' },
+  intro: { th: 'ใครเป็นพนักงานหรือแอดมิน · เปลี่ยนแล้วมีผลทันที', en: 'Who is staff or admin · changes apply at once.' },
   customer: { th: 'ลูกค้า', en: 'Customer' },
   staff: { th: 'พนักงาน', en: 'Staff' },
   admin: { th: 'แอดมิน', en: 'Admin' },
