@@ -8,7 +8,7 @@ import { useLanguage } from '@/components/language-provider'
 import { authCopy } from '@/lib/auth/copy'
 import { AvatarCircle } from '@/components/account/avatar-circle'
 import { MEMBERS_PATH } from '@/lib/auth/roles'
-import { consoleCopy } from '@/lib/console/copy'
+import { consoleCopy, waiverStatusCopy as wc } from '@/lib/console/copy'
 
 export type AdminMember = {
   id: string
@@ -21,6 +21,8 @@ export type AdminMember = {
   nationality: string | null
   role: string
   avatar_url: string | null
+  // Health waiver (v0.43.1): undefined = consent records not set up (no column)
+  waiver?: { ok: boolean; at: string | null; source: string | null }
 }
 
 export function AdminView({
@@ -40,6 +42,7 @@ export function AdminView({
 }) {
   const { tr } = useLanguage()
   const router = useRouter()
+  const showWaiver = members.some((m) => m.waiver)
   const [text, setText] = useState(query)
   const [pending, start] = useTransition()
 
@@ -94,6 +97,7 @@ export function AdminView({
               <th className="px-4 py-3">{tr(authCopy.phoneFieldLabel)}</th>
               <th className="px-4 py-3">{tr(authCopy.provinceFieldLabel)}</th>
               <th className="px-4 py-3">{tr(authCopy.nationalityFieldLabel)}</th>
+              {showWaiver && <th className="px-4 py-3">{tr(wc.col)}</th>}
               <th className="px-4 py-3" />
             </tr>
           </thead>
@@ -115,6 +119,22 @@ export function AdminView({
                 <td className="whitespace-nowrap px-4 py-3">{m.phone ?? '—'}</td>
                 <td className="px-4 py-3">{m.province ?? '—'}</td>
                 <td className="px-4 py-3">{m.nationality ?? '—'}</td>
+                {showWaiver && (
+                  <td className="whitespace-nowrap px-4 py-3">
+                    {m.waiver && (
+                      <span
+                        title={m.waiver.at ? tr(m.waiver.source === 'self' ? wc.self : wc.desk) : undefined}
+                        className={
+                          m.waiver.ok
+                            ? 'rounded-full bg-accent/15 px-2 py-0.5 text-xs font-semibold text-accent'
+                            : 'rounded-full bg-amber-500/15 px-2 py-0.5 text-xs font-semibold text-amber-800 dark:text-amber-300'
+                        }
+                      >
+                        {tr(m.waiver.ok ? wc.ok : m.waiver.at ? wc.old : wc.missing)}
+                      </span>
+                    )}
+                  </td>
+                )}
                 <td className="whitespace-nowrap px-4 py-3 text-right">
                   {!readOnly && (
                   <a
@@ -129,7 +149,7 @@ export function AdminView({
             ))}
             {members.length === 0 && (
               <tr>
-                <td colSpan={7} className="px-4 py-6 text-center text-muted-foreground">
+                <td colSpan={showWaiver ? 8 : 7} className="px-4 py-6 text-center text-muted-foreground">
                   {tr(authCopy.adminNoMembersFound)}
                 </td>
               </tr>

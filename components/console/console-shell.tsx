@@ -26,6 +26,7 @@ import {
   Package,
   Palette,
   Receipt,
+  ScrollText,
   Settings,
   ShieldAlert,
   Shrink,
@@ -42,6 +43,7 @@ import {
 import { useLanguage } from '@/components/language-provider'
 import { consoleCopy } from '@/lib/console/copy'
 import {
+  AUDIT_PATH,
   CALENDAR_PATH,
   CASH_PATH,
   CATALOG_PATH,
@@ -128,6 +130,7 @@ const t = {
   brand: { th: 'ตั้งค่าแบรนด์', en: 'Brand' },
   devices: { th: 'อุปกรณ์', en: 'Devices' },
   branches: { th: 'สาขา', en: 'Branches' },
+  audit: { th: 'บันทึกการกระทำ', en: 'Audit log' },
   myAccount: { th: 'บัญชีของฉัน', en: 'My account' },
   collapse: { th: 'ย่อเมนู', en: 'Collapse menu' },
   expand: { th: 'ขยายเมนู', en: 'Expand menu' },
@@ -320,6 +323,7 @@ const GROUPS: Group[] = [
       { key: 'brand', label: t.brand, icon: Palette, href: BRAND_SETTINGS_PATH, adminOnly: true, notOnTablet: true },
       { key: 'branches', label: t.branches, icon: Network, href: BRANCHES_PATH, adminOnly: true, notOnTablet: true, isActive: under(BRANCHES_PATH) },
       { key: 'devices', label: t.devices, icon: Tablet, href: DEVICES_PATH, adminOnly: true, notOnTablet: true },
+      { key: 'audit', label: t.audit, icon: ScrollText, href: AUDIT_PATH, adminOnly: true, notOnTablet: true },
     ],
   },
 ]

@@ -1,7 +1,7 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 import { isProfileComplete, PROFILE_COMPLETENESS_COLUMNS } from '@/lib/supabase/profile'
-import { canUseDesk, canViewReports, CONSOLE_PATH, DESK_PATH, isAdmin, MEMBERS_PATH, REPORTS_PATH, SETTINGS_PATH, TIME_PATH } from '@/lib/auth/roles'
+import { AUDIT_PATH, canUseDesk, canViewReports, CONSOLE_PATH, DESK_PATH, isAdmin, MEMBERS_PATH, REPORTS_PATH, SETTINGS_PATH, TIME_PATH } from '@/lib/auth/roles'
 import { DEVICE_COOKIE } from '@/lib/console/device-cookie'
 
 /**
@@ -110,8 +110,11 @@ export async function updateSession(request: NextRequest) {
       // Settings (brand included, v0.39.0) are admin-only whatever is
       // allowed above — named here so a later allowance can't open them.
       const isSettingsRoute = path === SETTINGS_PATH || path.startsWith(`${SETTINGS_PATH}/`)
+      // Same for the audit log (v0.43.1): admins only.
+      const isAuditRoute = path === AUDIT_PATH || path.startsWith(`${AUDIT_PATH}/`)
       const allow =
         !isSettingsRoute &&
+        !isAuditRoute &&
         (((isDeskRoute || isStaffMembersRoute) && canUseDesk(role)) || (isReportsRoute && canViewReports(role)))
       if (!allow) {
         const url = request.nextUrl.clone()
