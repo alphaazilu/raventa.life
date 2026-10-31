@@ -1,6 +1,12 @@
 // Roles in profiles.role (see supabase/schema.sql §13). Everyone is a
 // member first; staff and admin add back-office access on top. `accountant`
 // is a back-office role that can reach the Reports page only (v0.38.22).
+//
+// RBAC (v0.44.1): who may open which Back Office page — the middleware, the
+// console layout, each page, the menu and the export routes — is decided by
+// permissions now (lib/auth/permissions.ts, permission-catalog.ts). These
+// helpers stay for the server actions and in-page details (what an admin
+// sees extra on a page), which move over in a later phase.
 export type Role = 'customer' | 'staff' | 'admin' | 'accountant'
 
 // Front desk: /console/desk (sell + check in).

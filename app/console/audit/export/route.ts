@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { requireAdmin } from '@/lib/console/guard'
+import { requirePermissions } from '@/lib/console/guard'
 import { resolvePeriod } from '@/lib/console/report-period'
 import { auditFiltersFrom, listAudit, type AuditRow } from '@/lib/console/audit'
 import { detailPairs } from '@/lib/console/audit-format'
@@ -22,7 +22,7 @@ function csv(rows: (string | number | null)[][]): string {
 const stamp = (iso: string) => new Date(Date.parse(iso) + 7 * 3600_000).toISOString().slice(0, 19).replace('T', ' ')
 
 export async function GET(request: Request) {
-  const ctx = await requireAdmin()
+  const ctx = await requirePermissions('access:system.audit', 'action:export.data')
   if ('error' in ctx) return new NextResponse('Forbidden', { status: 403 })
   const q = Object.fromEntries(new URL(request.url).searchParams)
   const period = resolvePeriod(q.p || q.from ? q : { p: '7d' })

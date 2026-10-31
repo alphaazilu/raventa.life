@@ -93,6 +93,9 @@ export const ACTIONS: { key: string; area: string; label: L }[] = [
   { key: 'time.edit', area: 'team', label: { th: 'แก้เวลาเข้า-ออก', en: 'Edit clock times' } },
   { key: 'export.data', area: 'reports', label: { th: 'ส่งออกข้อมูล', en: 'Export data' } },
   { key: 'roles.manage', area: 'system', label: { th: 'จัดการสิทธิ์', en: 'Manage roles' } },
+  // v0.44.1: without it, the areas marked tabletUnless in ROUTE_RULES open only
+  // on a registered counter tablet (what staff have always had).
+  { key: 'console.anywhere', area: 'system', label: { th: 'ใช้ Back Office นอก tablet เคาน์เตอร์', en: 'Use the Back Office away from the counter tablet' } },
 ]
 
 export const ALL_PERMISSIONS: string[] = [...AREA_KEYS.map((k) => `access:${k}`), ...ACTIONS.map((a) => `action:${a.key}`)]
@@ -102,15 +105,29 @@ export type SystemRole = 'admin' | 'staff' | 'accountant'
 /**
  * The built-in roles = exactly what profiles.role allows today. The seed in
  * schema.sql §55 holds the same lists — keep the two in step.
- *   staff: the front desk; on a registered tablet also the member list (view
- *     only) and the time page (the tablet / setting conditions are checked
- *     separately, as now). May void within 30 minutes (the limit is in
- *     pos_void_sale) and work the drawer.
+ *   staff: the front desk (on their phone too when an admin allows it); on a
+ *     registered counter tablet also cash, bookings, the member list (view
+ *     only), the time page and the calendar — "tablet only" is ROUTE_RULES'
+ *     tabletUnless: 'action:console.anywhere', which staff don't hold. May void
+ *     within 30 minutes (the limit is in pos_void_sale) and work the drawer.
  *   accountant: the sales report and its export.
  */
 export const SYSTEM_ROLE_PERMISSIONS: Record<SystemRole, string[]> = {
   admin: ALL_PERMISSIONS,
-  staff: ['access:storefront.desk', 'access:storefront.members', 'access:team.time', 'action:bill.void', 'action:cash.close'],
+  // v0.44.1: + cash, bookings, calendar — staff have always opened these on the
+  // counter tablet (where the middleware leaves the decision to the page);
+  // phase 1 missed them. The seed in schema.sql §55 gets them with the next
+  // SQL change; until then this list is the floor can() always adds.
+  staff: [
+    'access:storefront.desk',
+    'access:storefront.cash',
+    'access:storefront.bookings',
+    'access:storefront.members',
+    'access:team.time',
+    'access:team.calendar',
+    'action:bill.void',
+    'action:cash.close',
+  ],
   accountant: ['access:reports.sales', 'action:export.data'],
 }
 
@@ -137,4 +154,97 @@ export function holds(perms: ReadonlySet<string>, perm: string): boolean {
 export function expandPermissions(keys: Iterable<string>): Set<string> {
   const held = new Set(keys)
   return new Set([...held, ...ALL_PERMISSIONS.filter((k) => holds(held, k))])
+}
+
+// ---- phase 2 (v0.44.1): deciding access with the keys ------------------------
+
+/**
+ * Can this person see an area at all — i.e. open its page / see it in the
+ * menu? True when the area is held (directly or from an ancestor) OR any area
+ * beneath it is: an accountant holding only 'access:reports.sales' still sees
+ * the "Reports" module.
+ */
+export function canSeeArea(perms: ReadonlySet<string>, area: string): boolean {
+  if (holds(perms, `access:${area}`)) return true
+  const prefix = `access:${area}.`
+  for (const k of perms) if (k.startsWith(prefix)) return true
+  return false
+}
+
+/** Anything in the Back Office at all (the console shell lets them in). */
+export function canSeeConsole(perms: ReadonlySet<string>): boolean {
+  for (const k of perms) if (k.startsWith('access:')) return true
+  return false
+}
+
+/**
+ * Permissions straight from profiles.role, no database: the system role's
+ * list. Used where a request can't wait for a query (the middleware) — the
+ * same answer as can() until anyone holds extra roles in staff_roles (the
+ * role-management screen, phase 3; revisit then).
+ */
+export function rolePermissions(role: string | null | undefined): Set<string> {
+  const s = systemRoleOf(role)
+  return expandPermissions(s ? SYSTEM_ROLE_PERMISSIONS[s] : [])
+}
+
+/**
+ * The rule for each Back Office path (one source for the middleware and the
+ * pages). Longest prefix wins. `see` = canSeeArea (the page shows several
+ * sub-areas); `need` = every key must be held; `tabletUnless` = without this
+ * key, only on a registered counter tablet (a device condition, kept from
+ * before RBAC — staff see the member list / time page at the counter only).
+ */
+export type RouteRule = { path: string; exact?: boolean; see?: string; need?: string[]; tabletUnless?: string }
+
+const ANYWHERE = 'action:console.anywhere'
+
+export const ROUTE_RULES: RouteRule[] = [
+  { path: '/console', exact: true, need: ['access:overview'] },
+  { path: '/console/desk', need: ['access:storefront.desk'] },
+  { path: '/console/cash', need: ['access:storefront.cash'], tabletUnless: ANYWHERE },
+  { path: '/console/bookings', need: ['access:storefront.bookings'], tabletUnless: ANYWHERE },
+  // The list (view only for staff, on the tablet); one member's page is the full record.
+  { path: '/console/members', exact: true, need: ['access:storefront.members'], tabletUnless: ANYWHERE },
+  { path: '/console/members', need: ['access:storefront.members', 'action:pii.view'] },
+  { path: '/console/feedback', need: ['access:storefront.feedback'] },
+  { path: '/console/leads', need: ['access:storefront.leads'] },
+  { path: '/console/time', need: ['access:team.time'], tabletUnless: ANYWHERE },
+  { path: '/console/calendar', need: ['access:team.calendar'], tabletUnless: ANYWHERE },
+  { path: '/console/team', need: ['access:team.roles'] },
+  { path: '/console/checklist', need: ['access:operations.checklist'] },
+  { path: '/console/catalog', see: 'catalog' },
+  { path: '/console/reports', see: 'reports' },
+  { path: '/console/settings/brand', need: ['access:system.brand'] },
+  { path: '/console/settings', need: ['access:system.settings'] },
+  { path: '/console/branches', need: ['access:system.branches'] },
+  { path: '/console/devices', need: ['access:system.devices'] },
+  { path: '/console/audit', need: ['access:system.audit'] },
+]
+/** A console path with no rule of its own: admins only, as before. */
+const FALLBACK_RULE: RouteRule = { path: '/console', need: ['access:system'] }
+
+export function ruleFor(path: string): RouteRule {
+  let best: RouteRule | null = null
+  for (const r of ROUTE_RULES) {
+    const hit = r.exact ? path === r.path : path === r.path || path.startsWith(`${r.path}/`)
+    if (hit && (!best || r.path.length > best.path.length || (r.exact && r.path.length === best.path.length))) best = r
+  }
+  return best ?? FALLBACK_RULE
+}
+
+/** May this person open `path`? (`onTablet` = a registered counter tablet's cookie.) */
+export function mayOpen(perms: ReadonlySet<string>, path: string, onTablet: boolean): boolean {
+  const r = ruleFor(path)
+  if (r.see && !canSeeArea(perms, r.see)) return false
+  if (r.need && !r.need.every((k) => holds(perms, k))) return false
+  if (r.tabletUnless && !onTablet && !holds(perms, r.tabletUnless)) return false
+  return true
+}
+
+/** Where someone lands when turned away: the desk, else Reports, else their account. */
+export function consoleHomeFor(perms: ReadonlySet<string>): string {
+  if (holds(perms, 'access:storefront.desk')) return '/console/desk'
+  if (canSeeArea(perms, 'reports')) return '/console/reports'
+  return '/account'
 }

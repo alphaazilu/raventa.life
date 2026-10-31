@@ -4,7 +4,8 @@ import { redirect } from 'next/navigation'
 import { getConsoleSession } from '@/lib/console/session'
 import { getCurrentDevice } from '@/lib/console/device'
 import { deskAllowed } from '@/lib/console/settings'
-import { CASH_PATH, canUseDesk, isAdmin } from '@/lib/auth/roles'
+import { CASH_PATH, isAdmin } from '@/lib/auth/roles'
+import { can } from '@/lib/auth/permissions'
 import { bangkokToday } from '@/lib/check-in/day'
 import { getCashRules, getCurrentSession, listSessions, mainBranchId } from '@/lib/console/cash'
 import { dayBounds } from '@/lib/console/checklist'
@@ -35,7 +36,7 @@ const forStaff = (s: CashSession): CashSession => ({ ...s, expected: null, cashI
 export default async function CashPage({ searchParams }: { searchParams: Promise<{ tab?: string; from?: string; to?: string }> }) {
   const { user, role } = await getConsoleSession()
   if (!user) redirect(`/login?next=${CASH_PATH}`)
-  if (!canUseDesk(role)) redirect('/account')
+  if (!(await can(user.id, 'access:storefront.cash'))) redirect('/account')
   const admin = isAdmin(role)
   const device = await getCurrentDevice().catch(() => null)
   const onTablet = Boolean(device)

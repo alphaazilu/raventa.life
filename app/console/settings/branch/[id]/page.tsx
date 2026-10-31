@@ -5,6 +5,7 @@ import { getCurrentDevice } from '@/lib/console/device'
 import { loadBranchDetail } from '@/lib/console/branch-detail'
 import { BranchSettingsView } from '@/components/console/branch-settings-view'
 import { DESK_PATH, isAdmin, SETTINGS_PATH } from '@/lib/auth/roles'
+import { can } from '@/lib/auth/permissions'
 import { getBrandInfo } from '@/lib/brand/settings'
 import { backOfficeName } from '@/lib/brand/info'
 
@@ -23,7 +24,7 @@ export const dynamic = 'force-dynamic'
 export default async function BranchSettingsPage({ params }: { params: Promise<{ id: string }> }) {
   const { user, role } = await getConsoleSession()
   if (!user) redirect(`/login?next=${SETTINGS_PATH}`)
-  if (!isAdmin(role)) redirect(DESK_PATH)
+  if (!(await can(user.id, 'access:system.settings'))) redirect(DESK_PATH)
   if (await getCurrentDevice().catch(() => null)) redirect(DESK_PATH)
 
   const { id } = await params

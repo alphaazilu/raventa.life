@@ -8,7 +8,8 @@ import { getReviewUrl } from '@/lib/console/feedback'
 import { DEFAULT_SETTINGS, getTimeSettings } from '@/lib/console/shifts'
 import { isMissingTable } from '@/lib/console/db-errors'
 import { createAdminClient } from '@/lib/supabase/admin'
-import { DESK_PATH, isAdmin, SETTINGS_PATH } from '@/lib/auth/roles'
+import { DESK_PATH, SETTINGS_PATH } from '@/lib/auth/roles'
+import { can } from '@/lib/auth/permissions'
 import { getBrandInfo } from '@/lib/brand/settings'
 import { backOfficeName } from '@/lib/brand/info'
 
@@ -24,9 +25,9 @@ export const dynamic = 'force-dynamic'
 // Back Office › Settings (schema.sql §19), in tabs (v0.28): ?tab=team|work|shop.
 // Admins only, never on a tablet.
 export default async function SettingsPage({ searchParams }: { searchParams: Promise<{ tab?: string }> }) {
-  const { user, role } = await getConsoleSession()
+  const { user } = await getConsoleSession()
   if (!user) redirect(`/login?next=${SETTINGS_PATH}`)
-  if (!isAdmin(role)) redirect(DESK_PATH)
+  if (!(await can(user.id, 'access:system.settings'))) redirect(DESK_PATH)
 
   const { tab } = await searchParams
   const initialTab: SettingsTab = tab === 'work' || tab === 'shop' ? tab : 'team'

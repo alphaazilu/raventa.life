@@ -1,7 +1,8 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 import { isProfileComplete, PROFILE_COMPLETENESS_COLUMNS } from '@/lib/supabase/profile'
-import { AUDIT_PATH, canUseDesk, canViewReports, CONSOLE_PATH, DESK_PATH, isAdmin, MEMBERS_PATH, REPORTS_PATH, SETTINGS_PATH, TIME_PATH } from '@/lib/auth/roles'
+import { CONSOLE_PATH } from '@/lib/auth/roles'
+import { consoleHomeFor, mayOpen, rolePermissions } from '@/lib/auth/permission-catalog'
 import { DEVICE_COOKIE } from '@/lib/console/device-cookie'
 
 /**
@@ -96,30 +97,21 @@ export async function updateSession(request: NextRequest) {
       return redirectKeepingSession(url)
     }
 
-    // Back Office: admins get everything; staff get the front desk only
-    // (for now — phase 2 moves staff onto the registered tablet, see R2);
-    // accountants get the Reports page only (v0.38.23).
-    if (isConsoleRoute && !isAdmin(profile?.role)) {
-      const role = profile?.role
-      const isDeskRoute = path === DESK_PATH || path.startsWith(`${DESK_PATH}/`)
-      // The member list (view only) on a counter tablet; the page itself
-      // checks the device key is valid. Editing (/members/[id]) stays admin.
+    // Back Office (RBAC phase 2, v0.44.1): each path's rule in ROUTE_RULES
+    // (lib/auth/permission-catalog.ts) against the person's permissions —
+    // here straight from profiles.role (rolePermissions: no query per
+    // request; the same as can() until anyone holds extra roles, phase 3).
+    // Same outcome as the role checks it replaces: admins everything; staff
+    // the front desk, plus the member list / time page on a counter tablet;
+    // accountants the sales report. Settings and the audit log are
+    // access:system.* — admins only.
+    if (isConsoleRoute) {
+      const perms = rolePermissions(profile?.role)
       const onTabletCookie = Boolean(request.cookies.get(DEVICE_COOKIE)?.value)
-      const isStaffMembersRoute = (path === MEMBERS_PATH || path === TIME_PATH) && onTabletCookie
-      const isReportsRoute = path === REPORTS_PATH || path.startsWith(`${REPORTS_PATH}/`)
-      // Settings (brand included, v0.39.0) are admin-only whatever is
-      // allowed above — named here so a later allowance can't open them.
-      const isSettingsRoute = path === SETTINGS_PATH || path.startsWith(`${SETTINGS_PATH}/`)
-      // Same for the audit log (v0.43.1): admins only.
-      const isAuditRoute = path === AUDIT_PATH || path.startsWith(`${AUDIT_PATH}/`)
-      const allow =
-        !isSettingsRoute &&
-        !isAuditRoute &&
-        (((isDeskRoute || isStaffMembersRoute) && canUseDesk(role)) || (isReportsRoute && canViewReports(role)))
-      if (!allow) {
+      if (!mayOpen(perms, path, onTabletCookie)) {
         const url = request.nextUrl.clone()
-        // Send each role to the one place it belongs, not a dead end.
-        url.pathname = canViewReports(role) ? REPORTS_PATH : canUseDesk(role) ? DESK_PATH : '/account'
+        // Send each person to the one place they belong, not a dead end.
+        url.pathname = consoleHomeFor(perms)
         url.search = ''
         return redirectKeepingSession(url)
       }

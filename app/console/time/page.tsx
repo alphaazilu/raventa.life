@@ -8,7 +8,8 @@ import { getCurrentDevice } from '@/lib/console/device'
 import { addDays, getOpenEntry, listEntries, listOpenEntries, listStaff, weekStart } from '@/lib/console/time'
 import { bangkokToday } from '@/lib/check-in/day'
 import { DEFAULT_SETTINGS, getTimeSettings, listAssignments, listHolidays, listTemplates } from '@/lib/console/shifts'
-import { canUseDesk, DESK_PATH, isAdmin, TIME_PATH } from '@/lib/auth/roles'
+import { DESK_PATH, isAdmin, TIME_PATH } from '@/lib/auth/roles'
+import { mayOpen } from '@/lib/auth/permissions'
 import { getBrandInfo } from '@/lib/brand/settings'
 import { backOfficeName } from '@/lib/brand/info'
 
@@ -33,7 +34,8 @@ export default async function TimePage({
   if (!user) redirect(`/login?next=${TIME_PATH}`)
   const admin = isAdmin(role)
   const device = await getCurrentDevice().catch(() => null)
-  if (!admin && !(canUseDesk(role) && device)) redirect(DESK_PATH)
+  // Staff: on a registered tablet only (ROUTE_RULES tabletUnless).
+  if (!(await mayOpen(user.id, TIME_PATH, Boolean(device)))) redirect(DESK_PATH)
 
   const q = await searchParams
   const { week, mode, month: rawMonth } = q

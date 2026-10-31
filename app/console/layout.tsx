@@ -9,7 +9,9 @@ import { TabletLock } from '@/components/console/tablet-lock'
 import { IdleLock } from '@/components/console/idle-lock'
 import { BusyOverlay } from '@/components/console/busy-overlay'
 import { getConsoleSession } from '@/lib/console/session'
-import { canUseConsole, canUseDesk, CONSOLE_PATH, isAccountant, isAdmin } from '@/lib/auth/roles'
+import { CONSOLE_PATH, isAccountant, isAdmin } from '@/lib/auth/roles'
+import { effectivePermissions } from '@/lib/auth/permissions'
+import { canSeeConsole } from '@/lib/auth/permission-catalog'
 import { DEVICE_COOKIE, getCurrentDevice } from '@/lib/console/device'
 import { signOut } from '@/app/login/actions'
 import { lockConsole } from './lock-actions'
@@ -52,7 +54,10 @@ export default async function ConsoleLayout({ children }: { children: React.Reac
 
   const me = { role, first_name: firstName }
 
-  if (!user || !canUseConsole(me?.role)) {
+  // RBAC (v0.44.1): in the shell when the person can see any Back Office area
+  // (same people as canUseConsole: staff, admins, accountants).
+  const perms = user ? await effectivePermissions(user.id) : new Set<string>()
+  if (!user || !canSeeConsole(perms)) {
     // A revoked or unknown key: back to pairing (never /account, which tablet
     // mode would bounce straight back here).
     if (hasDeviceCookie && !device) redirect('/tablet')
@@ -92,6 +97,7 @@ export default async function ConsoleLayout({ children }: { children: React.Reac
           name={me?.first_name || user.email || ''}
           admin={isAdmin(me?.role)}
           accountant={isAccountant(me?.role)}
+          perms={[...perms]}
           deviceName={device?.name ?? null}
           signOutAction={lockConsole.bind(null, 'manual')}
           staffMembers={settings.staffMembersOnTablet}

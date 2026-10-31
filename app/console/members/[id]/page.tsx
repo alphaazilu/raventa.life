@@ -3,6 +3,7 @@ import { notFound, redirect } from 'next/navigation'
 import { MemberEditForm } from '@/components/admin/member-edit-form'
 import { getConsoleSession } from '@/lib/console/session'
 import { DESK_PATH, MEMBERS_PATH } from '@/lib/auth/roles'
+import { mayOpen } from '@/lib/auth/permissions'
 import { loadVisitHistory } from '@/lib/visit-history'
 import { VisitHistoryView } from '@/components/visit-history-view'
 import { PackageList } from '@/components/package-list'
@@ -35,7 +36,8 @@ export default async function EditMemberPage({ params }: { params: Promise<{ id:
 
   if (!user) redirect(`/login?next=${MEMBERS_PATH}/${id}`)
 
-  if (role !== 'admin') redirect(DESK_PATH)
+  // The full record: access:storefront.members + action:pii.view (ROUTE_RULES).
+  if (!(await mayOpen(user.id, `${MEMBERS_PATH}/${id}`, false))) redirect(DESK_PATH)
 
   const [{ data: member }, history, stampRes, packages, shareEvents, bookings, rules, referral, team, consents] = await Promise.all([
     supabase

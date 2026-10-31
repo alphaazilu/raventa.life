@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { requireAdmin } from '@/lib/console/guard'
+import { requirePermissions } from '@/lib/console/guard'
 import { listFeedback, listTopics } from '@/lib/console/feedback'
 import { BRAND } from '@/lib/brand/config'
 
@@ -17,7 +17,7 @@ function csv(rows: (string | number | null)[][]): string {
 const stamp = (iso: string | null) => (iso ? new Date(Date.parse(iso) + 7 * 3600_000).toISOString().slice(0, 16).replace('T', ' ') : '')
 
 export async function GET(request: Request) {
-  const ctx = await requireAdmin()
+  const ctx = await requirePermissions('access:storefront.feedback', 'action:export.data')
   if ('error' in ctx) return new NextResponse('Forbidden', { status: 403 })
   const q = Object.fromEntries(new URL(request.url).searchParams)
   const from = ISO.test(q.from ?? '') ? q.from : new Date().toISOString().slice(0, 10)
