@@ -13,9 +13,11 @@ import { listRoles } from '@/lib/console/roles'
 // writes these tables with their own session, §55) and logged in
 // staff_actions.
 //
-// System roles (admin / staff / accountant) can't be deleted or renamed;
-// their built-in keys (SYSTEM_ROLE_PERMISSIONS) always stay — keys can only
-// be added. The admin role holds everything already and is locked.
+// System roles (admin / staff / accountant) are immutable on purpose
+// (v0.44.5): no renaming, no permission changes, no deleting. Everyone with
+// that base role relies on them, so a slip (say, ticking access:system for
+// staff) would widen access for the whole group. To give a group more, make a
+// custom role and give it person by person.
 
 export type RolesResult = { ok: true; id?: string } | { ok: false; error: string }
 
@@ -47,18 +49,15 @@ export async function updateRole(id: string, input: { nameTh: string; nameEn: st
   if (!UUID.test(id)) return { ok: false, error: 'failed' }
   const role = (await listRoles())?.find((r) => r.id === id)
   if (!role) return { ok: false, error: 'not_found' }
-  if (role.key === 'admin') return { ok: false, error: 'locked' }
+  if (role.isSystem) return { ok: false, error: 'system' }
 
   const db = createAdminClient()
-  if (!role.isSystem) {
-    const th = name(input.nameTh)
-    if (!th) return { ok: false, error: 'bad_name' }
-    const { error } = await db.from('roles').update({ name_th: th, name_en: name(input.nameEn) || th }).eq('id', id)
-    if (error) return { ok: false, error: 'failed' }
-  }
+  const th = name(input.nameTh)
+  if (!th) return { ok: false, error: 'bad_name' }
+  const { error: nameErr } = await db.from('roles').update({ name_th: th, name_en: name(input.nameEn) || th }).eq('id', id)
+  if (nameErr) return { ok: false, error: 'failed' }
 
-  // A system role keeps its built-in keys whatever was sent.
-  const next = minimalKeys([...(Array.isArray(input.perms) ? input.perms : []).map(String), ...role.base])
+  const next = minimalKeys((Array.isArray(input.perms) ? input.perms : []).map(String))
   const now = new Set(role.perms)
   const added = next.filter((k) => !now.has(k))
   const removed = role.perms.filter((k) => !next.includes(k))
@@ -70,7 +69,7 @@ export async function updateRole(id: string, input: { nameTh: string; nameEn: st
     const { error } = await db.from('role_permissions').insert(added.map((perm_key) => ({ role_id: id, perm_key })))
     if (error) return { ok: false, error: 'failed' }
   }
-  if (added.length || removed.length || !role.isSystem) await log(ctx.userId, 'role_update', { name: role.nameTh, added, removed })
+  await log(ctx.userId, 'role_update', { name: th, added, removed })
   revalidatePath(ROLES_PATH)
   return { ok: true }
 }

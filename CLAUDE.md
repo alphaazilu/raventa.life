@@ -97,5 +97,7 @@
   1. UI จัดการ role + มอบ role ให้พนักงาน (เขียน `staff_roles`) + ปิด 3 ข้อที่ defer จากเฟส 2
   2. ย้าย 3 จุดจาก `profiles.role` → `can()`/`staff_roles`: **(ก)** middleware (`rolePermissions` sync จาก profiles.role) **(ข)** server actions (`guard.ts requireAdmin` ยังเช็ค `isAdmin(role)`) **(ค)** รายละเอียดใน-หน้า (แท็บรายงาน hours/commission ยังไม่ gate รายแท็บ)
   > ⚠️ ถ้าทำ (1) โดยไม่ทำ (2): role ที่มอบผ่าน staff_roles จะ **ไม่มีผล** ที่ 3 จุดนั้น (ยังตัดสินจาก profiles.role) → สิทธิ์ไม่ตรงกับที่ตั้งไว้
-  - และ: seed staff ใน `schema.sql §55` ต้องอัปให้ตรง `SYSTEM_ROLE_PERMISSIONS` (เพิ่ม cash/bookings/calendar) ก่อนพึ่ง staff_roles จริง — ตอนนี้ floor ในโค้ดปิดช่องไว้ชั่วคราว
+  - ✅ 3c v0.44.3 — seed §55 ตรง `SYSTEM_ROLE_PERMISSIONS` แล้ว (floor ในโค้ดยังเก็บไว้เป็น safety net)
+  - ✅ 3a v0.44.4 — หน้า `/console/team/roles` + มอบ role เพิ่ม (`staff_roles`) ในหน้าทีมงาน
+- **System role (admin / staff / accountant) = immutable โดยตั้งใจ (v0.44.5)** — แก้ชื่อ/สิทธิ์/ลบไม่ได้ ทั้ง server (`updateRole`/`deleteRole` คืน `system`) และ UI (แสดงอ่านอย่างเดียว) · เป็นสิทธิ์ฐานที่ทุกคนใน role นั้นพึ่ง กันเผลอขยายสิทธิ์ทั้งกลุ่ม · อยากให้ใครได้เพิ่ม → สร้าง custom role แล้วมอบรายคน · สิทธิ์ของ system role เปลี่ยนได้ทางเดียวคือแก้ `SYSTEM_ROLE_PERMISSIONS` + seed §55 ในโค้ด (ผ่าน PR)
 - **เฟส 4 (ค้าง)** — บังคับระดับ action (bill.void/refund, cash.review ฯลฯ) + อนุมัติที่เคาน์เตอร์ (counter-approval)

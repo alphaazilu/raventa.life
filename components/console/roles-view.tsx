@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import {
   BarChart3,
   CalendarCheck,
+  Check,
   CalendarDays,
   Clock,
   Coins,
@@ -14,6 +15,7 @@ import {
   ListChecks,
   Lock,
   MessageSquareHeart,
+  Minus,
   Network,
   Package,
   Palette,
@@ -42,7 +44,7 @@ import { createRole, deleteRole, updateRole } from '@/app/console/team/roles/act
 import { cn } from '@/lib/utils'
 
 // Back Office › Team & roles › Roles (RBAC phase 3a, v0.44.4). Left: the
-// roles (system ones locked against deleting); right: what the picked role
+// roles (system ones read only — immutable on purpose, v0.44.5); right: what the picked role
 // may open — Module → Menu (→ Report) from AREAS — and, under each module,
 // the actions done there. Ticking a module gives everything beneath it.
 
@@ -195,21 +197,17 @@ function RoleEditor({ role, canEdit }: { role: RoleRow; canEdit: boolean }) {
   const [pending, start] = useTransition()
   const [th, setTh] = useState(role.nameTh)
   const [en, setEn] = useState(role.nameEn)
-  // The ticked keys (as stored). A system role's built-in keys are always on.
+  // The ticked keys (as stored). A system role (read only) also shows its
+  // built-in keys — the floor every holder gets.
   const [sel, setSel] = useState<string[]>(role.perms)
-  const locked = role.key === 'admin' || !canEdit
-  const base = useMemo(() => expandPermissions(role.base), [role.base])
+  const readOnly = role.isSystem || !canEdit
   const held = useMemo(() => expandPermissions([...sel, ...role.base]), [sel, role.base])
-  const dirty = !sameSet(sel, role.perms) || (!role.isSystem && (th.trim() !== role.nameTh || en.trim() !== role.nameEn))
+  const dirty = !sameSet(sel, role.perms) || th.trim() !== role.nameTh || en.trim() !== role.nameEn
 
-  /** Why a key can't be unticked here: built in, or comes from a ticked parent. */
-  const lockOf = (k: string): 'base' | 'parent' | null => {
-    if (base.has(k)) return 'base'
-    if (withAncestors(k).slice(1).some((a) => sel.includes(a) || role.base.includes(a))) return 'parent'
-    return null
-  }
+  /** A key comes from a ticked parent (can't be unticked on its own). */
+  const lockOf = (k: string): 'parent' | null => (withAncestors(k).slice(1).some((a) => sel.includes(a)) ? 'parent' : null)
   const toggle = (k: string) => {
-    if (locked || lockOf(k)) return
+    if (readOnly || lockOf(k)) return
     setSel((s) => (s.includes(k) ? s.filter((x) => x !== k) : [...s.filter((x) => !x.startsWith(`${k}.`)), k]))
   }
 
@@ -239,28 +237,26 @@ function RoleEditor({ role, canEdit }: { role: RoleRow; canEdit: boolean }) {
     <section className="rounded-2xl border border-border bg-card">
       {/* Header stays while the tree scrolls past (page scroll). */}
       <div className="sticky top-[57px] z-10 flex flex-wrap items-end gap-3 rounded-t-2xl border-b border-border bg-card px-4 py-3 md:px-5 xl:top-[65px]">
-        {role.isSystem ? (
+        {readOnly ? (
           <div className="min-w-0 flex-1">
             <p className="flex items-center gap-1.5 font-display text-lg font-extrabold">
               <Lock className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
               {tr({ th: role.nameTh, en: role.nameEn })}
             </p>
-            <p className="text-xs text-muted-foreground">{tr(role.key === 'admin' ? c.lockedAdmin : c.lockedBase)}</p>
+            {role.isSystem && <p className="text-xs text-muted-foreground">{tr(role.key === 'admin' ? c.lockedAdmin : c.lockedBase)}</p>}
           </div>
         ) : (
           <div className="grid w-full min-w-0 gap-2 sm:w-auto sm:flex-1 sm:grid-cols-2">
-            <input value={th} onChange={(e) => setTh(e.target.value)} disabled={locked} aria-label={tr(c.nameTh)} maxLength={80} className="h-10 w-full rounded-xl border border-border bg-background px-3 font-semibold" />
-            <input value={en} onChange={(e) => setEn(e.target.value)} disabled={locked} aria-label={tr(c.nameEn)} maxLength={80} className="h-10 w-full rounded-xl border border-border bg-background px-3" />
+            <input value={th} onChange={(e) => setTh(e.target.value)} aria-label={tr(c.nameTh)} maxLength={80} className="h-10 w-full rounded-xl border border-border bg-background px-3 font-semibold" />
+            <input value={en} onChange={(e) => setEn(e.target.value)} aria-label={tr(c.nameEn)} maxLength={80} className="h-10 w-full rounded-xl border border-border bg-background px-3" />
           </div>
         )}
-        {!locked && (
+        {!readOnly && (
           <div className="ml-auto flex items-center gap-2">
             {dirty && <span className="text-xs font-semibold text-amber-800 dark:text-amber-300">{tr(c.unsaved)}</span>}
-            {!role.isSystem && (
-              <button type="button" onClick={remove} disabled={pending} title={tr(c.delete)} aria-label={tr(c.delete)} className="flex h-10 w-10 items-center justify-center rounded-full border border-border text-destructive hover:bg-destructive/10 disabled:opacity-50">
-                <Trash2 className="h-4 w-4" aria-hidden="true" />
-              </button>
-            )}
+            <button type="button" onClick={remove} disabled={pending} title={tr(c.delete)} aria-label={tr(c.delete)} className="flex h-10 w-10 items-center justify-center rounded-full border border-border text-destructive hover:bg-destructive/10 disabled:opacity-50">
+              <Trash2 className="h-4 w-4" aria-hidden="true" />
+            </button>
             <button type="button" onClick={save} disabled={!dirty || pending} className="inline-flex h-10 items-center gap-1.5 rounded-full bg-primary px-5 text-sm font-semibold text-primary-foreground disabled:opacity-50">
               {pending && <Spinner className="h-3.5 w-3.5" />}
               {tr(c.save)}
@@ -271,7 +267,7 @@ function RoleEditor({ role, canEdit }: { role: RoleRow; canEdit: boolean }) {
 
       <div className="divide-y divide-border">
         {AREAS.map((m) => (
-          <ModuleBlock key={m.key} module={m} held={held} lockOf={lockOf} toggle={toggle} disabled={locked} />
+          <ModuleBlock key={m.key} module={m} held={held} lockOf={lockOf} toggle={toggle} readOnly={readOnly} />
         ))}
       </div>
     </section>
@@ -283,13 +279,13 @@ function ModuleBlock({
   held,
   lockOf,
   toggle,
-  disabled,
+  readOnly,
 }: {
   module: Area
   held: Set<string>
-  lockOf: (k: string) => 'base' | 'parent' | null
+  lockOf: (k: string) => 'parent' | null
   toggle: (k: string) => void
-  disabled: boolean
+  readOnly: boolean
 }) {
   const { tr } = useLanguage()
   const kids = m.children ?? []
@@ -297,13 +293,13 @@ function ModuleBlock({
   const actions = ACTIONS.filter((a) => a.area === m.key)
   return (
     <div className="px-4 py-3 md:px-5">
-      <Tick k={`access:${m.key}`} label={tr(m.label)} icon={ICON[m.key]} strong held={held} partial={!held.has(`access:${m.key}`) && some} lockOf={lockOf} toggle={toggle} disabled={disabled} />
+      <Tick k={`access:${m.key}`} label={tr(m.label)} icon={ICON[m.key]} strong held={held} partial={!held.has(`access:${m.key}`) && some} lockOf={lockOf} toggle={toggle} readOnly={readOnly} />
       {kids.length > 0 && (
         <div className="mt-1 ml-3 border-l border-border pl-4">
           <p className="mt-1 text-[11px] font-bold uppercase tracking-wide text-muted-foreground">{tr(c.access)}</p>
           <div className="grid gap-x-4 sm:grid-cols-2 xl:grid-cols-3">
             {kids.map((k) => (
-              <Tick key={k.key} k={`access:${k.key}`} label={tr(k.label)} icon={ICON[k.key]} held={held} lockOf={lockOf} toggle={toggle} disabled={disabled} />
+              <Tick key={k.key} k={`access:${k.key}`} label={tr(k.label)} icon={ICON[k.key]} held={held} lockOf={lockOf} toggle={toggle} readOnly={readOnly} />
             ))}
           </div>
           {actions.length > 0 && (
@@ -311,7 +307,7 @@ function ModuleBlock({
               <p className="mt-2 text-[11px] font-bold uppercase tracking-wide text-muted-foreground">{tr(c.actions)}</p>
               <div className="grid gap-x-4 sm:grid-cols-2 xl:grid-cols-3">
                 {actions.map((a) => (
-                  <Tick key={a.key} k={`action:${a.key}`} label={tr(a.label)} held={held} lockOf={lockOf} toggle={toggle} disabled={disabled} />
+                  <Tick key={a.key} k={`action:${a.key}`} label={tr(a.label)} held={held} lockOf={lockOf} toggle={toggle} readOnly={readOnly} />
                 ))}
               </div>
             </>
@@ -331,7 +327,7 @@ function Tick({
   held,
   lockOf,
   toggle,
-  disabled,
+  readOnly,
 }: {
   k: string
   label: string
@@ -339,17 +335,33 @@ function Tick({
   strong?: boolean
   partial?: boolean
   held: Set<string>
-  lockOf: (k: string) => 'base' | 'parent' | null
+  lockOf: (k: string) => 'parent' | null
   toggle: (k: string) => void
-  disabled: boolean
+  readOnly: boolean
 }) {
   const { tr } = useLanguage()
   const lock = lockOf(k)
   const on = held.has(k)
+  // Read only (a system role): a plain mark, no checkbox to tick.
+  if (readOnly) {
+    const Mark = on ? Check : partial ? Minus : null
+    return (
+      <div className={cn('flex min-w-0 items-center gap-2 py-1.5 text-sm', strong ? 'font-bold' : 'font-medium', !on && 'text-muted-foreground')}>
+        <span
+          className={cn('flex h-4 w-4 shrink-0 items-center justify-center rounded-full', on ? 'bg-primary text-primary-foreground' : partial ? 'bg-primary/15 text-primary' : 'border border-border')}
+          aria-label={on ? '✓' : undefined}
+        >
+          {Mark && <Mark className="h-3 w-3" strokeWidth={3} aria-hidden="true" />}
+        </span>
+        {Icon && <Icon className={cn('h-4 w-4 shrink-0', on ? 'text-primary' : 'text-muted-foreground')} aria-hidden="true" />}
+        <span className="min-w-0 truncate">{label}</span>
+      </div>
+    )
+  }
   return (
     <label
-      title={lock === 'base' ? tr(c.lockedBase) : lock === 'parent' ? tr(c.inherited) : undefined}
-      className={cn('flex min-w-0 items-center gap-2 rounded-lg py-1.5 text-sm', strong ? 'font-bold' : 'font-medium', (disabled || lock) && 'cursor-default', !on && 'text-muted-foreground')}
+      title={lock === 'parent' ? tr(c.inherited) : undefined}
+      className={cn('flex min-w-0 items-center gap-2 rounded-lg py-1.5 text-sm', strong ? 'font-bold' : 'font-medium', lock && 'cursor-default', !on && 'text-muted-foreground')}
     >
       <input
         type="checkbox"
@@ -357,7 +369,7 @@ function Tick({
         ref={(el) => {
           if (el) el.indeterminate = Boolean(partial)
         }}
-        disabled={disabled || Boolean(lock)}
+        disabled={Boolean(lock)}
         onChange={() => toggle(k)}
         className="h-4 w-4 shrink-0 rounded border-border accent-[var(--brand)] disabled:opacity-60"
       />
