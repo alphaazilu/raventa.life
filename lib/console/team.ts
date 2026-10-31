@@ -1,4 +1,5 @@
 import { createAdminClient } from '@/lib/supabase/admin'
+import { assignedRoles } from '@/lib/console/roles'
 import type { Role } from '@/lib/auth/roles'
 import { resolveAvatarUrl } from '@/lib/supabase/avatar'
 import { isMissingTable } from '@/lib/console/db-errors'
@@ -17,6 +18,7 @@ export type Person = {
   since: string | null // when they got this role (from the history), if known
   avatarUrl?: string | null // look-ups only (the add-to-team station)
   payType?: PayType | null // §28: paid by the day or the month; null = not set yet
+  extraRoles?: string[] // RBAC 3a (v0.44.4): roles given through staff_roles (ids), on top of `role`
 }
 
 export type RoleChange = { id: number; at: string; who: string; whom: string; whomId: string | null; from: Role; to: Role }
@@ -84,11 +86,19 @@ async function payTypeOf(id: string): Promise<PayType | null> {
 
 // Admins first, then staff.
 export async function listTeam(history: RoleChange[], pay: Map<string, PayType> | null = null): Promise<Person[]> {
-  const { data } = await createAdminClient().from('profiles').select(COLS).in('role', ['admin', 'staff', 'accountant']).order('first_name')
+  const db = createAdminClient()
+  // The team = a back-office base role, or (RBAC 3a) any extra role given
+  // through staff_roles — e.g. a member made "cashier" only.
+  const extra = await assignedRoles().catch(() => null)
+  const extraIds = [...(extra?.keys() ?? [])]
+  const [{ data }, { data: more }] = await Promise.all([
+    db.from('profiles').select(COLS).in('role', ['admin', 'staff', 'accountant']).order('first_name'),
+    extraIds.length ? db.from('profiles').select(COLS).in('id', extraIds).eq('role', 'customer') : Promise.resolve({ data: [] }),
+  ])
   const since = new Map<string, string>()
   for (const h of history) if (h.whomId && !since.has(h.whomId)) since.set(h.whomId, h.at)
-  return ((data ?? []) as ProfileRow[])
-    .map((r) => ({ ...toPerson(r, since.get(r.id) ?? null), payType: pay?.get(r.id) ?? null }))
+  return ([...(data ?? []), ...(more ?? [])] as ProfileRow[])
+    .map((r) => ({ ...toPerson(r, since.get(r.id) ?? null), payType: pay?.get(r.id) ?? null, extraRoles: extra?.get(r.id) ?? [] }))
     .sort((a, b) => (a.role === b.role ? a.name.localeCompare(b.name) : a.role === 'admin' ? -1 : 1))
 }
 
@@ -151,7 +161,8 @@ async function withAvatar(id: string, p: Person): Promise<Person> {
     resolveAvatarUrl(db as unknown as Parameters<typeof resolveAvatarUrl>[0], data).catch(() => null),
     payTypeOf(id).catch(() => null),
   ])
-  return { ...p, avatarUrl, payType }
+  const extra = await assignedRoles([id]).catch(() => null)
+  return { ...p, avatarUrl, payType, extraRoles: extra?.get(id) ?? [] }
 }
 
 export async function personById(id: string): Promise<Person | null> {

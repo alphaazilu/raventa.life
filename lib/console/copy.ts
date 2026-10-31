@@ -939,6 +939,10 @@ export const AUDIT_GROUPS = {
       pay_type: { th: 'เปลี่ยนแบบค่าจ้าง', en: 'Pay type changed' },
       leave_approve: { th: 'อนุมัติลา', en: 'Leave approved' },
       leave_reject: { th: 'ไม่อนุมัติลา', en: 'Leave rejected' },
+      role_create: { th: 'สร้าง role', en: 'Role created' },
+      role_update: { th: 'แก้สิทธิ์ role', en: 'Role changed' },
+      role_delete: { th: 'ลบ role', en: 'Role deleted' },
+      roles_assign: { th: 'มอบ role เพิ่ม', en: 'Extra roles given' },
     },
   },
   catalog: {
@@ -1044,6 +1048,9 @@ export const AUDIT_DETAIL_KEYS: Record<string, AuditL> = {
   was_out_at: { th: 'ออกไปเมื่อ', en: 'Was out at' },
   cleared_shifts: { th: 'ล้างกะ', en: 'Shifts cleared' },
   cleared_phone: { th: 'ล้างสิทธิ์มือถือ', en: 'Phone access cleared' },
+  added: { th: 'เพิ่ม', en: 'Added' },
+  removed: { th: 'เอาออก', en: 'Removed' },
+  holders: { th: 'คนที่มี role นี้', en: 'Holders' },
   // brand_updated (v0.43.5): one key per changed brand_settings column
   brand_name: { th: 'ชื่อร้าน (ไทย)', en: 'Name (Thai)' },
   brand_name_en: { th: 'ชื่อร้าน (อังกฤษ)', en: 'Name (English)' },
@@ -1124,4 +1131,50 @@ export const waiverStatusCopy = {
   pdpaNone: { th: 'ยังไม่มีบันทึก', en: 'Nothing on record' },
   version: { th: 'ฉบับ {v}', en: 'version {v}' },
   notSetUp: { th: 'ยังไม่ได้รัน SQL §54', en: 'SQL §54 not run yet' },
+}
+
+// Roles (RBAC phase 3a, v0.44.4): /console/team/roles + extra roles on the team page.
+export const rolesCopy = {
+  title: { th: 'จัดการ role', en: 'Roles' },
+  intro: {
+    th: 'กำหนดว่าแต่ละ role เข้าพื้นที่ไหนและทำอะไรได้ · ติ๊กหัวข้อใหญ่ = ได้ทุกเมนูข้างใต้ · คนหนึ่งมีได้หลาย role (รวมสิทธิ์กัน)',
+    en: 'What each role can open and do · ticking a module gives everything under it · a person can hold several roles (their access adds up)',
+  },
+  back: { th: '← ทีมงานและสิทธิ์', en: '← Team & roles' },
+  manage: { th: 'จัดการ role', en: 'Manage roles' },
+  system: { th: 'ระบบ', en: 'System' },
+  custom: { th: 'กำหนดเอง', en: 'Custom' },
+  holders: { th: '{n} คนได้รับเพิ่ม', en: '{n} given' },
+  newRole: { th: 'role ใหม่', en: 'New role' },
+  nameTh: { th: 'ชื่อ (ไทย)', en: 'Name (Thai)' },
+  nameEn: { th: 'ชื่อ (อังกฤษ)', en: 'Name (English)' },
+  create: { th: 'สร้าง', en: 'Create' },
+  cancel: { th: 'ยกเลิก', en: 'Cancel' },
+  save: { th: 'บันทึก', en: 'Save' },
+  saved: { th: 'บันทึกแล้ว', en: 'Saved' },
+  unsaved: { th: 'ยังไม่บันทึก', en: 'Unsaved' },
+  delete: { th: 'ลบ role', en: 'Delete role' },
+  confirmDelete: { th: 'ลบ role "{r}"? ({n} คนจะไม่มี role นี้แล้ว)', en: 'Delete "{r}"? ({n} people lose it)' },
+  access: { th: 'เข้าถึงได้', en: 'Can open' },
+  actions: { th: 'ทำได้', en: 'Can do' },
+  lockedAdmin: { th: 'แอดมินมีสิทธิ์ทุกอย่าง — แก้ไม่ได้', en: 'Admins have everything — locked' },
+  lockedBase: { th: 'สิทธิ์พื้นฐานของ role ระบบ (ล็อกไว้) · เพิ่มได้ ลดไม่ได้', en: 'A system role’s built-in access is locked · you can add, not remove' },
+  inherited: { th: 'ได้จากหัวข้อด้านบน', en: 'From the module above' },
+  notSetUp: { th: 'ยังไม่ได้รัน supabase/schema.sql §55', en: 'Run supabase/schema.sql §55 first' },
+  readOnly: { th: 'ดูได้อย่างเดียว — เฉพาะผู้จัดการสิทธิ์แก้ได้', en: 'View only — only role managers can edit' },
+  // team page
+  extra: { th: 'role เพิ่ม', en: 'Extra roles' },
+  extraNone: { th: 'ไม่มี role เพิ่ม', en: 'No extra roles' },
+  edit: { th: 'แก้', en: 'Edit' },
+  extraTab: { th: 'role เพิ่มอย่างเดียว', en: 'Extra roles only' },
+  extraHint: { th: 'สิทธิ์ = role ฐาน (ด้านขวา) + role เพิ่ม · แอดมินตั้งจาก role ฐานเท่านั้น', en: 'Access = base role (right) + extra roles · admins are made with the base role only' },
+}
+export const rolesErrors: Record<string, { th: string; en: string }> = {
+  not_admin: { th: 'เฉพาะผู้จัดการสิทธิ์', en: 'Role managers only' },
+  bad_name: { th: 'ใส่ชื่อ role', en: 'Enter a name' },
+  locked: { th: 'role นี้แก้ไม่ได้', en: 'This role is locked' },
+  system: { th: 'ลบ role ระบบไม่ได้', en: 'System roles can’t be deleted' },
+  not_found: { th: 'ไม่พบ', en: 'Not found' },
+  not_set_up: { th: 'ยังไม่ได้รัน supabase/schema.sql §55', en: 'Run supabase/schema.sql §55 first' },
+  failed: { th: 'บันทึกไม่สำเร็จ ลองอีกครั้ง', en: 'Couldn’t save — try again' },
 }

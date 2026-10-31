@@ -2,12 +2,14 @@
 
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
-import { Copy, RotateCcw, Search, ShieldCheck, UserMinus, UserPlus, Users, X } from 'lucide-react'
+import { Copy, KeyRound, RotateCcw, Search, ShieldCheck, UserMinus, UserPlus, Users, X } from 'lucide-react'
 import { useLanguage } from '@/components/language-provider'
 import { Spinner } from '@/components/ui/spinner'
 import { formatMemberDate } from '@/lib/format-date'
-import { MEMBERS_PATH, type Role } from '@/lib/auth/roles'
+import { MEMBERS_PATH, TEAM_PATH, type Role } from '@/lib/auth/roles'
 import { findPerson, personFromQr, setPayType, setRole } from '@/app/console/team/actions'
+import { assignRoles } from '@/app/console/team/roles/actions'
+import { rolesCopy, rolesErrors } from '@/lib/console/copy'
 import { PAY_TYPES, type PayType } from '@/lib/console/pay-cycle'
 import { QrScanner } from '@/components/admin/qr-scanner'
 import { AvatarCircle } from '@/components/account/avatar-circle'
@@ -327,22 +329,132 @@ function PaySwitch({
   )
 }
 
-export function TeamView({ team, history, meId, paySetUp = true }: { team: Person[]; history: RoleChange[]; meId: string; paySetUp?: boolean }) {
+export type RoleOption = { id: string; key: string; nameTh: string; nameEn: string }
+
+// Extra roles (RBAC 3a, v0.44.4): given through staff_roles on top of the
+// base role above; access is the union. The admin role and the person's own
+// base role aren't offered (admins are made with the base role).
+function RolesPicker({ person, roles, onChanged }: { person: Person; roles: RoleOption[]; onChanged?: (ids: string[]) => void }) {
+  const { tr, lang } = useLanguage()
+  const router = useRouter()
+  const [open, setOpen] = useState(false)
+  const [sel, setSel] = useState<string[]>(person.extraRoles ?? [])
+  const [error, setError] = useState<string | null>(null)
+  const [pending, start] = useTransition()
+  const offered = roles.filter((r) => r.key !== 'admin' && r.key !== person.role)
+  const nameOf = (id: string) => {
+    const r = roles.find((x) => x.id === id)
+    return r ? (lang === 'en' ? r.nameEn : r.nameTh) : '—'
+  }
+  const current = person.extraRoles ?? []
+
+  const save = () =>
+    start(async () => {
+      setError(null)
+      const res = await assignRoles(person.id, sel)
+      if (!res.ok) {
+        setError(tr(rolesErrors[res.error] ?? rolesErrors.failed))
+        return
+      }
+      setOpen(false)
+      onChanged?.(sel)
+      router.refresh()
+    })
+
+  return (
+    <div className="mt-1.5 text-xs">
+      <div className="flex flex-wrap items-center gap-1.5">
+        <span className="font-semibold text-muted-foreground">{tr(rolesCopy.extra)}:</span>
+        {current.length === 0 ? (
+          <span className="text-muted-foreground">{tr(rolesCopy.extraNone)}</span>
+        ) : (
+          current.map((id) => (
+            <span key={id} className="rounded-full bg-primary/10 px-2 py-0.5 font-semibold text-primary">
+              {nameOf(id)}
+            </span>
+          ))
+        )}
+        <button type="button" onClick={() => setOpen((o) => !o)} aria-expanded={open} className="font-semibold text-primary underline-offset-2 hover:underline">
+          {tr(rolesCopy.edit)}
+        </button>
+      </div>
+      {open && (
+        <div className="mt-2 rounded-xl border border-border bg-background p-2.5">
+          <p className="mb-1.5 text-muted-foreground">{tr(rolesCopy.extraHint)}</p>
+          <div className="flex flex-wrap gap-x-4 gap-y-1">
+            {offered.map((r) => (
+              <label key={r.id} className="flex items-center gap-1.5 text-sm">
+                <input
+                  type="checkbox"
+                  checked={sel.includes(r.id)}
+                  onChange={(e) => setSel((s) => (e.target.checked ? [...s, r.id] : s.filter((x) => x !== r.id)))}
+                  className="h-4 w-4 rounded border-border accent-[var(--brand)]"
+                />
+                {lang === 'en' ? r.nameEn : r.nameTh}
+              </label>
+            ))}
+          </div>
+          {error && <p className="mt-1.5 text-destructive">{error}</p>}
+          <div className="mt-2 flex gap-2">
+            <button type="button" onClick={save} disabled={pending} className="inline-flex h-8 items-center gap-1.5 rounded-full bg-primary px-4 text-xs font-semibold text-primary-foreground disabled:opacity-50">
+              {pending && <Spinner className="h-3 w-3" />}
+              {tr(rolesCopy.save)}
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setSel(current)
+                setOpen(false)
+              }}
+              className="h-8 rounded-full border border-border px-3 text-xs font-semibold hover:bg-secondary"
+            >
+              {tr(rolesCopy.cancel)}
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+export function TeamView({
+  team,
+  history,
+  meId,
+  paySetUp = true,
+  roles = null,
+}: {
+  team: Person[]
+  history: RoleChange[]
+  meId: string
+  paySetUp?: boolean
+  /** RBAC 3a (v0.44.4): roles that can be given on top of the base role; null = not set up / can't manage */
+  roles?: RoleOption[] | null
+}) {
   const { tr, lang } = useLanguage()
   const date = (iso: string | null) => (iso ? formatMemberDate(iso, lang, true) : null)
-  // The team in tabs by role (v0.27.1); staff first — the longer list.
-  const [tab, setTab] = useState<Role>('staff')
-  const shown = team.filter((p) => p.role === tab)
+  // The team in tabs by role (v0.27.1); staff first — the longer list. Plus
+  // (RBAC 3a) members whose only back-office access is an extra role.
+  const [tab, setTab] = useState<Role | 'extra'>('staff')
+  const extraOnly = team.filter((p) => p.role === 'customer')
+  const shown = tab === 'extra' ? extraOnly : team.filter((p) => p.role === tab)
+  const tabName = (r: Role | 'extra') => tr(r === 'extra' ? rolesCopy.extraTab : t[r])
 
   return (
     <div className="flex w-full flex-col gap-5 px-4 py-6 md:px-6 md:py-8 xl:px-8">
-      <div>
-        <h1 className="font-display text-2xl font-extrabold md:text-3xl">{tr(t.title)}</h1>
-        <p className="mt-1 text-sm text-muted-foreground">{tr(t.intro)}</p>
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <h1 className="font-display text-2xl font-extrabold md:text-3xl">{tr(t.title)}</h1>
+          <p className="mt-1 text-sm text-muted-foreground">{tr(t.intro)}</p>
+        </div>
+        <a href={`${TEAM_PATH}/roles`} className="inline-flex h-10 items-center gap-1.5 rounded-full border border-border px-4 text-sm font-semibold hover:bg-secondary">
+          <KeyRound className="h-4 w-4 text-primary" aria-hidden="true" />
+          {tr(rolesCopy.manage)}
+        </a>
       </div>
       {!paySetUp && <p className="rounded-2xl bg-amber-500/15 px-4 py-3 text-sm font-semibold text-amber-800 dark:text-amber-300">{tr(t.payNotSetUp)}</p>}
 
-      <AddPeople meId={meId} paySetUp={paySetUp}>
+      <AddPeople meId={meId} paySetUp={paySetUp} roles={roles}>
         <section className="rounded-2xl border border-border bg-card p-4 md:p-5">
           <div className="mb-2 flex flex-wrap items-center justify-between gap-3">
             <h2 className="flex items-center gap-2 font-display text-lg font-extrabold">
@@ -350,7 +462,7 @@ export function TeamView({ team, history, meId, paySetUp = true }: { team: Perso
               {tr(t.team)} ({team.length})
             </h2>
             <div className="inline-flex rounded-full bg-secondary p-1 text-sm font-semibold" role="tablist">
-              {TEAM_ROLES.map((r) => (
+              {[...TEAM_ROLES, ...(extraOnly.length ? (['extra'] as const) : [])].map((r) => (
                 <button
                   key={r}
                   type="button"
@@ -359,12 +471,12 @@ export function TeamView({ team, history, meId, paySetUp = true }: { team: Perso
                   onClick={() => setTab(r)}
                   className={cn('rounded-full px-4 py-1.5', tab === r ? 'bg-background shadow-sm' : 'text-muted-foreground hover:text-foreground')}
                 >
-                  {tr(t[r])} <span className="text-muted-foreground">{team.filter((p) => p.role === r).length}</span>
+                  {tabName(r)} <span className="text-muted-foreground">{r === 'extra' ? extraOnly.length : team.filter((p) => p.role === r).length}</span>
                 </button>
               ))}
             </div>
           </div>
-          {shown.length === 0 && <p className="py-3 text-sm text-muted-foreground">{tr(t.tabEmpty).replace('{r}', tr(t[tab]))}</p>}
+          {shown.length === 0 && <p className="py-3 text-sm text-muted-foreground">{tr(t.tabEmpty).replace('{r}', tabName(tab))}</p>}
           <ul className="divide-y divide-border">
             {shown.map((p) => (
               <li key={p.id} className="flex flex-wrap items-start justify-between gap-3 py-3">
@@ -381,6 +493,7 @@ export function TeamView({ team, history, meId, paySetUp = true }: { team: Perso
                       <PaySwitch key={`${p.id}-${p.payType ?? ''}`} person={p} />
                     </div>
                   )}
+                  {roles && <RolesPicker key={`${p.id}-${(p.extraRoles ?? []).join(',')}`} person={p} roles={roles} />}
                 </div>
                 <RoleSwitch person={p} meId={meId} />
               </li>
@@ -419,7 +532,7 @@ export function TeamView({ team, history, meId, paySetUp = true }: { team: Perso
 // their photo takes the camera's place and the role choice sits under it.
 // On tablet and up this whole left column stays put while the right
 // column (the team by role, then the history) scrolls past it.
-function AddPeople({ meId, paySetUp, children }: { meId: string; paySetUp: boolean; children?: React.ReactNode }) {
+function AddPeople({ meId, paySetUp, roles, children }: { meId: string; paySetUp: boolean; roles: RoleOption[] | null; children?: React.ReactNode }) {
   const { tr } = useLanguage()
   const [searchOpen, setSearchOpen] = useState(false)
   const [q, setQ] = useState('')
@@ -544,6 +657,11 @@ function AddPeople({ meId, paySetUp, children }: { meId: string; paySetUp: boole
             {found ? (
               <>
                 <RoleSwitch person={found} meId={meId} cards onChanged={(role) => setFound({ ...found, role })} />
+                {roles && (
+                  <div className="mt-3">
+                    <RolesPicker key={found.id} person={found} roles={roles} onChanged={(extraRoles) => setFound({ ...found, extraRoles })} />
+                  </div>
+                )}
                 {paySetUp && (found.role === 'staff' || found.role === 'admin') && (
                   <div className="mt-3">
                     <h3 className="mb-2 text-sm font-bold">{tr(t.payHeading)}</h3>

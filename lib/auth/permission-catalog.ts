@@ -248,3 +248,10 @@ export function consoleHomeFor(perms: ReadonlySet<string>): string {
   if (canSeeArea(perms, 'reports')) return '/console/reports'
   return '/account'
 }
+
+/** The keys as stored: known keys only, and none whose ancestor is also there. */
+export function minimalKeys(keys: Iterable<string>): string[] {
+  const known = new Set(ALL_PERMISSIONS)
+  const set = new Set([...keys].filter((k) => known.has(k)))
+  return [...set].filter((k) => !withAncestors(k).slice(1).some((a) => set.has(a))).sort()
+}
