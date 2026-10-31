@@ -6,7 +6,8 @@ import { isMissingTable } from '@/lib/console/db-errors'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { BRAND_SETTINGS_PATH } from '@/lib/auth/roles'
-import { BRAND_CACHE_TAG } from '@/lib/brand/settings'
+import { BRAND_CACHE_TAG, readBrandRow } from '@/lib/brand/settings'
+import { brandChanges } from '@/lib/brand/audit-diff'
 import { HEX_COLOR, isMapsUrl } from '@/lib/brand/info'
 
 // Admin: save the brand (schema.sql brand_settings, v0.39 / v0.41). The write
@@ -97,6 +98,8 @@ export async function saveBrandSettings(form: FormData): Promise<BrandResult> {
   }
 
   const supabase = await createClient()
+  // The saved row as it is now, to log only what this save changes (v0.43.5).
+  const before = await readBrandRow()
 
   // Pictures: a new upload, back to the default, or the one already saved.
   const images = {} as Record<ImageSlot, string>
@@ -127,12 +130,17 @@ export async function saveBrandSettings(form: FormData): Promise<BrandResult> {
     return { ok: false, error: 'failed' }
   }
 
-  try {
-    await createAdminClient()
-      .from('staff_actions')
-      .insert({ actor_id: ctx.userId, action: 'brand_updated', detail: { name: p.brand_name_en, color: p.brand_color } })
-  } catch {
-    /* the log is best-effort; the save already happened */
+  // Log only the fields that changed, old → new (nothing changed = no row).
+  // If the old row couldn't be read, fall back to the name and colour.
+  const changes = brandChanges(before, p)
+  if (changes === null || Object.keys(changes).length > 0) {
+    try {
+      await createAdminClient()
+        .from('staff_actions')
+        .insert({ actor_id: ctx.userId, action: 'brand_updated', detail: changes ?? { name: p.brand_name_en, color: p.brand_color } })
+    } catch {
+      /* the log is best-effort; the save already happened */
+    }
   }
 
   // Every page shows the brand: drop the cached row and re-render.
