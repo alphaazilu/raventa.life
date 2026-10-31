@@ -85,10 +85,17 @@
 
 ## 6. backlog / งานค้าง
 
-ดู roadmap ใน vault (`25 Roadmap & Releases`) เป็นหลัก · ที่ค้าง ณ ปัจจุบัน (v0.41.1):
-- ชื่อร้านยังมาจากโค้ดบางจุด (title รายหน้า, ข้อกำหนด/นโยบาย, อีเมลแจ้งเตือน, ไอคอนแอป tablet) → ย้ายไป `brand_settings`
-- กระดิ่ง: เรื่องด่วน (เงินขาด/เกิน) ขึ้นแดง + ค้างจนจัดการ · กดไปที่รายการรายตัว
-- CMS: จัดการข้อความหน้าแรก / 8 โซน / เส้นทาง Quiz
-- Waiver / PDPA / สิทธิ์ผู้ใช้ + audit (M17–M19)
+ดู roadmap ใน vault (`25 Roadmap & Releases`) เป็นหลัก · ที่ค้าง ณ ปัจจุบัน (v0.44.1):
+- CMS: จัดการข้อความหน้าแรก / 8 โซน / เส้นทาง Quiz (ยังไม่ทำ)
 - หลายสาขาขั้นต่อ (รายงานรายสาขา, สต็อก variant, เวร + คอมมิชชัน)
 - (ตัวเลือก) ปุ่มคืนค่าแบรนด์เริ่มต้น
+
+### RBAC / สิทธิ์ผู้ใช้ (M19) — สถานะเป็นเฟส
+- **เฟส 1 ✅ v0.44.0** — รากฐาน: ตาราง `roles`/`role_permissions`/`staff_roles` (§55) + catalog สิทธิ์ (`lib/auth/permission-catalog.ts`) + `effectivePermissions`/`can` (`lib/auth/permissions.ts`, service-role) · seed ตรงกับ `SYSTEM_ROLE_PERMISSIONS` · `profiles.role` เป็น floor เสมอ
+- **เฟส 2 ✅ v0.44.1** — บังคับใช้จริง: middleware + layout + ทุก page + เมนู + export อ่านจาก permissions (`ROUTE_RULES`/`mayOpen`/`canSeeArea`) · invariant: admin/staff/accountant เข้าถึงเท่าเดิม
+- **เฟส 3 (ค้าง) — ต้องทำ 2 อย่างคู่กันเสมอ:**
+  1. UI จัดการ role + มอบ role ให้พนักงาน (เขียน `staff_roles`) + ปิด 3 ข้อที่ defer จากเฟส 2
+  2. ย้าย 3 จุดจาก `profiles.role` → `can()`/`staff_roles`: **(ก)** middleware (`rolePermissions` sync จาก profiles.role) **(ข)** server actions (`guard.ts requireAdmin` ยังเช็ค `isAdmin(role)`) **(ค)** รายละเอียดใน-หน้า (แท็บรายงาน hours/commission ยังไม่ gate รายแท็บ)
+  > ⚠️ ถ้าทำ (1) โดยไม่ทำ (2): role ที่มอบผ่าน staff_roles จะ **ไม่มีผล** ที่ 3 จุดนั้น (ยังตัดสินจาก profiles.role) → สิทธิ์ไม่ตรงกับที่ตั้งไว้
+  - และ: seed staff ใน `schema.sql §55` ต้องอัปให้ตรง `SYSTEM_ROLE_PERMISSIONS` (เพิ่ม cash/bookings/calendar) ก่อนพึ่ง staff_roles จริง — ตอนนี้ floor ในโค้ดปิดช่องไว้ชั่วคราว
+- **เฟส 4 (ค้าง)** — บังคับระดับ action (bill.void/refund, cash.review ฯลฯ) + อนุมัติที่เคาน์เตอร์ (counter-approval)
