@@ -1,7 +1,7 @@
 'use server'
 
 import { revalidatePath } from 'next/cache'
-import { isMissingTable, requireAdmin } from '@/lib/console/guard'
+import { isMissingTable, requirePermissions } from '@/lib/console/guard'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { CATALOG_PATH, DESK_PATH } from '@/lib/auth/roles'
 import { COMMISSION_KINDS, type CommissionMode } from '@/lib/commission'
@@ -19,7 +19,7 @@ function done(): CommissionResult {
 }
 
 export async function setEarner(staffId: string, enabled: boolean): Promise<CommissionResult> {
-  const ctx = await requireAdmin()
+  const ctx = await requirePermissions('access:catalog.commission')
   if ('error' in ctx) return { ok: false, error: ctx.error }
   const db = createAdminClient()
   const { data: p } = await db.from('profiles').select('role').eq('id', staffId).maybeSingle()
@@ -37,7 +37,7 @@ export async function setEarner(staffId: string, enabled: boolean): Promise<Comm
 
 // Members who sign up without a referral code count as this person's (§36, v0.36). null = nobody.
 export async function setDefaultReferrer(staffId: string | null): Promise<CommissionResult> {
-  const ctx = await requireAdmin()
+  const ctx = await requirePermissions('access:catalog.commission')
   if ('error' in ctx) return { ok: false, error: ctx.error }
   const db = createAdminClient()
   if (staffId) {
@@ -58,7 +58,7 @@ export async function saveCommissionRule(input: {
   mode: CommissionMode | null
   value: number
 }): Promise<CommissionResult> {
-  const ctx = await requireAdmin()
+  const ctx = await requirePermissions('access:catalog.commission')
   if ('error' in ctx) return { ok: false, error: ctx.error }
   const productId = input.productId || null
   const categoryId = input.categoryId || null

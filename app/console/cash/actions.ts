@@ -4,10 +4,11 @@ import { revalidatePath } from 'next/cache'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { isMissingTable } from '@/lib/console/db-errors'
 import { getConsoleSession } from '@/lib/console/session'
+import { can } from '@/lib/auth/permissions'
 import { getCurrentDevice } from '@/lib/console/device'
 import { deskAllowed } from '@/lib/console/settings'
 import { getCashRules, takingsBetween, mainBranchId } from '@/lib/console/cash'
-import { CASH_PATH, CONSOLE_PATH, DESK_PATH, canUseDesk, isAdmin } from '@/lib/auth/roles'
+import { CASH_PATH, CONSOLE_PATH, DESK_PATH, isAdmin } from '@/lib/auth/roles'
 import { cleanCounted, countedTotal } from '@/lib/cash'
 
 // Cash drawer (§30, v0.31): open with the float → blind count → reason for
@@ -26,7 +27,8 @@ const done = () => {
 
 async function requireDrawer(): Promise<{ userId: string; admin: boolean; deviceId: string | null; branchId: string | null } | { error: string }> {
   const { user, role } = await getConsoleSession()
-  if (!user || !canUseDesk(role)) return { error: 'not_staff' }
+  // RBAC 3b (v0.44.6): the cash area + working the drawer (staff, admins).
+  if (!user || !(await can(user.id, 'access:storefront.cash')) || !(await can(user.id, 'action:cash.close'))) return { error: 'not_staff' }
   const device = await getCurrentDevice().catch(() => null)
   const admin = isAdmin(role)
   if (!(await deskAllowed({ userId: user.id, admin, onTablet: Boolean(device) }))) return { error: 'desk_tablet_only' }
@@ -135,8 +137,9 @@ export async function confirmClose(id: string, reason: string): Promise<CashResu
 
 // Admin: "I've looked at this one" (+ a note). The count itself never changes.
 export async function reviewSession(id: string, note: string): Promise<CashResult> {
-  const { user, role } = await getConsoleSession()
-  if (!user || !isAdmin(role)) return { ok: false, error: 'not_admin' }
+  const { user } = await getConsoleSession()
+  // RBAC 3b (v0.44.6): reviewing a shortfall / overage (admins).
+  if (!user || !(await can(user.id, 'action:cash.review'))) return { ok: false, error: 'not_admin' }
   if (!UUID.test(id)) return { ok: false, error: 'failed' }
   const text = String(note ?? '').trim().slice(0, 500)
   const { data, error } = await createAdminClient()

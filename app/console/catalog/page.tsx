@@ -6,6 +6,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { loadCatalog, saleTypesFrom } from '@/lib/console/catalog'
 import { bangkokToday } from '@/lib/check-in/day'
 import { CATALOG_PATH, DESK_PATH } from '@/lib/auth/roles'
+import { gatePage } from '@/lib/console/guard'
 import { canSeeArea } from '@/lib/auth/permissions'
 import { listEarners, listRules } from '@/lib/console/commission'
 import { allCodes, getDefaultReferrer } from '@/lib/console/referral'
@@ -25,6 +26,8 @@ export const dynamic = 'force-dynamic'
 export default async function CatalogPage({ searchParams }: { searchParams: Promise<{ tab?: string; view?: string }> }) {
   const { user } = await getConsoleSession()
   if (!user) redirect(`/login?next=${CATALOG_PATH}`)
+  // RBAC 3b: ROUTE_RULES with the person's real roles (the middleware no longer checks per page).
+  await gatePage(CATALOG_PATH)
   if (!(await canSeeArea(user.id, 'catalog'))) redirect(DESK_PATH)
 
   const q = await searchParams

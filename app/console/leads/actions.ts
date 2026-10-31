@@ -1,7 +1,7 @@
 'use server'
 
 import { revalidatePath } from 'next/cache'
-import { requireAdmin } from '@/lib/console/guard'
+import { requirePermissions } from '@/lib/console/guard'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { isMissingTable } from '@/lib/console/db-errors'
 import { CONSOLE_PATH, LEADS_PATH } from '@/lib/auth/roles'
@@ -13,7 +13,7 @@ export type LeadActionResult = { ok: true } | { ok: false; error: string }
 const UUID = /^[0-9a-f-]{36}$/i
 
 export async function setLeadHandled(id: string, handled: boolean): Promise<LeadActionResult> {
-  const ctx = await requireAdmin()
+  const ctx = await requirePermissions('access:storefront.leads')
   if ('error' in ctx) return { ok: false, error: ctx.error }
   if (!UUID.test(id)) return { ok: false, error: 'failed' }
   const db = createAdminClient()

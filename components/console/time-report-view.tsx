@@ -94,11 +94,17 @@ export function keepPeriod(preset: string, from: string, to: string): string {
 }
 
 // The dates chosen carry over when switching (v0.30).
-export function ReportTabs({ active, keep = '' }: { active: 'sales' | 'time' | 'commission'; keep?: string }) {
+export type ReportTab = 'sales' | 'time' | 'commission'
+export const ALL_REPORT_TABS: ReportTab[] = ['sales', 'time', 'commission']
+
+// Only the reports this person may open (RBAC 3b, v0.44.6 — the page passes
+// them, from can()); a single report needs no tabs.
+export function ReportTabs({ active, keep = '', tabs = ALL_REPORT_TABS }: { active: ReportTab; keep?: string; tabs?: ReportTab[] }) {
   const { tr } = useLanguage()
+  if (tabs.length <= 1) return null
   return (
     <div className="inline-flex self-start rounded-full bg-secondary p-1 text-sm font-semibold" role="tablist">
-      {(['sales', 'time', 'commission'] as const).map((k) => (
+      {tabs.map((k) => (
         <a
           key={k}
           role="tab"
@@ -113,7 +119,7 @@ export function ReportTabs({ active, keep = '' }: { active: 'sales' | 'time' | '
   )
 }
 
-export function TimeReportView({ period, report, paySetUp }: { period: TimePeriod; report: TimeReport | null; paySetUp: boolean }) {
+export function TimeReportView({ period, report, paySetUp, reportTabs }: { period: TimePeriod; report: TimeReport | null; paySetUp: boolean; reportTabs?: ReportTab[] }) {
   const { tr, lang } = useLanguage()
   const date = (d: string) => formatMemberDate(`${d}T12:00:00+07:00`, lang, true) ?? d
   const span = (a: string, b: string) => (a === b ? date(a) : `${date(a)} – ${date(b)}`)
@@ -134,7 +140,7 @@ export function TimeReportView({ period, report, paySetUp }: { period: TimePerio
 
   return (
     <div className="flex w-full flex-col gap-5 px-4 py-6 md:px-6 md:py-8 xl:px-8">
-      <ReportTabs active="time" keep={keepPeriod(period.preset, period.from, period.to)} />
+      <ReportTabs active="time" tabs={reportTabs} keep={keepPeriod(period.preset, period.from, period.to)} />
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h1 className="font-display text-2xl font-extrabold md:text-3xl">{tr(t.title)}</h1>

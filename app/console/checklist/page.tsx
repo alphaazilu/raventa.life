@@ -3,6 +3,7 @@ import type { Metadata } from 'next'
 import { redirect } from 'next/navigation'
 import { getConsoleSession } from '@/lib/console/session'
 import { CHECKLIST_PATH, DESK_PATH } from '@/lib/auth/roles'
+import { gatePage } from '@/lib/console/guard'
 import { can } from '@/lib/auth/permissions'
 import { bangkokToday } from '@/lib/check-in/day'
 import { dayBounds, listPoints, listRounds, listScans } from '@/lib/console/checklist'
@@ -33,6 +34,8 @@ export default async function ChecklistPage({
 }) {
   const { user } = await getConsoleSession()
   if (!user) redirect(`/login?next=${CHECKLIST_PATH}`)
+  // RBAC 3b: ROUTE_RULES with the person's real roles (the middleware no longer checks per page).
+  await gatePage(CHECKLIST_PATH)
   if (!(await can(user.id, 'access:operations.checklist'))) redirect(DESK_PATH)
   const q = await searchParams
   const tab: ChecklistTab = q.tab === 'log' || q.tab === 'setup' ? q.tab : 'board'

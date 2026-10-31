@@ -5,6 +5,7 @@ import { getConsoleSession } from '@/lib/console/session'
 import { getCurrentDevice } from '@/lib/console/device'
 import { deskAllowed } from '@/lib/console/settings'
 import { CASH_PATH, isAdmin } from '@/lib/auth/roles'
+import { gatePage } from '@/lib/console/guard'
 import { can } from '@/lib/auth/permissions'
 import { bangkokToday } from '@/lib/check-in/day'
 import { getCashRules, getCurrentSession, listSessions, mainBranchId } from '@/lib/console/cash'
@@ -36,6 +37,8 @@ const forStaff = (s: CashSession): CashSession => ({ ...s, expected: null, cashI
 export default async function CashPage({ searchParams }: { searchParams: Promise<{ tab?: string; from?: string; to?: string }> }) {
   const { user, role } = await getConsoleSession()
   if (!user) redirect(`/login?next=${CASH_PATH}`)
+  // RBAC 3b: ROUTE_RULES with the person's real roles (the middleware no longer checks per page).
+  await gatePage(CASH_PATH)
   if (!(await can(user.id, 'access:storefront.cash'))) redirect('/account')
   const admin = isAdmin(role)
   const device = await getCurrentDevice().catch(() => null)

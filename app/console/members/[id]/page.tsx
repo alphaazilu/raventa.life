@@ -3,6 +3,7 @@ import { notFound, redirect } from 'next/navigation'
 import { MemberEditForm } from '@/components/admin/member-edit-form'
 import { getConsoleSession } from '@/lib/console/session'
 import { DESK_PATH, MEMBERS_PATH } from '@/lib/auth/roles'
+import { gatePage } from '@/lib/console/guard'
 import { mayOpen } from '@/lib/auth/permissions'
 import { loadVisitHistory } from '@/lib/visit-history'
 import { VisitHistoryView } from '@/components/visit-history-view'
@@ -35,6 +36,8 @@ export default async function EditMemberPage({ params }: { params: Promise<{ id:
   const { supabase, user, role } = await getConsoleSession()
 
   if (!user) redirect(`/login?next=${MEMBERS_PATH}/${id}`)
+  // RBAC 3b: ROUTE_RULES with the person's real roles (the middleware no longer checks per page).
+  await gatePage(`${MEMBERS_PATH}/${id}`)
 
   // The full record: access:storefront.members + action:pii.view (ROUTE_RULES).
   if (!(await mayOpen(user.id, `${MEMBERS_PATH}/${id}`, false))) redirect(DESK_PATH)

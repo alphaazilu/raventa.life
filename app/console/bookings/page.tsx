@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import { redirect } from 'next/navigation'
 import { getConsoleSession } from '@/lib/console/session'
 import { BOOKINGS_PATH, isAdmin } from '@/lib/auth/roles'
+import { gatePage } from '@/lib/console/guard'
 import { can } from '@/lib/auth/permissions'
 import { bangkokToday } from '@/lib/check-in/day'
 import { bookingStats, getRules, listBookings, listCategories, listTemplates, listTypes, monthLoad } from '@/lib/console/booking'
@@ -31,6 +32,8 @@ const ISO = /^\d{4}-\d{2}-\d{2}$/
 export default async function BookingsPage({ searchParams }: { searchParams: Promise<{ tab?: string; d?: string; m?: string; from?: string; to?: string }> }) {
   const { user, role } = await getConsoleSession()
   if (!user) redirect(`/login?next=${BOOKINGS_PATH}`)
+  // RBAC 3b: ROUTE_RULES with the person's real roles (the middleware no longer checks per page).
+  await gatePage(BOOKINGS_PATH)
   if (!(await can(user.id, 'access:storefront.bookings'))) redirect('/account')
   const admin = isAdmin(role)
   const q = await searchParams

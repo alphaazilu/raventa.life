@@ -11,7 +11,7 @@ import { REPORTS_PATH } from '@/lib/auth/roles'
 import type { Period, Preset } from '@/lib/console/report-period'
 import type { BillRow, SalesReport } from '@/lib/console/report-calc'
 import { cn } from '@/lib/utils'
-import { keepPeriod, ReportTabs } from '@/components/console/time-report-view'
+import { keepPeriod, ReportTabs, type ReportTab } from '@/components/console/time-report-view'
 
 type L = { th: string; en: string }
 const t = {
@@ -137,7 +137,7 @@ const th = 'px-3 py-2 text-left text-xs font-semibold text-muted-foreground'
 const td = 'px-3 py-2'
 const num = 'px-3 py-2 text-right tabular-nums'
 
-export function ReportView({ period, report }: { period: Period; report: SalesReport | null }) {
+export function ReportView({ period, report, reportTabs }: { period: Period; report: SalesReport | null; reportTabs?: ReportTab[] }) {
   const { tr, lang } = useLanguage()
   const date = (d: string) => formatMemberDate(`${d}T12:00:00+07:00`, lang, true) ?? d
   const presets = ['today', 'yesterday', '7d', 'month', 'last_month'] as const satisfies readonly Preset[]
@@ -145,7 +145,7 @@ export function ReportView({ period, report }: { period: Period; report: SalesRe
 
   return (
     <div className="flex w-full flex-col gap-5 px-4 py-6 md:px-6 md:py-8 xl:px-8">
-      <ReportTabs active="sales" keep={keepPeriod(period.preset, period.from, period.to)} />
+      <ReportTabs active="sales" tabs={reportTabs} keep={keepPeriod(period.preset, period.from, period.to)} />
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h1 className="font-display text-2xl font-extrabold md:text-3xl">{tr(t.title)}</h1>

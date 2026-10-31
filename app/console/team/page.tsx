@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import { redirect } from 'next/navigation'
 import { getConsoleSession } from '@/lib/console/session'
 import { DESK_PATH, TEAM_PATH } from '@/lib/auth/roles'
+import { gatePage } from '@/lib/console/guard'
 import { can } from '@/lib/auth/permissions'
 import { listPayTypes, listTeam, roleHistory } from '@/lib/console/team'
 import { TeamView } from '@/components/console/team-view'
@@ -24,6 +25,8 @@ export const dynamic = 'force-dynamic'
 export default async function TeamPage() {
   const { user } = await getConsoleSession()
   if (!user) redirect(`/login?next=${TEAM_PATH}`)
+  // RBAC 3b: ROUTE_RULES with the person's real roles (the middleware no longer checks per page).
+  await gatePage(TEAM_PATH)
   if (!(await can(user.id, 'access:team.roles'))) redirect(DESK_PATH)
   const [history, pay, roles, manage] = await Promise.all([roleHistory(), listPayTypes(), listRoles(), can(user.id, 'action:roles.manage')])
   const team = await listTeam(history, pay)

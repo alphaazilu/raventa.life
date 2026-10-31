@@ -4,6 +4,7 @@ import { AdminView, type AdminMember } from '@/components/admin/admin-view'
 import { getConsoleSession } from '@/lib/console/session'
 import { resolveAvatarUrls } from '@/lib/supabase/avatar'
 import { DESK_PATH, MEMBERS_PATH } from '@/lib/auth/roles'
+import { gatePage } from '@/lib/console/guard'
 import { can, mayOpen } from '@/lib/auth/permissions'
 import { getCurrentDevice } from '@/lib/console/device'
 import { getAppSettings } from '@/lib/console/settings'
@@ -27,6 +28,9 @@ export default async function MembersPage({ searchParams }: { searchParams: Prom
   const { supabase, user, role } = await getConsoleSession()
 
   if (!user) redirect(`/login?next=${MEMBERS_PATH}`)
+
+  // RBAC 3b: ROUTE_RULES with the person's real roles (the middleware no longer checks per page).
+  await gatePage(MEMBERS_PATH)
 
   // Full access (action:pii.view — admins): search everything, editable.
   // Otherwise (staff): view only, only on a registered counter tablet (Vault

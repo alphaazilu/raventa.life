@@ -9,6 +9,7 @@ import { addDays, getOpenEntry, listEntries, listOpenEntries, listStaff, weekSta
 import { bangkokToday } from '@/lib/check-in/day'
 import { DEFAULT_SETTINGS, getTimeSettings, listAssignments, listHolidays, listTemplates } from '@/lib/console/shifts'
 import { DESK_PATH, isAdmin, TIME_PATH } from '@/lib/auth/roles'
+import { gatePage } from '@/lib/console/guard'
 import { mayOpen } from '@/lib/auth/permissions'
 import { getBrandInfo } from '@/lib/brand/settings'
 import { backOfficeName } from '@/lib/brand/info'
@@ -32,6 +33,8 @@ export default async function TimePage({
 }) {
   const { user, role } = await getConsoleSession()
   if (!user) redirect(`/login?next=${TIME_PATH}`)
+  // RBAC 3b: ROUTE_RULES with the person's real roles (the middleware no longer checks per page).
+  await gatePage(TIME_PATH)
   const admin = isAdmin(role)
   const device = await getCurrentDevice().catch(() => null)
   // Staff: on a registered tablet only (ROUTE_RULES tabletUnless).

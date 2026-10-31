@@ -1,7 +1,7 @@
 'use server'
 
 import { revalidatePath } from 'next/cache'
-import { requireAdmin } from '@/lib/console/guard'
+import { requirePermissions } from '@/lib/console/guard'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { isMissingTable } from '@/lib/console/db-errors'
 import { CONSOLE_PATH, FEEDBACK_PATH } from '@/lib/auth/roles'
@@ -20,7 +20,7 @@ const done = () => {
 }
 
 export async function markHandled(id: string, note: string): Promise<FbResult> {
-  const ctx = await requireAdmin()
+  const ctx = await requirePermissions('access:storefront.feedback')
   if ('error' in ctx) return { ok: false, error: ctx.error }
   if (!UUID.test(id)) return { ok: false, error: 'failed' }
   const text = String(note ?? '').trim().slice(0, 500) || null
@@ -36,7 +36,7 @@ export async function markHandled(id: string, note: string): Promise<FbResult> {
 // The rating topics: rename, reorder, turn on/off, add (never deleted, so
 // old answers keep their label).
 export async function saveTopics(list: { key?: string; label: string; labelEn?: string; active: boolean }[]): Promise<FbResult> {
-  const ctx = await requireAdmin()
+  const ctx = await requirePermissions('access:storefront.feedback')
   if ('error' in ctx) return { ok: false, error: ctx.error }
   if (!Array.isArray(list) || list.length > 20) return { ok: false, error: 'bad_topics' }
   const rows = list.map((t, i) => ({

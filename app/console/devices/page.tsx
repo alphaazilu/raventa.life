@@ -2,7 +2,8 @@ import type { Metadata } from 'next'
 import { redirect } from 'next/navigation'
 import { DevicesView } from '@/components/console/devices-view'
 import { getConsoleSession } from '@/lib/console/session'
-import { DESK_PATH } from '@/lib/auth/roles'
+import { DESK_PATH, DEVICES_PATH } from '@/lib/auth/roles'
+import { gatePage } from '@/lib/console/guard'
 import { can } from '@/lib/auth/permissions'
 import { getCurrentDevice } from '@/lib/console/device'
 import { listBranches } from '@/lib/console/settings'
@@ -22,6 +23,8 @@ export async function generateMetadata(): Promise<Metadata> {
 export default async function DevicesPage({ searchParams }: { searchParams: Promise<{ code?: string }> }) {
   const { user } = await getConsoleSession()
   if (!user) redirect('/login?next=/console/devices')
+  // RBAC 3b: ROUTE_RULES with the person's real roles (the middleware no longer checks per page).
+  await gatePage(DEVICES_PATH)
   if (!(await can(user.id, 'access:system.devices'))) redirect(DESK_PATH)
   // Never from a counter tablet, even signed in as an admin: someone who
   // picks up an unlocked tablet mustn't be able to pair or revoke devices.

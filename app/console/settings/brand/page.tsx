@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import { redirect } from 'next/navigation'
 import { getConsoleSession } from '@/lib/console/session'
 import { BRAND_SETTINGS_PATH, DESK_PATH } from '@/lib/auth/roles'
+import { gatePage } from '@/lib/console/guard'
 import { can } from '@/lib/auth/permissions'
 import { getBrandInfo } from '@/lib/brand/settings'
 import { backOfficeName } from '@/lib/brand/info'
@@ -23,6 +24,8 @@ export const dynamic = 'force-dynamic'
 export default async function BrandSettingsPage() {
   const { user } = await getConsoleSession()
   if (!user) redirect(`/login?next=${BRAND_SETTINGS_PATH}`)
+  // RBAC 3b: ROUTE_RULES with the person's real roles (the middleware no longer checks per page).
+  await gatePage(BRAND_SETTINGS_PATH)
   if (!(await can(user.id, 'access:system.brand'))) redirect(DESK_PATH)
 
   // Straight from the table (not the site's cache), so the form shows what

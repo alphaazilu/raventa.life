@@ -1,7 +1,7 @@
 'use server'
 
 import { revalidatePath } from 'next/cache'
-import { requireAdmin } from '@/lib/console/guard'
+import { requirePermissions } from '@/lib/console/guard'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { TIME_PATH } from '@/lib/auth/roles'
 import { datesOf } from '@/lib/leave'
@@ -13,7 +13,7 @@ import { applyPlans } from '@/lib/console/roster-write'
 export type DecideResult = { ok: true } | { ok: false; error: string }
 
 export async function decideLeave(id: string, approve: boolean, note?: string): Promise<DecideResult> {
-  const ctx = await requireAdmin()
+  const ctx = await requirePermissions('access:team.time', 'action:time.edit')
   if ('error' in ctx) return { ok: false, error: ctx.error }
   const db = createAdminClient()
   const now = new Date().toISOString()
@@ -53,7 +53,7 @@ export async function decideLeave(id: string, approve: boolean, note?: string): 
 
 // A short-lived link to the attachment (doctor's note).
 export async function leaveDocLink(id: string): Promise<{ ok: true; url: string } | { ok: false; error: string }> {
-  const ctx = await requireAdmin()
+  const ctx = await requirePermissions('access:team.time', 'action:time.edit')
   if ('error' in ctx) return { ok: false, error: ctx.error }
   const db = createAdminClient()
   const { data } = await db.from('leave_requests').select('doc_path').eq('id', id).maybeSingle()

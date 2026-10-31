@@ -2,7 +2,6 @@ import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 import { isProfileComplete, PROFILE_COMPLETENESS_COLUMNS } from '@/lib/supabase/profile'
 import { CONSOLE_PATH } from '@/lib/auth/roles'
-import { consoleHomeFor, mayOpen, rolePermissions } from '@/lib/auth/permission-catalog'
 import { DEVICE_COOKIE } from '@/lib/console/device-cookie'
 
 /**
@@ -97,25 +96,13 @@ export async function updateSession(request: NextRequest) {
       return redirectKeepingSession(url)
     }
 
-    // Back Office (RBAC phase 2, v0.44.1): each path's rule in ROUTE_RULES
-    // (lib/auth/permission-catalog.ts) against the person's permissions —
-    // here straight from profiles.role (rolePermissions: no query per
-    // request; the same as can() until anyone holds extra roles, phase 3).
-    // Same outcome as the role checks it replaces: admins everything; staff
-    // the front desk, plus the member list / time page on a counter tablet;
-    // accountants the sales report. Settings and the audit log are
-    // access:system.* — admins only.
-    if (isConsoleRoute) {
-      const perms = rolePermissions(profile?.role)
-      const onTabletCookie = Boolean(request.cookies.get(DEVICE_COOKIE)?.value)
-      if (!mayOpen(perms, path, onTabletCookie)) {
-        const url = request.nextUrl.clone()
-        // Send each person to the one place they belong, not a dead end.
-        url.pathname = consoleHomeFor(perms)
-        url.search = ''
-        return redirectKeepingSession(url)
-      }
-    }
+    // Back Office (RBAC 3b, v0.44.6): no per-page check here any more. The
+    // middleware only knows profiles.role (no query per request), so a role
+    // given through staff_roles — e.g. a member made "cashier" — would be
+    // turned away before their page loads. Each page checks its rule itself
+    // (gatePage → ROUTE_RULES with the real roles, the same tablet condition)
+    // and the console layout lets in only people who can see some area;
+    // outcomes for profiles.role alone are the same as before.
   }
 
   return supabaseResponse

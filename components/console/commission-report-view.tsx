@@ -9,7 +9,7 @@ import { cmCopy as t, money, rateLabel } from '@/lib/commission'
 import { receiptLabel } from '@/lib/console/catalog'
 import type { TimePeriod, TimePreset } from '@/lib/console/time-period'
 import type { CommissionPersonTotal } from '@/lib/console/commission'
-import { keepPeriod, ReportTabs } from '@/components/console/time-report-view'
+import { keepPeriod, ReportTabs, type ReportTab } from '@/components/console/time-report-view'
 import { cn } from '@/lib/utils'
 
 // Back Office › Reports › Commission (§33, v0.34): per person for a pay
@@ -32,7 +32,7 @@ const th = 'px-3 py-2 text-left text-xs font-semibold text-muted-foreground whit
 const td = 'px-3 py-2.5 align-top'
 const num = 'px-3 py-2.5 text-right tabular-nums align-top whitespace-nowrap'
 
-export function CommissionReportView({ period, people }: { period: TimePeriod; people: CommissionPersonTotal[] | null | 'not_set_up' }) {
+export function CommissionReportView({ period, people, reportTabs }: { period: TimePeriod; people: CommissionPersonTotal[] | null | 'not_set_up'; reportTabs?: ReportTab[] }) {
   const { tr, lang } = useLanguage()
   const [open, setOpen] = useState<string | null>(null)
   const date = (d: string) => formatMemberDate(`${d}T12:00:00+07:00`, lang, true) ?? d
@@ -45,7 +45,7 @@ export function CommissionReportView({ period, people }: { period: TimePeriod; p
 
   return (
     <div className="flex w-full flex-col gap-5 px-4 py-6 md:px-6 md:py-8 xl:px-8">
-      <ReportTabs active="commission" keep={keepPeriod(period.preset, period.from, period.to)} />
+      <ReportTabs active="commission" tabs={reportTabs} keep={keepPeriod(period.preset, period.from, period.to)} />
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h1 className="font-display text-2xl font-extrabold md:text-3xl">{tr(t.title)}</h1>
