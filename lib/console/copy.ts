@@ -1157,8 +1157,11 @@ export const rolesCopy = {
   confirmDelete: { th: 'ลบ role "{r}"? ({n} คนจะไม่มี role นี้แล้ว)', en: 'Delete "{r}"? ({n} people lose it)' },
   access: { th: 'เข้าถึงได้', en: 'Can open' },
   actions: { th: 'ทำได้', en: 'Can do' },
-  lockedAdmin: { th: 'แอดมินมีสิทธิ์ทุกอย่าง — แก้ไม่ได้', en: 'Admins have everything — locked' },
-  lockedBase: { th: 'สิทธิ์พื้นฐานของ role ระบบ (ล็อกไว้) · เพิ่มได้ ลดไม่ได้', en: 'A system role’s built-in access is locked · you can add, not remove' },
+  lockedAdmin: { th: 'แอดมินมีสิทธิ์ทุกอย่าง — role ระบบ แก้ไม่ได้', en: 'Admins have everything — a system role, read only' },
+  lockedBase: {
+    th: 'role ระบบ ดูได้อย่างเดียว · อยากให้ใครได้สิทธิ์เพิ่ม → สร้าง role กำหนดเองแล้วมอบเป็นรายคน',
+    en: 'A system role is read only · to give someone more, make a custom role and give it to them',
+  },
   inherited: { th: 'ได้จากหัวข้อด้านบน', en: 'From the module above' },
   notSetUp: { th: 'ยังไม่ได้รัน supabase/schema.sql §55', en: 'Run supabase/schema.sql §55 first' },
   readOnly: { th: 'ดูได้อย่างเดียว — เฉพาะผู้จัดการสิทธิ์แก้ได้', en: 'View only — only role managers can edit' },
@@ -1172,8 +1175,7 @@ export const rolesCopy = {
 export const rolesErrors: Record<string, { th: string; en: string }> = {
   not_admin: { th: 'เฉพาะผู้จัดการสิทธิ์', en: 'Role managers only' },
   bad_name: { th: 'ใส่ชื่อ role', en: 'Enter a name' },
-  locked: { th: 'role นี้แก้ไม่ได้', en: 'This role is locked' },
-  system: { th: 'ลบ role ระบบไม่ได้', en: 'System roles can’t be deleted' },
+  system: { th: 'role ระบบแก้หรือลบไม่ได้', en: 'System roles can’t be changed or deleted' },
   not_found: { th: 'ไม่พบ', en: 'Not found' },
   not_set_up: { th: 'ยังไม่ได้รัน supabase/schema.sql §55', en: 'Run supabase/schema.sql §55 first' },
   failed: { th: 'บันทึกไม่สำเร็จ ลองอีกครั้ง', en: 'Couldn’t save — try again' },

@@ -13,7 +13,7 @@ export type RoleRow = {
   isSystem: boolean
   /** The keys stored for the role (as ticked — children of a ticked parent aren't repeated). */
   perms: string[]
-  /** A system role's built-in keys (lib/auth/permission-catalog.ts) — always in effect, can't be removed. */
+  /** A system role's built-in keys (lib/auth/permission-catalog.ts) — always in effect (the floor). System roles are read-only. */
   base: string[]
   /** People holding it through staff_roles (not counting profiles.role). */
   holders: number
