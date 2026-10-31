@@ -913,10 +913,10 @@ export const AUDIT_GROUPS = {
       cancel_visit: { th: 'ยกเลิกการเข้าใช้', en: 'Visit cancelled' },
       sale: { th: 'ออกบิลขาย', en: 'Sale' },
       void_sale: { th: 'ยกเลิกบิล', en: 'Bill voided' },
-      sale_off_tablet: { th: 'ขายนอก tablet เคาน์เตอร์', en: 'Sold away from the counter tablet' },
+      sale_off_tablet: { th: 'ขายนอกเคาน์เตอร์', en: 'Off-counter sale' },
       lend: { th: 'ให้ยืมของ', en: 'Item lent' },
-      package_item: { th: 'ใช้สิทธิ์ในแพ็กเกจ', en: 'Package item used' },
-      package_item_undo: { th: 'ยกเลิกการใช้สิทธิ์แพ็กเกจ', en: 'Package item use undone' },
+      package_item: { th: 'ใช้สิทธิ์แพ็กเกจ', en: 'Package item used' },
+      package_item_undo: { th: 'ยกเลิกใช้สิทธิ์แพ็กเกจ', en: 'Package use undone' },
     },
   },
   cash: {
@@ -925,7 +925,7 @@ export const AUDIT_GROUPS = {
       cash_open: { th: 'เปิดลิ้นชัก', en: 'Drawer opened' },
       cash_count: { th: 'นับเงิน', en: 'Cash counted' },
       cash_close: { th: 'ปิดกะ', en: 'Shift closed' },
-      cash_review: { th: 'รีวิวเงินขาด/เกิน', en: 'Shortfall / overage reviewed' },
+      cash_review: { th: 'รีวิวเงินขาด/เกิน', en: 'Cash diff reviewed' },
     },
   },
   team: {
@@ -933,10 +933,10 @@ export const AUDIT_GROUPS = {
     actions: {
       clock_in: { th: 'ลงเวลาเข้า', en: 'Clocked in' },
       clock_out: { th: 'ลงเวลาออก', en: 'Clocked out' },
-      console_sign_in: { th: 'เข้า Back Office ด้วยบัตร', en: 'Signed in with card' },
-      console_lock: { th: 'ล็อก / สลับคน', en: 'Locked / switched person' },
+      console_sign_in: { th: 'เข้าระบบด้วยบัตร', en: 'Card sign-in' },
+      console_lock: { th: 'ล็อก / สลับคน', en: 'Lock / switch' },
       role_change: { th: 'เปลี่ยนสิทธิ์', en: 'Role changed' },
-      pay_type: { th: 'เปลี่ยนรูปแบบค่าจ้าง', en: 'Pay type changed' },
+      pay_type: { th: 'เปลี่ยนแบบค่าจ้าง', en: 'Pay type changed' },
       leave_approve: { th: 'อนุมัติลา', en: 'Leave approved' },
       leave_reject: { th: 'ไม่อนุมัติลา', en: 'Leave rejected' },
     },
@@ -954,10 +954,10 @@ export const AUDIT_GROUPS = {
   customers: {
     label: { th: 'ลูกค้า', en: 'Customers' },
     actions: {
-      feedback_handled: { th: 'จัดการความเห็นลูกค้า', en: 'Feedback handled' },
-      feedback_topics: { th: 'แก้หัวข้อคะแนน', en: 'Feedback topics changed' },
+      feedback_handled: { th: 'จัดการความเห็น', en: 'Feedback handled' },
+      feedback_topics: { th: 'แก้หัวข้อคะแนน', en: 'Rating topics edited' },
       quiz_lead_handled: { th: 'ติดต่อผู้สนใจแล้ว', en: 'Quiz lead contacted' },
-      quiz_lead_reopened: { th: 'เปิดผู้สนใจอีกครั้ง', en: 'Quiz lead reopened' },
+      quiz_lead_reopened: { th: 'เปิดผู้สนใจใหม่', en: 'Quiz lead reopened' },
     },
   },
   checklist: {
@@ -965,7 +965,7 @@ export const AUDIT_GROUPS = {
     actions: {
       checklist_point: { th: 'บันทึกจุดตรวจ', en: 'Check point saved' },
       checklist_point_delete: { th: 'ลบจุดตรวจ', en: 'Check point deleted' },
-      checklist_reissue: { th: 'ออก QR จุดตรวจใหม่', en: 'Check point QR reissued' },
+      checklist_reissue: { th: 'ออก QR จุดตรวจใหม่', en: 'Point QR reissued' },
       checklist_round: { th: 'บันทึกรอบตรวจ', en: 'Round saved' },
       checklist_round_delete: { th: 'ลบรอบตรวจ', en: 'Round deleted' },
     },
@@ -974,8 +974,8 @@ export const AUDIT_GROUPS = {
     label: { th: 'ปฏิทิน', en: 'Calendar' },
     actions: {
       calendar_add: { th: 'เพิ่มในปฏิทิน', en: 'Calendar item added' },
-      calendar_update: { th: 'แก้ปฏิทิน', en: 'Calendar item changed' },
-      calendar_delete: { th: 'ลบจากปฏิทิน', en: 'Calendar item deleted' },
+      calendar_update: { th: 'แก้ปฏิทิน', en: 'Calendar edited' },
+      calendar_delete: { th: 'ลบจากปฏิทิน', en: 'Calendar item removed' },
     },
   },
   settings: {
@@ -983,10 +983,10 @@ export const AUDIT_GROUPS = {
     actions: {
       settings_access: { th: 'ตั้งค่าการเข้าถึง', en: 'Access settings' },
       settings_cash: { th: 'ตั้งค่าเงินสด', en: 'Cash settings' },
-      settings_pay: { th: 'ตั้งค่ารอบค่าจ้าง', en: 'Pay cycle settings' },
+      settings_pay: { th: 'ตั้งรอบค่าจ้าง', en: 'Pay cycle settings' },
       settings_review_url: { th: 'ตั้งลิงก์รีวิว', en: 'Review link set' },
-      phone_access_on: { th: 'อนุญาตขายจากมือถือ', en: 'Phone selling allowed' },
-      phone_access_off: { th: 'ยกเลิกขายจากมือถือ', en: 'Phone selling removed' },
+      phone_access_on: { th: 'เปิดขายจากมือถือ', en: 'Phone selling on' },
+      phone_access_off: { th: 'ปิดขายจากมือถือ', en: 'Phone selling off' },
       brand_updated: { th: 'แก้แบรนด์', en: 'Brand changed' },
     },
   },

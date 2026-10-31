@@ -14,6 +14,8 @@ import { cn } from '@/lib/utils'
 // GET form, so every view is a link (and the export uses the same query).
 
 const PRESETS = ['today', 'yesterday', '7d', 'month', 'last_month'] as const satisfies readonly Preset[]
+// A column as wide as its content, on one line (w-px + nowrap = shrink to fit).
+const fit = 'w-px whitespace-nowrap px-3 py-2.5'
 const GROUP_TONE: Record<AuditGroup, string> = {
   front: 'bg-primary/10 text-primary',
   cash: 'bg-amber-500/15 text-amber-800 dark:text-amber-300',
@@ -162,16 +164,18 @@ export function AuditView({
         <p className="rounded-2xl border border-dashed border-border p-8 text-center text-sm text-muted-foreground">{tr(c.none)}</p>
       ) : (
         <>
-          {/* Long list: scrolls in its frame, column names stay (CLAUDE.md §5). */}
+          {/* Long list: scrolls in its frame (both ways on a narrow screen),
+              column names stay (CLAUDE.md §5). The first four columns are
+              as wide as their content and never wrap; details take the rest. */}
           <div className="max-h-[70dvh] overflow-auto rounded-2xl border border-border">
-            <table className="w-full min-w-[56rem] text-left text-sm">
+            <table className="w-full min-w-[60rem] text-left text-sm">
               <thead className="sticky top-0 z-10 bg-secondary text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                 <tr>
-                  <th className="px-3 py-2.5 whitespace-nowrap">{tr(c.colAt)}</th>
-                  <th className="px-3 py-2.5">{tr(c.colActor)}</th>
-                  <th className="px-3 py-2.5">{tr(c.colAction)}</th>
-                  <th className="px-3 py-2.5">{tr(c.colMember)}</th>
-                  <th className="px-3 py-2.5">{tr(c.colDetail)}</th>
+                  <th className={fit}>{tr(c.colAt)}</th>
+                  <th className={fit}>{tr(c.colActor)}</th>
+                  <th className={fit}>{tr(c.colAction)}</th>
+                  <th className={fit}>{tr(c.colMember)}</th>
+                  <th className="w-full min-w-[18rem] px-3 py-2.5">{tr(c.colDetail)}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border bg-card">
@@ -180,26 +184,26 @@ export function AuditView({
                   const pairs = detailPairs(r.detail)
                   return (
                     <tr key={r.id} className="align-top">
-                      <td className="px-3 py-2.5 whitespace-nowrap tabular-nums text-muted-foreground">{when.format(new Date(r.at))}</td>
-                      <td className="px-3 py-2.5">
+                      <td className={cn(fit, 'tabular-nums text-muted-foreground')}>{when.format(new Date(r.at))}</td>
+                      <td className={fit}>
                         {r.actorId ? (
-                          <a href={`${MEMBERS_PATH}/${r.actorId}`} className="font-semibold hover:text-primary hover:underline">
+                          <a href={`${MEMBERS_PATH}/${r.actorId}`} title={r.actorName ?? undefined} className="block max-w-[12rem] truncate font-semibold hover:text-primary hover:underline">
                             {r.actorName ?? '—'}
                           </a>
                         ) : (
                           <span className="text-muted-foreground">{tr(c.system)}</span>
                         )}
                       </td>
-                      <td className="px-3 py-2.5">
-                        <span className={cn('inline-block rounded-full px-2.5 py-0.5 text-xs font-semibold', g ? GROUP_TONE[g] : 'bg-muted text-muted-foreground')}>
+                      <td className={fit}>
+                        <span className={cn('inline-block whitespace-nowrap rounded-full px-2.5 py-0.5 text-xs font-semibold', g ? GROUP_TONE[g] : 'bg-muted text-muted-foreground')}>
                           {tr(auditLabel(r.action))}
                         </span>
                       </td>
-                      <td className="px-3 py-2.5">
+                      <td className={fit}>
                         {r.memberId ? (
-                          <a href={`${MEMBERS_PATH}/${r.memberId}`} className="hover:text-primary hover:underline">
-                            <span className="font-semibold">{r.memberName ?? '—'}</span>
-                            {r.memberNo && <span className="ml-1.5 font-mono text-xs text-muted-foreground">{formatMemberNo(r.memberNo)}</span>}
+                          <a href={`${MEMBERS_PATH}/${r.memberId}`} title={r.memberName ?? undefined} className="flex max-w-[14rem] items-baseline hover:text-primary hover:underline">
+                            <span className="min-w-0 truncate font-semibold">{r.memberName ?? '—'}</span>
+                            {r.memberNo && <span className="ml-1.5 shrink-0 font-mono text-xs text-muted-foreground">{formatMemberNo(r.memberNo)}</span>}
                           </a>
                         ) : (
                           <span className="text-muted-foreground">—</span>
