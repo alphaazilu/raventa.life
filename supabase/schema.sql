@@ -1400,6 +1400,39 @@ create table if not exists public.consent_records (
 );
 create index if not exists consent_records_latest_idx on public.consent_records (user_id, kind, created_at desc);
 
+-- 55. Roles and permissions (RBAC phase 1, v0.44.0) — ADDITIVE: nothing reads
+-- these yet; access is still decided by profiles.role (lib/auth/roles.ts).
+-- A role holds permission keys: 'access:<area>' (a module / menu / report of
+-- the Back Office, children inherit from their parent: 'access:reports'
+-- covers 'access:reports.sales') or 'action:<action>' ('action:bill.void').
+-- The keys are defined in lib/auth/permissions.ts. A person can hold several
+-- roles (staff_roles); their permissions are the union. The three system
+-- roles mirror profiles.role exactly, and until everyone is moved into
+-- staff_roles a person's profiles.role counts as one of their roles.
+create table if not exists public.roles (
+  id uuid primary key default gen_random_uuid(),
+  key text not null unique check (key ~ '^[a-z][a-z0-9_]{0,39}$'),
+  name_th text not null check (char_length(btrim(name_th)) between 1 and 80),
+  name_en text not null check (char_length(btrim(name_en)) between 1 and 80),
+  -- the built-in roles (admin / staff / accountant): seeded, not editable
+  is_system boolean not null default false,
+  created_at timestamptz not null default now()
+);
+
+create table if not exists public.role_permissions (
+  role_id uuid not null references public.roles(id) on delete cascade,
+  perm_key text not null check (perm_key ~ '^(access|action):[a-z][a-z0-9_]*(\.[a-z][a-z0-9_]*)*$'),
+  primary key (role_id, perm_key)
+);
+
+create table if not exists public.staff_roles (
+  user_id uuid not null references auth.users(id) on delete cascade,
+  role_id uuid not null references public.roles(id) on delete cascade,
+  created_at timestamptz not null default now(),
+  primary key (user_id, role_id)
+);
+create index if not exists staff_roles_role_idx on public.staff_roles (role_id);
+
 -- Columns added after a table's first release. Each is also in that table's
 -- CREATE TABLE above; these lines give them to databases created earlier.
 -- brand_settings (v0.41.0)
@@ -3300,6 +3333,42 @@ begin
 end;
 $fn$;
 
+-- 55. Does the signed-in person hold this permission? (RBAC phase 1, v0.44.0 —
+-- nothing calls it yet; meant for policies in a later phase.) Their roles =
+-- staff_roles ∪ the system role named by profiles.role (the fallback goes
+-- once everyone is in staff_roles). A key also counts when one of its
+-- ancestors is held: 'access:reports' grants 'access:reports.sales'.
+-- Mirrors can() in lib/auth/permissions.ts.
+create or replace function public.has_permission(p_perm text)
+returns boolean
+language sql
+security definer
+set search_path = public
+stable
+as $fn$
+  with parts as (
+    select split_part(p_perm, ':', 1) as kind, string_to_array(split_part(p_perm, ':', 2), '.') as path
+  ),
+  wanted as (
+    select p.kind || ':' || array_to_string(p.path[1:i], '.') as k
+    from parts p, generate_series(1, coalesce(array_length(p.path, 1), 0)) as i
+  ),
+  my_roles as (
+    select sr.role_id from public.staff_roles sr where sr.user_id = auth.uid()
+    union
+    select r.id from public.roles r
+    join public.profiles pr on pr.id = auth.uid() and pr.role = r.key
+    where r.is_system
+  )
+  select exists (
+    select 1 from public.role_permissions rp
+    where rp.role_id in (select role_id from my_roles)
+      and rp.perm_key in (select k from wanted)
+  );
+$fn$;
+revoke execute on function public.has_permission(text) from public, anon;
+grant execute on function public.has_permission(text) to authenticated;
+
 -- =============================================================================
 -- 4. Triggers
 -- =============================================================================
@@ -3696,6 +3765,20 @@ drop policy if exists "Consent: staff record waiver" on public.consent_records;
 create policy "Consent: staff record waiver" on public.consent_records for insert to authenticated
   with check (public.is_staff() and kind = 'waiver');
 
+-- roles / role_permissions / staff_roles (§55): admins read; no one writes
+-- directly (the Back Office will through the server / a function, phase 2).
+alter table public.roles enable row level security;
+alter table public.role_permissions enable row level security;
+alter table public.staff_roles enable row level security;
+revoke all on public.roles, public.role_permissions, public.staff_roles from anon, authenticated;
+grant select on public.roles, public.role_permissions, public.staff_roles to authenticated;
+drop policy if exists "Roles: admins read" on public.roles;
+create policy "Roles: admins read" on public.roles for select to authenticated using (public.is_admin());
+drop policy if exists "Role permissions: admins read" on public.role_permissions;
+create policy "Role permissions: admins read" on public.role_permissions for select to authenticated using (public.is_admin());
+drop policy if exists "Staff roles: admins read" on public.staff_roles;
+create policy "Staff roles: admins read" on public.staff_roles for select to authenticated using (public.is_admin());
+
 -- =============================================================================
 -- 6. Storage buckets and their policies
 -- =============================================================================
@@ -3828,3 +3911,71 @@ values (
   'raventa.wellness@gmail.com'
 )
 on conflict (id) do nothing;
+
+-- §55 system roles: exactly what profiles.role allows today (lib/auth/roles.ts
+-- + the console gates), as permission keys (lib/auth/permissions.ts,
+-- SYSTEM_ROLE_PERMISSIONS — keep the two in step). Added when missing.
+insert into public.roles (key, name_th, name_en, is_system) values
+  ('admin', 'ผู้ดูแลระบบ', 'Admin', true),
+  ('staff', 'พนักงาน', 'Staff', true),
+  ('accountant', 'บัญชี', 'Accountant', true)
+on conflict (key) do nothing;
+
+insert into public.role_permissions (role_id, perm_key)
+select r.id, x.perm_key
+from (values
+  -- admin: every area and every action
+  ('admin', 'access:overview'),
+  ('admin', 'access:storefront'),
+  ('admin', 'access:storefront.desk'),
+  ('admin', 'access:storefront.cash'),
+  ('admin', 'access:storefront.bookings'),
+  ('admin', 'access:storefront.members'),
+  ('admin', 'access:storefront.feedback'),
+  ('admin', 'access:storefront.leads'),
+  ('admin', 'access:team'),
+  ('admin', 'access:team.time'),
+  ('admin', 'access:team.calendar'),
+  ('admin', 'access:team.roles'),
+  ('admin', 'access:operations'),
+  ('admin', 'access:operations.checklist'),
+  ('admin', 'access:operations.maintenance'),
+  ('admin', 'access:catalog'),
+  ('admin', 'access:catalog.products'),
+  ('admin', 'access:catalog.holidays'),
+  ('admin', 'access:catalog.promotions'),
+  ('admin', 'access:catalog.commission'),
+  ('admin', 'access:reports'),
+  ('admin', 'access:reports.sales'),
+  ('admin', 'access:reports.hours'),
+  ('admin', 'access:reports.commission'),
+  ('admin', 'access:system'),
+  ('admin', 'access:system.settings'),
+  ('admin', 'access:system.brand'),
+  ('admin', 'access:system.branches'),
+  ('admin', 'access:system.devices'),
+  ('admin', 'access:system.audit'),
+  ('admin', 'action:bill.void'),
+  ('admin', 'action:bill.refund'),
+  ('admin', 'action:discount.override'),
+  ('admin', 'action:cash.close'),
+  ('admin', 'action:cash.review'),
+  ('admin', 'action:pii.view'),
+  ('admin', 'action:time.edit'),
+  ('admin', 'action:export.data'),
+  ('admin', 'action:roles.manage'),
+  -- staff: the front desk; on a registered tablet also the member list
+  -- (view only) and the time page — the tablet / setting conditions stay
+  -- where they are. Void within 30 minutes (the limit is in pos_void_sale),
+  -- open / count / close the drawer.
+  ('staff', 'access:storefront.desk'),
+  ('staff', 'access:storefront.members'),
+  ('staff', 'access:team.time'),
+  ('staff', 'action:bill.void'),
+  ('staff', 'action:cash.close'),
+  -- accountant: the sales report (+ its export), nothing else
+  ('accountant', 'access:reports.sales'),
+  ('accountant', 'action:export.data')
+) as x(role_key, perm_key)
+join public.roles r on r.key = x.role_key
+on conflict (role_id, perm_key) do nothing;
